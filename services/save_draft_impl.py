@@ -13,14 +13,14 @@ import requests  # Import requests for making HTTP calls
 import pyJianYingDraft as draft
 from downloader import download_file
 from draft_cache import get_from_cache
-from save_task_cache import (
+from services.get_duration_impl import get_video_duration
+from services.save_task_cache import (
     create_task,
     get_task_status,
     update_task_field,
     update_task_fields,
     update_tasks_cache,
 )
-from services.get_duration_impl import get_video_duration
 
 # Import configuration
 from settings import IS_CAPCUT_ENV

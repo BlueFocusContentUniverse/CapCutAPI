@@ -29,6 +29,7 @@ from services.add_text_impl import add_text_impl
 from services.add_video_track import add_video_track
 from services.create_draft import get_or_create_draft
 from services.generate_video_impl import generate_video_impl
+from services.track_management import delete_track, get_track_details, get_tracks
 
 # Load environment variables from .env file
 env_file = Path(__file__).parent / ".env"
@@ -396,6 +397,21 @@ def tool_get_audio_effect_types() -> Dict[str, Any]:
             return {"success": False, "error": f"Failed to get audio effect types: {e}"}
 
 
+def tool_get_tracks(draft_id: str) -> Dict[str, Any]:
+    """Get all tracks from a draft."""
+    return get_tracks(draft_id=draft_id)
+
+
+def tool_delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
+    """Delete a track from a draft."""
+    return delete_track(draft_id=draft_id, track_name=track_name)
+
+
+def tool_get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
+    """Get detailed information about a specific track."""
+    return get_track_details(draft_id=draft_id, track_name=track_name)
+
+
 def _register_tools(app: FastMCP) -> None:
     """Register tools with explicit flat-parameter handlers."""
     app.add_tool(
@@ -439,6 +455,21 @@ def _register_tools(app: FastMCP) -> None:
         tool_get_audio_effect_types,
         name="get_audio_effect_types",
         description="获取音频特效类型列表",
+    )
+    app.add_tool(
+        tool_get_tracks,
+        name="get_tracks",
+        description="获取草稿中的所有轨道信息",
+    )
+    app.add_tool(
+        tool_delete_track,
+        name="delete_track",
+        description="从草稿中删除指定的轨道",
+    )
+    app.add_tool(
+        tool_get_track_details,
+        name="get_track_details",
+        description="获取指定轨道的详细信息",
     )
 
 

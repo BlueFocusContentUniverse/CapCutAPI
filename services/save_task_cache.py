@@ -1,6 +1,5 @@
 from collections import OrderedDict
-import threading
-from typing import Dict, Any
+from typing import Any, Dict
 
 # Using OrderedDict to implement LRU cache, limiting the maximum number to 1000
 DRAFT_TASKS: Dict[str, dict] = OrderedDict()  # Using Dict for type hinting
@@ -9,7 +8,7 @@ MAX_TASKS_CACHE_SIZE = 1000
 
 def update_tasks_cache(task_id: str, task_status: dict) -> None:
     """Update task status LRU cache
-    
+
     :param task_id: Task ID
     :param task_status: Task status information dictionary
     """
@@ -25,7 +24,7 @@ def update_tasks_cache(task_id: str, task_status: dict) -> None:
 
 def update_task_field(task_id: str, field: str, value: Any) -> None:
     """Update a single field in the task status
-    
+
     :param task_id: Task ID
     :param field: Field name to update
     :param value: New value for the field
@@ -56,7 +55,7 @@ def update_task_field(task_id: str, field: str, value: Any) -> None:
 
 def update_task_fields(task_id: str, **fields) -> None:
     """Update multiple fields in the task status
-    
+
     :param task_id: Task ID
     :param fields: Fields to update and their values, provided as keyword arguments
     """
@@ -118,12 +117,12 @@ def get_task_status(task_id: str) -> dict:
         "total_files": 0,
         "draft_url": ""
     })
-    
+
     # If the task is found, update its position in the LRU cache
     if task_id in DRAFT_TASKS:
         # First delete, then add to the end, implementing LRU update
         update_tasks_cache(task_id, task_status)
-        
+
     return task_status
 
 def create_task(task_id: str) -> None:

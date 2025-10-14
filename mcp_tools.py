@@ -332,6 +332,41 @@ TOOLS = [
             "type": "object",
             "properties": {}
         }
+    },
+    {
+        "name": "get_tracks",
+        "description": "获取草稿中的所有轨道信息。返回轨道列表，包括轨道名称、类型、渲染索引、静音状态、片段数量和结束时间等详细信息。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"}
+            },
+            "required": ["draft_id"]
+        }
+    },
+    {
+        "name": "delete_track",
+        "description": "从草稿中删除指定的轨道。删除轨道及其所有片段，并更新草稿的总时长。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "track_name": {"type": "string", "description": "要删除的轨道名称"}
+            },
+            "required": ["draft_id", "track_name"]
+        }
+    },
+    {
+        "name": "get_track_details",
+        "description": "获取指定轨道的详细信息。返回轨道的完整信息，包括所有片段的详细信息（开始时间、结束时间、持续时间和类型）。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "track_name": {"type": "string", "description": "要查询的轨道名称"}
+            },
+            "required": ["draft_id", "track_name"]
+        }
     }
 ]
 
