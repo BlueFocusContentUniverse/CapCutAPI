@@ -93,8 +93,12 @@ def add_audio_track(
             draft_audio_path = os.path.join(draft_folder, draft_id, "assets", "audio", material_name)
     
     # Set default value for audio end time
-    audio_end = end if end is not None else audio_duration
-    
+    # If end is None or <= 0, use full audio duration
+    if end is None or end <= 0:
+        audio_end = audio_duration
+    else:
+        audio_end = end
+
     # Calculate audio duration
     duration = audio_end - start
     
