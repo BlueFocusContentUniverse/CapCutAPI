@@ -161,8 +161,12 @@ def add_video_track(
         print('replace_path:', draft_video_path)
 
     # Set video end time
-    video_end = end if end is not None else video_duration
-    
+    # If end is None or <= 0, use full video duration
+    if end is None or end <= 0:
+        video_end = video_duration
+    else:
+        video_end = end
+
     # Calculate source video duration
     source_duration = video_end - start
     # Calculate target video duration (considering speed factor)

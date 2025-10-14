@@ -53,7 +53,7 @@ TOOLS = [
             "properties": {
                 "video_url": {"type": "string", "description": "视频素材文件的URL地址或本地文件路径"},
                 "start": {"type": "number", "default": 0, "description": "【素材裁剪-入点】从原始视频素材的第几秒开始截取。例如：2.5表示从素材的2.5秒位置开始裁剪"},
-                "end": {"type": "number", "default": 0, "description": "【素材裁剪-出点】到原始视频素材的第几秒结束截取。0表示截取到素材末尾。例如：5.0表示裁剪到素材的5秒位置"},
+                "end": {"type": "number", "default": 0, "description": "【素材裁剪-出点】到原始视频素材的第几秒结束截取。0或负数表示截取到素材末尾。例如：5.0表示裁剪到素材的5秒位置。注意：如果end<=start会导致空片段"},
                 "target_start": {"type": "number", "default": 0, "description": "【时间线位置】该视频片段在成片时间线上的起始时间点（秒）。例如：10.0表示这段视频从成片的第10秒开始播放"},
                 "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
                 "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"},
@@ -102,7 +102,7 @@ TOOLS = [
                 "audio_url": {"type": "string", "description": "音频素材文件的URL地址或本地文件路径。支持常见音频格式：mp3、wav、aac、m4a等"},
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
                 "start": {"type": "number", "default": 0, "description": "【素材裁剪-入点】从原始音频素材的第几秒开始截取。对应source_timerange的起始位置。例如：2.5表示从素材的2.5秒位置开始裁剪"},
-                "end": {"type": "number", "description": "【素材裁剪-出点】到原始音频素材的第几秒结束截取。不设置则截取到素材末尾。对应source_timerange的结束位置。例如：5.0表示裁剪到素材的5秒位置"},
+                "end": {"type": ["number", "null"], "default": None, "description": "【素材裁剪-出点】到原始音频素材的第几秒结束截取。None、0或负数表示截取到素材末尾。例如：5.0表示裁剪到素材的5秒位置。注意：如果end<=start会导致空片段"},
                 "target_start": {"type": "number", "default": 0, "description": "【时间线位置】该音频片段在成片时间线上的起始时间点（秒）。对应target_timerange的起始位置。例如：10.0表示这段音频从成片的第10秒开始播放"},
                 "volume": {"type": "number", "default": 1.0, "description": "音量增益倍数。范围：0.0-2.0（实现中为0.0-1.0，但支持>1.0）。0.0为静音，1.0为原始音量，>1.0为放大"},
                 "speed": {"type": "number", "default": 1.0, "description": "音频播放速率。范围：0.1-100（理论值）。1.0为正常速度，2.0为2倍速（加速），0.5为0.5倍速（减速）。影响最终片段时长：target_duration = source_duration / speed"},
