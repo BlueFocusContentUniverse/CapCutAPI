@@ -1,13 +1,25 @@
 # 导入必要的模块
 import os
-import pyJianYingDraft as draft
-from util import generate_draft_url, is_windows_path, url_to_hash
 import re
-from typing import Optional, Dict, Tuple, List
-from pyJianYingDraft import exceptions, AudioSceneEffectType, ToneEffectType, SpeechToSongType, CapCutVoiceFiltersEffectType,CapCutVoiceCharactersEffectType,CapCutSpeechToSongEffectType, trange
-from create_draft import get_or_create_draft
-from settings.local import IS_CAPCUT_ENV
+from typing import Dict, List, Optional, Tuple
+
+import pyJianYingDraft as draft
 from draft_cache import update_cache
+from pyJianYingDraft import (
+    AudioSceneEffectType,
+    CapCutSpeechToSongEffectType,
+    CapCutVoiceCharactersEffectType,
+    CapCutVoiceFiltersEffectType,
+    SpeechToSongType,
+    ToneEffectType,
+    exceptions,
+    trange,
+)
+from settings.local import IS_CAPCUT_ENV
+from util import is_windows_path, url_to_hash
+
+from .create_draft import get_or_create_draft
+
 
 def add_audio_track(
     audio_url: str,
@@ -44,7 +56,7 @@ def add_audio_track(
         width=width,
         height=height
     )
-    
+
     # Add audio track (only when track doesn't exist)
     if track_name is not None:
         try:
@@ -66,41 +78,41 @@ def add_audio_track(
         # duration_result = get_video_duration(audio_url)  # Reuse video duration retrieval function
         # if not duration_result["success"]:
         #     print(f"Failed to get audio duration: {duration_result['error']}")
-        
+
         # # Check if audio duration exceeds 10 minutes
         # if duration_result["output"] > 600:  # 600 seconds = 10 minutes
         #     raise Exception(f"Audio duration exceeds 10-minute limit, current duration: {duration_result['output']} seconds")
-        
+
         # audio_duration = duration_result["output"]
-    
+
     # Download audio to local
     # local_audio_path = download_audio(audio_url, draft_dir)
 
     material_name = f"audio_{url_to_hash(audio_url)}.mp3"  # Use original filename + timestamp + fixed mp3 extension
-    
+
     # Build draft_audio_path
     draft_audio_path = None
     if draft_folder:
         if is_windows_path(draft_folder):
             # Windows path processing
-            windows_drive, windows_path = re.match(r'([a-zA-Z]:)(.*)', draft_folder).groups()
-            parts = [p for p in windows_path.split('\\') if p]
+            windows_drive, windows_path = re.match(r"([a-zA-Z]:)(.*)", draft_folder).groups()
+            parts = [p for p in windows_path.split("\\") if p]
             draft_audio_path = os.path.join(windows_drive, *parts, draft_id, "assets", "audio", material_name)
             # Normalize path (ensure consistent separators)
-            draft_audio_path = draft_audio_path.replace('/', '\\')
+            draft_audio_path = draft_audio_path.replace("/", "\\")
         else:
             # macOS/Linux path processing
             draft_audio_path = os.path.join(draft_folder, draft_id, "assets", "audio", material_name)
-    
+
     # Set default value for audio end time
     audio_end = end if end is not None else audio_duration
-    
+
     # Calculate audio duration
     duration = audio_end - start
-    
+
     # Create audio segment
     if draft_audio_path:
-        print('replace_path:', draft_audio_path)
+        print("replace_path:", draft_audio_path)
         audio_material = draft.Audio_material(replace_path=draft_audio_path, remote_url=audio_url, material_name=material_name, duration=audio_duration)
     else:
         audio_material = draft.Audio_material(remote_url=audio_url, material_name=material_name, duration=audio_duration)
@@ -111,13 +123,13 @@ def add_audio_track(
         speed=speed,  # Set playback speed
         volume=volume  # Set volume
     )
-    
+
     # Add scene sound effects
     if sound_effects:
         for effect_name, params in sound_effects:
             # Choose different effect types based on IS_CAPCUT_ENV
             effect_type = None
-            
+
             if IS_CAPCUT_ENV:
                 # In CapCut environment, look for effects in CapCut_Voice_filters_effect_type
                 try:
@@ -146,16 +158,16 @@ def add_audio_track(
                             effect_type = getattr(SpeechToSongType, effect_name)
                         except AttributeError:
                             effect_type = None
-            
+
             # If corresponding effect type is found, add it to the audio segment
             if effect_type:
                 audio_segment.add_effect(effect_type, params)
             else:
                 print(f"Warning: Audio effect named {effect_name} not found")
-    
+
     # Add audio segment to track
     script.add_segment(audio_segment, track_name=track_name)
-    
+
     # Persist updated script
     update_cache(draft_id, script)
 

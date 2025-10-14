@@ -1,10 +1,11 @@
-import pyJianYingDraft as draft
-from pyJianYingDraft import exceptions
-from create_draft import get_or_create_draft
-from typing import Optional, Dict, List
-from draft_cache import update_cache
+from typing import Dict, List, Optional
 
-from util import generate_draft_url
+import pyJianYingDraft as draft
+from draft_cache import update_cache
+from pyJianYingDraft import exceptions
+
+from .create_draft import get_or_create_draft
+
 
 def add_video_keyframe_impl(
     draft_id: Optional[str] = None,
@@ -50,31 +51,31 @@ def add_video_keyframe_impl(
     draft_id, script = get_or_create_draft(
         draft_id=draft_id
     )
-    
+
     try:
         # Get specified track
         track = script.get_track(draft.Video_segment, track_name=track_name)
-        
+
         # Get segments in the track
         segments = track.segments
         if not segments:
             raise Exception(f"No segments in track {track_name}")
-        
+
         # Determine the keyframes list to process
         if property_types is not None or times is not None or values is not None:
             # Batch mode: use three array parameters
             if property_types is None or times is None or values is None:
                 raise Exception("In batch mode, property_types, times, values must be provided together")
-            
+
             if not (isinstance(property_types, list) and isinstance(times, list) and isinstance(values, list)):
                 raise Exception("property_types, times, values must all be list types")
-            
+
             if len(property_types) == 0:
                 raise Exception("In batch mode, parameter lists cannot be empty")
-            
+
             if not (len(property_types) == len(times) == len(values)):
                 raise Exception(f"property_types, times, values must have equal lengths, current lengths are: {len(property_types)}, {len(times)}, {len(values)}")
-            
+
             keyframes_to_process = [
                 {
                     "property_type": prop_type,
@@ -90,7 +91,7 @@ def add_video_keyframe_impl(
                 "time": time,
                 "value": value
             }]
-        
+
         # Process each keyframe
         added_count = 0
         for i, kf in enumerate(keyframes_to_process):
@@ -98,26 +99,26 @@ def add_video_keyframe_impl(
                 _add_single_keyframe(track, kf["property_type"], kf["time"], kf["value"])
                 added_count += 1
             except Exception as e:
-                raise Exception(f"Failed to add keyframe #{i+1} (property_type={kf['property_type']}, time={kf['time']}, value={kf['value']}): {str(e)}")
-        
+                raise Exception(f"Failed to add keyframe #{i+1} (property_type={kf['property_type']}, time={kf['time']}, value={kf['value']}): {e!s}")
+
         result = {
             "draft_id": draft_id,
             # "draft_url": generate_draft_url(draft_id)
         }
-        
+
         # If in batch mode, return the number of added keyframes
         if property_types is not None:
             result["added_keyframes_count"] = added_count
-        
+
         # Persist updated script
         update_cache(draft_id, script)
 
         return result
-        
+
     except exceptions.TrackNotFound:
         raise Exception(f"Track named {track_name} not found")
     except Exception as e:
-        raise Exception(f"Failed to add keyframe: {str(e)}")
+        raise Exception(f"Failed to add keyframe: {e!s}")
 
 
 def _add_single_keyframe(track, property_type: str, time: float, value: str):
@@ -129,37 +130,37 @@ def _add_single_keyframe(track, property_type: str, time: float, value: str):
         property_enum = getattr(draft.Keyframe_property, property_type)
     except:
         raise Exception(f"Unsupported keyframe property type: {property_type}")
-        
+
     # Parse value based on property type
     try:
-        if property_type in ['position_x', 'position_y']:
+        if property_type in ["position_x", "position_y"]:
             # Handle position, range [0,1]
             float_value = float(value)
             if not -10 <= float_value <= 10:
                 raise ValueError(f"Value for {property_type} must be between -10 and 10")
-        elif property_type == 'rotation':
+        elif property_type == "rotation":
             # Handle rotation angle
-            if value.endswith('deg'):
+            if value.endswith("deg"):
                 float_value = float(value[:-3])
             else:
                 float_value = float(value)
-        elif property_type == 'alpha':
+        elif property_type == "alpha":
             # Handle opacity
-            if value.endswith('%'):
+            if value.endswith("%"):
                 float_value = float(value[:-1]) / 100
             else:
                 float_value = float(value)
-        elif property_type == 'volume':
+        elif property_type == "volume":
             # Handle volume
-            if value.endswith('%'):
+            if value.endswith("%"):
                 float_value = float(value[:-1]) / 100
             else:
                 float_value = float(value)
-        elif property_type in ['saturation', 'contrast', 'brightness']:
+        elif property_type in ["saturation", "contrast", "brightness"]:
             # Handle saturation, contrast, brightness
-            if value.startswith('+'):
+            if value.startswith("+"):
                 float_value = float(value[1:])
-            elif value.startswith('-'):
+            elif value.startswith("-"):
                 float_value = -float(value[1:])
             else:
                 float_value = float(value)
@@ -168,6 +169,6 @@ def _add_single_keyframe(track, property_type: str, time: float, value: str):
             float_value = float(value)
     except ValueError:
         raise Exception(f"Invalid value format: {value}")
-    
+
     # If track object is provided, use the track's add_pending_keyframe method
     track.add_pending_keyframe(property_type, time, value)

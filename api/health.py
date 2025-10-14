@@ -1,14 +1,14 @@
-from flask import Blueprint, jsonify
 from datetime import datetime
 
+from flask import Blueprint, jsonify
 from sqlalchemy import text
+
 from db import get_engine
 
+bp = Blueprint("health", __name__)
 
-bp = Blueprint('health', __name__)
 
-
-@bp.route('/health', methods=['GET'])
+@bp.route("/health", methods=["GET"])
 def health_check():
     try:
         db_status = "unknown"

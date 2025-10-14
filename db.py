@@ -3,15 +3,16 @@ SQLAlchemy database setup for PostgreSQL.
 Reads DATABASE_URL from environment, provides Base, Session and init_db.
 """
 
+import logging
 import os
 from contextlib import contextmanager
-from typing import Iterator
-import logging
 from pathlib import Path
+from typing import Iterator
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 logger = logging.getLogger(__name__)
 Base = declarative_base()
@@ -68,7 +69,7 @@ def init_db(engine: Engine | None = None) -> None:
     eng = engine or get_engine()
     logger.info(f"Engine: {eng}")
     # Import models to ensure metadata is populated
-    from models import Draft, VideoTask  # noqa: F401
+    from models import Draft, DraftVersion, VideoTask  # noqa: F401
     Base.metadata.create_all(bind=eng)
     # Simple connectivity check
     with eng.connect() as conn:

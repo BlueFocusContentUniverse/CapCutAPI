@@ -8,25 +8,27 @@ which supports stdio and SSE (HTTP) transports.
 """
 
 import argparse
-import sys
-from typing import Any, Dict, Optional, List
-from flask import Flask
-from dotenv import load_dotenv
-from pathlib import Path
 import logging
-from mcp.server.fastmcp import FastMCP
-import mcp.types as types
-from db import init_db
-from add_video_track import add_video_track
-from add_text_impl import add_text_impl
-from api.metadata import get_font_types, get_audio_effect_types
-from add_effect_impl import add_effect_impl
-from create_draft import get_or_create_draft
-from generate_video_impl import generate_video_impl
-# pydantic is intentionally not required here for flat handlers
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
+import mcp.types as types
+from dotenv import load_dotenv
+from flask import Flask
+from mcp.server.fastmcp import FastMCP
+
+from api.metadata import get_audio_effect_types, get_font_types
+from db import init_db
+
+# pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
-from mcp_tools import execute_tool, TOOLS
+from mcp_tools import TOOLS, execute_tool
+from services.add_effect_impl import add_effect_impl
+from services.add_text_impl import add_text_impl
+from services.add_video_track import add_video_track
+from services.create_draft import get_or_create_draft
+from services.generate_video_impl import generate_video_impl
 
 # Load environment variables from .env file
 env_file = Path(__file__).parent / ".env"

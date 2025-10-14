@@ -1,50 +1,49 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 
-from add_image_impl import add_image_impl
+from services.add_image_impl import add_image_impl
+
+bp = Blueprint("image", __name__)
 
 
-bp = Blueprint('image', __name__)
-
-
-@bp.route('/add_image', methods=['POST'])
+@bp.route("/add_image", methods=["POST"])
 def add_image():
     data = request.get_json()
 
-    draft_folder = data.get('draft_folder')
-    image_url = data.get('image_url')
-    width = data.get('width', 1080)
-    height = data.get('height', 1920)
-    start = data.get('start', 0)
-    end = data.get('end', 3.0)
-    draft_id = data.get('draft_id')
-    transform_y = data.get('transform_y', 0)
-    scale_x = data.get('scale_x', 1)
-    scale_y = data.get('scale_y', 1)
-    transform_x = data.get('transform_x', 0)
-    track_name = data.get('track_name', "image_main")
-    relative_index = data.get('relative_index', 0)
-    animation = data.get('animation')
-    animation_duration = data.get('animation_duration', 0.5)
-    intro_animation = data.get('intro_animation')
-    intro_animation_duration = data.get('intro_animation_duration', 0.5)
-    outro_animation = data.get('outro_animation')
-    outro_animation_duration = data.get('outro_animation_duration', 0.5)
-    combo_animation = data.get('combo_animation')
-    combo_animation_duration = data.get('combo_animation_duration', 0.5)
-    transition = data.get('transition')
-    transition_duration = data.get('transition_duration', 0.5)
+    draft_folder = data.get("draft_folder")
+    image_url = data.get("image_url")
+    width = data.get("width", 1080)
+    height = data.get("height", 1920)
+    start = data.get("start", 0)
+    end = data.get("end", 3.0)
+    draft_id = data.get("draft_id")
+    transform_y = data.get("transform_y", 0)
+    scale_x = data.get("scale_x", 1)
+    scale_y = data.get("scale_y", 1)
+    transform_x = data.get("transform_x", 0)
+    track_name = data.get("track_name", "image_main")
+    relative_index = data.get("relative_index", 0)
+    animation = data.get("animation")
+    animation_duration = data.get("animation_duration", 0.5)
+    intro_animation = data.get("intro_animation")
+    intro_animation_duration = data.get("intro_animation_duration", 0.5)
+    outro_animation = data.get("outro_animation")
+    outro_animation_duration = data.get("outro_animation_duration", 0.5)
+    combo_animation = data.get("combo_animation")
+    combo_animation_duration = data.get("combo_animation_duration", 0.5)
+    transition = data.get("transition")
+    transition_duration = data.get("transition_duration", 0.5)
 
-    mask_type = data.get('mask_type')
-    mask_center_x = data.get('mask_center_x', 0.0)
-    mask_center_y = data.get('mask_center_y', 0.0)
-    mask_size = data.get('mask_size', 0.5)
-    mask_rotation = data.get('mask_rotation', 0.0)
-    mask_feather = data.get('mask_feather', 0.0)
-    mask_invert = data.get('mask_invert', False)
-    mask_rect_width = data.get('mask_rect_width')
-    mask_round_corner = data.get('mask_round_corner')
+    mask_type = data.get("mask_type")
+    mask_center_x = data.get("mask_center_x", 0.0)
+    mask_center_y = data.get("mask_center_y", 0.0)
+    mask_size = data.get("mask_size", 0.5)
+    mask_rotation = data.get("mask_rotation", 0.0)
+    mask_feather = data.get("mask_feather", 0.0)
+    mask_invert = data.get("mask_invert", False)
+    mask_rect_width = data.get("mask_rect_width")
+    mask_round_corner = data.get("mask_round_corner")
 
-    background_blur = data.get('background_blur')
+    background_blur = data.get("background_blur")
 
     result = {
         "success": False,
@@ -98,7 +97,7 @@ def add_image():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while processing image: {str(e)}."
+        result["error"] = f"Error occurred while processing image: {e!s}."
         return jsonify(result)
 
 

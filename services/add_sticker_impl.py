@@ -1,10 +1,11 @@
-import pyJianYingDraft as draft
-from pyJianYingDraft import trange
 from typing import Dict
-from pyJianYingDraft import exceptions
-from create_draft import get_or_create_draft
-from util import generate_draft_url
+
+import pyJianYingDraft as draft
 from draft_cache import update_cache
+from pyJianYingDraft import exceptions, trange
+
+from .create_draft import get_or_create_draft
+
 
 def add_sticker_impl(
     resource_id: str,
@@ -61,7 +62,7 @@ def add_sticker_impl(
             script.add_track(draft.Track_type.sticker, track_name=track_name, relative_index=relative_index)
     else:
         script.add_track(draft.Track_type.sticker, relative_index=relative_index)
-    
+
     # Create sticker segment
     sticker_segment = draft.Sticker_segment(
         resource_id,

@@ -1,0 +1,98 @@
+# Ruff configuration file
+# This file provides linting and formatting rules for the S3 Asset Downloader project
+
+# Enable pycodestyle (`E`), Pyflakes (`F`), and isort (`I`) codes by default.
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # Pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "N",  # pep8-naming
+    "ARG", # flake8-unused-arguments
+    "PIE", # flake8-pie
+    "T20", # flake8-print
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "Q",  # flake8-quotes
+    "RUF", # Ruff-specific rules
+]
+
+# Never enforce `E501` (line length violations).
+ignore = [
+    "E501",  # line too long, handled by formatter
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+    "N802",  # function name should be lowercase
+    "N803",  # argument name should be lowercase
+    "N806",  # variable in function should be lowercase
+    "T201",  # print found
+    "T203",  # pprint found
+    "ARG001", # unused function argument
+    "ARG002", # unused method argument
+    "ARG003", # unused class method argument
+    "ARG004", # unused static method argument
+    "ARG005", # unused lambda argument
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "output",
+    "test_output",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.8
+target-version = "py38"
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[isort]
+known-first-party = ["s3_asset_downloader"]
+
+[per-file-ignores]
+# Ignore specific rules for specific files
+"__init__.py" = ["F401"]  # unused imports
+"tests/**/*.py" = ["B011"]  # do not call assert False since Python -O removes these calls
+"examples/**/*.py" = ["B011"]  # do not call assert False since Python -O removes these calls

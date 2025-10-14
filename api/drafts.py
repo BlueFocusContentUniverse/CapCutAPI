@@ -1,27 +1,32 @@
-import os
 import json
 import logging
+import os
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 
-from create_draft import create_draft, DraftFramerate
-from save_draft_impl import save_draft_impl, query_task_status, query_script_impl
+from services.create_draft import DraftFramerate, create_draft
+from services.save_draft_impl import (
+    query_script_impl,
+    query_task_status,
+    save_draft_impl,
+)
+
 # from util import generate_draft_url as utilgenerate_draft_url
 
 
-bp = Blueprint('drafts', __name__)
+bp = Blueprint("drafts", __name__)
 logger = logging.getLogger(__name__)
 
 
-@bp.route('/create_draft', methods=['POST'])
+@bp.route("/create_draft", methods=["POST"])
 def create_draft_service():
     data = request.get_json()
 
-    width = data.get('width', 1080)
-    height = data.get('height', 1920)
-    framerate = data.get('framerate', DraftFramerate.FR_30.value)
-    name = data.get('name', "draft")
-    resource = data.get('resource')  # 'api' or 'mcp'
+    width = data.get("width", 1080)
+    height = data.get("height", 1920)
+    framerate = data.get("framerate", DraftFramerate.FR_30.value)
+    name = data.get("name", "draft")
+    resource = data.get("resource")  # 'api' or 'mcp'
 
     result = {
         "success": False,
@@ -37,16 +42,16 @@ def create_draft_service():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while creating draft: {str(e)}."
+        result["error"] = f"Error occurred while creating draft: {e!s}."
         return jsonify(result)
 
 
-@bp.route('/query_script', methods=['POST'])
+@bp.route("/query_script", methods=["POST"])
 def query_script():
     data = request.get_json()
 
-    draft_id = data.get('draft_id')
-    force_update = data.get('force_update', True)
+    draft_id = data.get("draft_id")
+    force_update = data.get("force_update", True)
 
     result = {
         "success": False,
@@ -72,16 +77,16 @@ def query_script():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while querying script: {str(e)}. "
+        result["error"] = f"Error occurred while querying script: {e!s}. "
         return jsonify(result)
 
 
-@bp.route('/save_draft', methods=['POST'])
+@bp.route("/save_draft", methods=["POST"])
 def save_draft():
     data = request.get_json()
 
-    draft_id = data.get('draft_id')
-    draft_folder = data.get('draft_folder')  # noqa: F841
+    draft_id = data.get("draft_id")
+    draft_folder = data.get("draft_folder")
 
     result = {
         "success": False,
@@ -101,16 +106,16 @@ def save_draft():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while saving draft: {str(e)}. "
+        result["error"] = f"Error occurred while saving draft: {e!s}. "
         return jsonify(result)
 
 
-@bp.route('/archive_draft', methods=['POST'])
+@bp.route("/archive_draft", methods=["POST"])
 def archive_draft():
     data = request.get_json() or {}
 
-    draft_id = data.get('draft_id')
-    draft_folder = data.get('draft_folder')
+    draft_id = data.get("draft_id")
+    draft_folder = data.get("draft_folder")
 
     result = {
         "success": False,
@@ -125,8 +130,8 @@ def archive_draft():
     try:
         from celery import Celery
 
-        broker_url = os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL')
-        backend_url = os.getenv('CELERY_RESULT_BACKEND') or os.getenv('REDIS_URL')
+        broker_url = os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL")
+        backend_url = os.getenv("CELERY_RESULT_BACKEND") or os.getenv("REDIS_URL")
 
         if not broker_url or not backend_url:
             result["error"] = "CELERY_BROKER_URL and CELERY_RESULT_BACKEND environment variables are required"
@@ -149,9 +154,9 @@ def archive_draft():
         draft_content = json.loads(script.dumps())
 
         archive_sig = celery_client.signature(
-            's3_asset_downloader.tasks.archive_draft_directory',
-            kwargs={'draft_content': draft_content, 'assets_path': draft_folder},
-            queue='default'
+            "s3_asset_downloader.tasks.archive_draft_directory",
+            kwargs={"draft_content": draft_content, "assets_path": draft_folder},
+            queue="default"
         )
 
         async_result = archive_sig.apply_async()
@@ -163,15 +168,15 @@ def archive_draft():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while archiving draft: {str(e)}"
+        result["error"] = f"Error occurred while archiving draft: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/query_draft_status', methods=['POST'])
+@bp.route("/query_draft_status", methods=["POST"])
 def query_draft_status_api():
     data = request.get_json()
 
-    task_id = data.get('task_id')
+    task_id = data.get("task_id")
 
     result = {
         "success": False,
@@ -195,17 +200,17 @@ def query_draft_status_api():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while querying task status: {str(e)}."
+        result["error"] = f"Error occurred while querying task status: {e!s}."
         return jsonify(result)
 
 
-@bp.route('/generate_draft_url', methods=['POST'])
+@bp.route("/generate_draft_url", methods=["POST"])
 def generate_draft_url():
     from settings.local import DRAFT_DOMAIN, PREVIEW_ROUTER
 
     data = request.get_json()
 
-    draft_id = data.get('draft_id')
+    draft_id = data.get("draft_id")
 
     result = {
         "success": False,
@@ -225,7 +230,7 @@ def generate_draft_url():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while saving draft: {str(e)}."
+        result["error"] = f"Error occurred while saving draft: {e!s}."
         return jsonify(result)
 
 

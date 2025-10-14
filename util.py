@@ -1,6 +1,4 @@
 import shutil
-import subprocess
-import json
 import re
 import os
 import hashlib

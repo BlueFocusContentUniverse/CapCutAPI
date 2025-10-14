@@ -1,15 +1,15 @@
-import os
 import logging
-import uuid
+import os
 import threading
 import time
+import uuid
 from typing import Any, Dict, Optional
 
-from save_draft_impl import query_script_impl
-from db import get_session
-from models import VideoTask
 from sqlalchemy import select
 
+from db import get_session
+from models import VideoTask
+from services.save_draft_impl import query_script_impl
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +41,9 @@ def generate_video_impl(
         return result
 
     try:
-        from celery import Celery
         import json
+
+        from celery import Celery
 
         script = query_script_impl(draft_id, force_update=False)
         if script is None:
@@ -159,7 +160,7 @@ def generate_video_impl(
         return result
 
     except Exception as e:
-        result["error"] = f"Error occurred while generating video: {str(e)}"
+        result["error"] = f"Error occurred while generating video: {e!s}"
         return result
 
 

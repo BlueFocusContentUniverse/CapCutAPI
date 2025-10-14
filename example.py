@@ -1,16 +1,13 @@
-import requests
 import json
-import sys
-import time
-from settings.local import PORT
-from util import timing_decorator
-import functools
-import threading
-from pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
-from util import hex_to_rgb
-
-import shutil
 import os
+import shutil
+import sys
+import threading
+import time
+
+import requests
+
+from settings.local import PORT
 
 # Base URL of the service, please modify according to actual situation
 BASE_URL = f"http://localhost:{PORT}"
@@ -19,19 +16,19 @@ LICENSE_KEY = "trial"  # Trial license key
 CAPCUT_DRAFT_FOLDER = "/Users/sunguannan/Movies/CapCut/User Data/Projects/com.lveditor.draft"
 JIANYINGPRO_DRAFT_FOLDER = "/Users/sunguannan/Movies/JianyingPro/User Data/Projects/com.lveditor.draft"
 
-def make_request(endpoint, data, method='POST'):
+def make_request(endpoint, data, method="POST"):
     """Send HTTP request to the server and handle the response"""
     url = f"{BASE_URL}/{endpoint}"
-    headers = {'Content-Type': 'application/json'}
-    
+    headers = {"Content-Type": "application/json"}
+
     try:
-        if method == 'POST':
+        if method == "POST":
             response = requests.post(url, data=json.dumps(data), headers=headers)
-        elif method == 'GET':
+        elif method == "GET":
             response = requests.get(url, params=data, headers=headers)
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
-            
+
         response.raise_for_status()  # Raise an exception if the request fails
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -41,7 +38,7 @@ def make_request(endpoint, data, method='POST'):
         print("Unable to parse server response")
         sys.exit(1)
 
-def add_audio_track(audio_url, start, end, target_start, volume=1.0, 
+def add_audio_track(audio_url, start, end, target_start, volume=1.0,
                     speed=1.0, track_name="main_audio", effect_type=None, effect_params=None, draft_id=None):
     """API call to add audio track"""
     data = {
@@ -55,10 +52,10 @@ def add_audio_track(audio_url, start, end, target_start, volume=1.0,
         "effect_type": effect_type,
         "effect_params": effect_params
     }
-    
+
     if draft_id:
         data["draft_id"] = draft_id
-        
+
     return make_request("add_audio", data)
 
 def add_text_impl(text, start, end, font, font_color, font_size, track_name, draft_folder="123", draft_id=None,
@@ -70,7 +67,7 @@ def add_text_impl(text, start, end, font, font_color, font_size, track_name, dra
                   shadow_enabled=False, shadow_alpha=0.9, shadow_angle=-45.0,
                   shadow_color="#000000", shadow_distance=5.0, shadow_smoothing=0.15,
                   bubble_effect_id=None, bubble_resource_id=None,
-                  effect_effect_id=None, 
+                  effect_effect_id=None,
                   intro_animation=None, intro_duration=0.5,
                   outro_animation=None, outro_duration=0.5,
                   width=1080, height=1920,
@@ -91,13 +88,13 @@ def add_text_impl(text, start, end, font, font_color, font_size, track_name, dra
         "transform_x": transform_x,
         "transform_y": transform_y
     }
-    
+
     # Add border parameters
     if border_color:
         data["border_color"] = border_color
         data["border_width"] = border_width
         data["border_alpha"] = border_alpha
-    
+
     # Add background parameters
     if background_color:
         data["background_color"] = background_color
@@ -109,7 +106,7 @@ def add_text_impl(text, start, end, font, font_color, font_size, track_name, dra
         data["background_width"] = background_width
         data["background_horizontal_offset"] = background_horizontal_offset
         data["background_vertical_offset"] = background_vertical_offset
-    
+
     # Add shadow parameters
     if shadow_enabled:
         data["shadow_enabled"] = shadow_enabled
@@ -118,48 +115,48 @@ def add_text_impl(text, start, end, font, font_color, font_size, track_name, dra
         data["shadow_color"] = shadow_color
         data["shadow_distance"] = shadow_distance
         data["shadow_smoothing"] = shadow_smoothing
-    
-    
+
+
     # Add bubble effect parameters
     if bubble_effect_id:
         data["bubble_effect_id"] = bubble_effect_id
         if bubble_resource_id:
             data["bubble_resource_id"] = bubble_resource_id
-    
+
     # Add text effect parameters
     if effect_effect_id:
         data["effect_effect_id"] = effect_effect_id
-    
+
     # Add intro animation parameters
     if intro_animation:
         data["intro_animation"] = intro_animation
         data["intro_duration"] = intro_duration
-    
+
     # Add outro animation parameters
     if outro_animation:
         data["outro_animation"] = outro_animation
         data["outro_duration"] = outro_duration
-    
+
     # Add size parameters
     data["width"] = width
     data["height"] = height
-    
+
     # Add fixed size parameters
     if fixed_width > 0:
         data["fixed_width"] = fixed_width
     if fixed_height > 0:
         data["fixed_height"] = fixed_height
-    
+
     if draft_id:
         data["draft_id"] = draft_id
-    
+
     # Add text styles parameters
     if text_styles:
         data["text_styles"] = text_styles
 
     if draft_id:
         data["draft_id"] = draft_id
-        
+
     return make_request("add_text", data)
 
 def add_image_impl(image_url, start, end, width=None, height=None, track_name="image_main", draft_id=None,
@@ -192,12 +189,12 @@ def add_image_impl(image_url, start, end, width=None, height=None, track_name="i
         "mask_rect_width": mask_rect_width,
         "mask_round_corner": mask_round_corner
     }
-    
+
     if draft_id:
         data["draft_id"] = draft_id
     if background_blur:
         data["background_blur"] = background_blur
-        
+
     return make_request("add_image", data)
 
 def generate_image_impl(prompt, width, height, start, end, track_name, draft_id=None,
@@ -217,10 +214,10 @@ def generate_image_impl(prompt, width, height, start, end, track_name, draft_id=
         "transition": transition,
         "transition_duration": transition_duration or 0.5  # Default transition duration is 0.5 seconds
     }
-    
+
     if draft_id:
         data["draft_id"] = draft_id
-        
+
     return make_request("generate_image", data)
 
 def add_sticker_impl(resource_id, start, end, draft_id=None, transform_x=0, transform_y=0,
@@ -245,13 +242,13 @@ def add_sticker_impl(resource_id, start, end, draft_id=None, transform_x=0, tran
         "width": width,
         "height": height
     }
-    
+
     if draft_id:
         data["draft_id"] = draft_id
-        
+
     return make_request("add_sticker", data)
 
-def add_video_keyframe_impl(draft_id, track_name, property_type=None, time=None, value=None, 
+def add_video_keyframe_impl(draft_id, track_name, property_type=None, time=None, value=None,
                            property_types=None, times=None, values=None):
     """API call to add video keyframe
     
@@ -263,7 +260,7 @@ def add_video_keyframe_impl(draft_id, track_name, property_type=None, time=None,
         "draft_id": draft_id,
         "track_name": track_name
     }
-    
+
     # Add single keyframe parameters (if provided)
     if property_type is not None:
         data["property_type"] = property_type
@@ -271,7 +268,7 @@ def add_video_keyframe_impl(draft_id, track_name, property_type=None, time=None,
         data["time"] = time
     if value is not None:
         data["value"] = value
-    
+
     # Add batch keyframe parameters (if provided)
     if property_types is not None:
         data["property_types"] = property_types
@@ -279,7 +276,7 @@ def add_video_keyframe_impl(draft_id, track_name, property_type=None, time=None,
         data["times"] = times
     if values is not None:
         data["values"] = values
-    
+
     return make_request("add_video_keyframe", data)
 
 def add_video_impl(video_url, start=None, end=None, width=None, height=None, track_name="main",
@@ -339,19 +336,19 @@ def add_effect(effect_type, start, end, draft_id=None, track_name="effect_01",
         "width": width,
         "height": height
     }
-    
+
     if effect_category:
         data["effect_category"] = effect_category
-    
+
     if draft_id:
         data["draft_id"] = draft_id
-        
+
     return make_request("add_effect", data)
 
 def test_effect_01():
     """Test adding effect service"""
     draft_folder = CAPCUT_DRAFT_FOLDER
-    
+
     print("\nTest: Adding effect")
     effect_result = add_effect(
         start=0,
@@ -362,10 +359,10 @@ def test_effect_01():
         params=[100, 50, 34]  # Example parameters, depending on the specific effect type
     )
     print(f"Effect adding result: {effect_result}")
-    print(save_draft_impl(effect_result['output']['draft_id'], draft_folder))
-    
+    print(save_draft_impl(effect_result["output"]["draft_id"], draft_folder))
+
     # If needed, you can add other test cases here
-    
+
     # Return the first test result for subsequent operations (if any)
     return effect_result
 
@@ -374,7 +371,7 @@ def test_effect_02():
     """Test service for adding effects"""
     # draft_folder = "/Users/sunguannan/Movies/JianyingPro/User Data/Projects/com.lveditor.draft"
     draft_folder = "/Users/sunguannan/Movies/CapCut/User Data/Projects/com.lveditor.draft"
-    
+
     print("\nTest: Adding effects")
     # First add video track
     image_result = add_video_impl(
@@ -388,38 +385,38 @@ def test_effect_02():
     print(f"Video added successfully! {image_result['output']['draft_id']}")
     image_result = add_video_impl(
         video_url="https://pan.superbed.cn/share/1nbrg1fl/jimeng_daweidai.mp4",
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         start=0,
         end=3.0,
         target_start=3,
     )
     print(f"Video added successfully! {image_result['output']['draft_id']}")
-    
+
     # Then add effect
     effect_result = add_effect(
         effect_type="Like",
         effect_category="character",  # Explicitly specify as character effect
         start=3,
         end=6,
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         track_name="effect_01"
     )
     print(f"Effect adding result: {effect_result}")
-    print(save_draft_impl(effect_result['output']['draft_id'], draft_folder))
-    
-    source_folder = os.path.join(os.getcwd(), effect_result['output']['draft_id'])
-    destination_folder = os.path.join(draft_folder, effect_result['output']['draft_id'])
-    
+    print(save_draft_impl(effect_result["output"]["draft_id"], draft_folder))
+
+    source_folder = os.path.join(os.getcwd(), effect_result["output"]["draft_id"])
+    destination_folder = os.path.join(draft_folder, effect_result["output"]["draft_id"])
+
     if os.path.exists(source_folder):
         print(f"Moving {effect_result['output']['draft_id']} to {draft_folder}")
         shutil.move(source_folder, destination_folder)
         print("Folder moved successfully!")
     else:
         print(f"Source folder {source_folder} does not exist")
-    
+
     # Add log to prompt user to find the draft in CapCut
     print(f"\n===== IMPORTANT =====\nPlease open CapCut and find the draft named '{effect_result['output']['draft_id']}'\n======================")
-    
+
     # Return the first test result for subsequent operations (if any)
     return effect_result
 
@@ -444,7 +441,7 @@ def test_text():
 
     # Test case 2: Vertical text
     result2 = add_text_impl(
-        draft_id=text_result['output']['draft_id'],
+        draft_id=text_result["output"]["draft_id"],
         text="Vertical text demo",
         start=3,
         end=6,
@@ -454,13 +451,13 @@ def test_text():
         track_name="main_text",
         vertical=True,  # Enable vertical text
         transform_y=-0.5,
-        outro_animation='Blur'
+        outro_animation="Blur"
     )
     print("Test case 2 (Vertical text) successful:", result2)
 
     # Test case 3: Text with border and background
     result3 = add_text_impl(
-        draft_id=result2['output']['draft_id'],
+        draft_id=result2["output"]["draft_id"],
         text="Border and background test",
         start=6,
         end=9,
@@ -478,10 +475,10 @@ def test_text():
         background_style=0  # Bubble style background
     )
     print("Test case 3 (Border and background) successful:", result3)
-    
+
     # Test case 4: Text with shadow effect
     result4 = add_text_impl(
-        draft_id=result3['output']['draft_id'],
+        draft_id=result3["output"]["draft_id"],
         text="Shadow effect test",
         start=9,
         end=12,
@@ -499,7 +496,7 @@ def test_text():
         shadow_smoothing=0.2
     )
     print("Test case 4 (Shadow effect) successful:", result4)
-    
+
     # Test case 5: Multi-style text using TextStyleRange
     # Create different text styles
     style1 = {
@@ -517,7 +514,7 @@ def test_text():
         },
         "font": "思源中宋"
     }
-    
+
     style2 = {
         "start": 5,
         "end": 10,
@@ -528,7 +525,7 @@ def test_text():
         },
         "font": "挥墨体"
     }
-    
+
     style3 = {
         "start": 10,
         "end": 15,
@@ -539,10 +536,10 @@ def test_text():
         },
         "font": "金陵体"
     }
-    
+
     # Add multi-style text
     result5 = add_text_impl(
-        draft_id=result4['output']['draft_id'],
+        draft_id=result4["output"]["draft_id"],
         text="Multi-style text test",
         start=12,
         end=15,
@@ -556,7 +553,7 @@ def test_text():
         text_styles=[style1, style2, style3]
     )
     print("Test case 5 (Multi-style text) successful:", result5)
-    
+
     # Test case 6: Combined effects - shadow + background + multi-style
     combined_style1 = {
         "start": 0,
@@ -573,7 +570,7 @@ def test_text():
         },
         "font": "思源中宋"
     }
-    
+
     combined_style2 = {
         "start": 8,
         "end": 16,
@@ -584,9 +581,9 @@ def test_text():
         },
         "font": "挥墨体"
     }
-    
+
     result6 = add_text_impl(
-        draft_id=result5['output']['draft_id'],
+        draft_id=result5["output"]["draft_id"],
         text="Combined effects demo",
         start=15,
         end=18,
@@ -614,12 +611,12 @@ def test_text():
         text_styles=[combined_style1, combined_style2]
     )
     print("Test case 6 (Combined effects) successful:", result6)
-    
+
     # Finally save and upload the draft
-    if result6.get('success') and result6.get('output'):
-        save_result = save_draft_impl(result6['output']['draft_id'], draft_folder)
+    if result6.get("success") and result6.get("output"):
+        save_result = save_draft_impl(result6["output"]["draft_id"], draft_folder)
         print(f"Draft save result: {save_result}")
-    
+
     # Return the last test result for subsequent operations (if any)
     return result6
 
@@ -645,7 +642,7 @@ def test_text_02():
 
     # 测试用例2：竖排文本
     result2 = add_text_impl(
-        draft_id=text_result['output']['draft_id'],
+        draft_id=text_result["output"]["draft_id"],
         text="竖排文本演示",
         start=3,
         end=6,
@@ -655,13 +652,13 @@ def test_text_02():
         track_name="main_text",
         vertical=True,  # 启用竖排
         transform_y=-0.5,
-        outro_animation='晕开'
+        outro_animation="晕开"
     )
     print("测试用例2（竖排文本）成功:", result2)
 
     # 测试用例3：带描边和背景的文本
     result3 = add_text_impl(
-        draft_id=result2['output']['draft_id'],
+        draft_id=result2["output"]["draft_id"],
         text="描边和背景测试",
         start=6,
         end=9,
@@ -679,7 +676,7 @@ def test_text_02():
         background_style=0  # 气泡样式背景
     )
     print("测试用例3（描边和背景）成功:", result3)
-    
+
     # 测试用例4：使用 TextStyleRange 的多样式文本
     # 创建不同的文本样式
     style1 = {
@@ -697,7 +694,7 @@ def test_text_02():
         },
         "font": "思源中宋"
     }
-    
+
     style2 = {
         "start": 2,
         "end": 4,
@@ -708,7 +705,7 @@ def test_text_02():
         },
         "font": "挥墨体"
     }
-    
+
     style3 = {
         "start": 4,
         "end": 6,
@@ -719,10 +716,10 @@ def test_text_02():
         },
         "font": "金陵体"
     }
-    
+
     # 添加多样式文本
     result4 = add_text_impl(
-        draft_id=result3['output']['draft_id'],
+        draft_id=result3["output"]["draft_id"],
         text="多样式\n文本测试",
         start=9,
         end=12,
@@ -736,12 +733,12 @@ def test_text_02():
         text_styles=[style1, style2, style3]
     )
     print("测试用例4（多样式文本）成功:", result4)
-    
+
     # 最后保存并上传草稿
-    if result4.get('success') and result4.get('output'):
-        save_result = save_draft_impl(result4['output']['draft_id'],draft_folder)
+    if result4.get("success") and result4.get("output"):
+        save_result = save_draft_impl(result4["output"]["draft_id"],draft_folder)
         print(f"草稿保存结果: {save_result}")
-    
+
     # 返回最后一个测试结果用于后续操作（如果有的话）
     return result4
 
@@ -769,19 +766,19 @@ def test_text_03():
 
     # 测试用例2：带背景参数的文本
     result2 = add_text_impl(
-        draft_id=text_result['output']['draft_id'],
+        draft_id=text_result["output"]["draft_id"],
         text="文字背景",
         start=1.5,
         end=6,
         font="思源中宋",
-        font_color="#FFFFFF", 
+        font_color="#FFFFFF",
         font_size=20.0,
         track_name="text_2",
         transform_y=0.15,
         transform_x=0,
         background_color="#0000FF",  # 蓝色背景
         background_alpha=0.7,  # 70%透明度
-        background_style=1,  
+        background_style=1,
         background_round_radius=0.5,  # 圆角半径
         background_height=0.2,  # 背景高度
         background_width=0.8,  # 背景宽度
@@ -794,7 +791,7 @@ def test_text_03():
 
     # 测试用例3：带阴影参数的文本
     result3 = add_text_impl(
-        draft_id=result2['output']['draft_id'],
+        draft_id=result2["output"]["draft_id"],
         text="文字阴影",
         start=3,
         end=6,
@@ -814,10 +811,10 @@ def test_text_03():
         intro_duration=0.5
     )
     print("测试用例3（阴影参数）成功:", result3)
-    
+
     # 测试用例4：带描边和背景的文本
     result4 = add_text_impl(
-        draft_id=result3['output']['draft_id'],
+        draft_id=result3["output"]["draft_id"],
         text="文字描边",
         start=4.5,
         end=6,
@@ -833,12 +830,12 @@ def test_text_03():
         intro_duration=0.5
     )
     print("测试用例4（综合参数）成功:", result4)
-    
+
     # 最后保存并上传草稿
-    if text_result.get('success') and text_result.get('output'):
-        save_result = save_draft_impl(text_result['output']['draft_id'],draft_folder)
+    if text_result.get("success") and text_result.get("output"):
+        save_result = save_draft_impl(text_result["output"]["draft_id"],draft_folder)
         print(f"草稿保存结果: {save_result}")
-    
+
     # 返回最后一个测试结果用于后续操作（如果有的话）
     return text_result
 
@@ -861,7 +858,7 @@ def test_image01():
         track_name="main"
     )
     print(f"Image added successfully! {image_result['output']['draft_id']}")
-    print(save_draft_impl(image_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(image_result["output"]["draft_id"], draft_folder))
 
 
 def test_image02():
@@ -882,10 +879,10 @@ def test_image02():
         track_name="main"
     )
     print(f"Image 1 added successfully! {image_result['output']['draft_id']}")
-    
+
     print("\nTest: Adding image 2")
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",
         width=480,
         height=480,
@@ -898,7 +895,7 @@ def test_image02():
         track_name="main"
     )
     print(f"Image 2 added successfully! {image_result['output']['draft_id']}")
-    print(save_draft_impl(image_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(image_result["output"]["draft_id"], draft_folder))
 
 
 def test_image03():
@@ -919,10 +916,10 @@ def test_image03():
         track_name="main"
     )
     print(f"Image 1 added successfully! {image_result['output']['draft_id']}")
-    
+
     print("\nTest: Adding image 2")
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",
         width=480,
         height=480,
@@ -938,7 +935,7 @@ def test_image03():
 
     print("\nTest: Adding image 3")
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",
         width=480,
         height=480,
@@ -951,8 +948,8 @@ def test_image03():
         track_name="main_2"  # Use different track name
     )
     print(f"Image 3 added successfully! {image_result['output']['draft_id']}")
-    query_draft_status_impl_polling(image_result['output']['draft_id'])
-    save_draft_impl(image_result['output']['draft_id'], draft_folder)
+    query_draft_status_impl_polling(image_result["output"]["draft_id"])
+    save_draft_impl(image_result["output"]["draft_id"], draft_folder)
 
 def test_image04():
     """Test adding image"""
@@ -972,7 +969,7 @@ def test_image04():
         track_name="image_main"
     )
     print(f"Image added successfully! {image_result['output']['draft_id']}")
-    print(save_draft_impl(image_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(image_result["output"]["draft_id"], draft_folder))
 
 def test_image05():
     """测试添加图片"""
@@ -989,7 +986,7 @@ def test_image05():
         background_blur=3
     )
     print(f"添加图片成功！{image_result['output']['draft_id']}")
-    print(save_draft_impl(image_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(image_result["output"]["draft_id"], draft_folder))
 
 def test_mask_01():
     """Test adding images to different tracks"""
@@ -1009,10 +1006,10 @@ def test_mask_01():
         track_name="main"
     )
     print(f"Image 1 added successfully! {image_result['output']['draft_id']}")
-    
+
     print("\nTest: Adding image 2")
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",
         width=480,
         height=480,
@@ -1028,7 +1025,7 @@ def test_mask_01():
 
     print("\nTest: Adding image 3")
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",
         width=480,
         height=480,
@@ -1046,16 +1043,16 @@ def test_mask_01():
         mask_feather=0.1  # Mask feathering (0.1 means 10%)
     )
     print(f"Image 3 added successfully! {image_result['output']['draft_id']}")
-    print(save_draft_impl(image_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(image_result["output"]["draft_id"], draft_folder))
 
 def test_mask_02():
     """Test adding videos to different tracks"""
-    # Set draft folder path for saving  
+    # Set draft folder path for saving
     draft_folder = CAPCUT_DRAFT_FOLDER
     # Define video URL for testing
     video_url = "https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4"
     draft_id = None  # Initialize draft_id
-    
+
     # Add video to first track
     video_result = add_video_impl(
         draft_id=draft_id,  # Pass in draft_id
@@ -1067,9 +1064,9 @@ def test_mask_02():
         target_start=0,
         track_name="main_video_track"
     )
-    draft_id = video_result['output']['draft_id']  # Update draft_id
+    draft_id = video_result["output"]["draft_id"]  # Update draft_id
     print(f"First video addition result: {video_result}")
-    
+
     # Add video to second track
     video_result = add_video_impl(
         draft_id=draft_id,  # Use previous draft_id
@@ -1084,9 +1081,9 @@ def test_mask_02():
         scale_x=0.5,  # Reduce video width
         transform_y=0.5  # Place video at bottom of screen
     )
-    draft_id = video_result['output']['draft_id']  # Update draft_id
+    draft_id = video_result["output"]["draft_id"]  # Update draft_id
     print(f"Second video addition result: {video_result}")
-    
+
     # Third time add video to another track with circular mask
     video_result = add_video_impl(
         draft_id=draft_id,  # Use previous draft_id
@@ -1106,9 +1103,9 @@ def test_mask_02():
         mask_size=0.8,  # Mask size
         mask_feather=0.1  # Mask feathering
     )
-    draft_id = video_result['output']['draft_id']  # Update draft_id
+    draft_id = video_result["output"]["draft_id"]  # Update draft_id
     print(f"Third video addition result: {video_result}")
-    
+
     # Finally save and upload draft
     save_result = save_draft_impl(draft_id, draft_folder)
     print(f"Draft save result: {save_result}")
@@ -1132,7 +1129,7 @@ def test_audio01():
         effect_params=[90.0, 50.0]
     )
     print(f"Audio addition result: {audio_result}")
-    print(save_draft_impl(audio_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(audio_result["output"]["draft_id"], draft_folder))
 
 
 def test_audio02():
@@ -1156,7 +1153,7 @@ def test_audio02():
 
     print("\nTest: Adding audio 2")
     audio_result = add_audio_track(
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         audio_url="https://lf3-lv-music-tos.faceu.com/obj/tos-cn-ve-2774/oYACBQRCMlWBIrZipvQZhI5LAlUFYii0RwEPh",
         start=4,
         end=5,
@@ -1169,7 +1166,7 @@ def test_audio02():
         effect_params=[90.0, 50.0]
     )
     print(f"Audio addition result 2: {audio_result}")
-    print(save_draft_impl(audio_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(audio_result["output"]["draft_id"], draft_folder))
 
 
 def test_audio03():
@@ -1177,10 +1174,10 @@ def test_audio03():
     draft_folder = CAPCUT_DRAFT_FOLDER
 
     draft_id = None  # Initialize draft_id
-    
+
     for i in range(10):
         target_start = i * 1.5  # Increment by 1.5 seconds each time
-        
+
         audio_result = add_audio_track(
             audio_url="https://lf3-lv-music-tos.faceu.com/obj/tos-cn-ve-2774/oYACBQRCMlWBIrZipvQZhI5LAlUFYii0RwEPh",
             start=4,
@@ -1194,10 +1191,10 @@ def test_audio03():
             effect_params=[90.0, 50.0],
             draft_id=draft_id  # Pass the previous draft_id (None for the first time)
         )
-        
-        draft_id = audio_result['output']['draft_id']  # Update draft_id
+
+        draft_id = audio_result["output"]["draft_id"]  # Update draft_id
         print(f"Audio addition result {i+1}: {audio_result}")
-    
+
     # Finally save and upload draft
     save_result = save_draft_impl(draft_id, draft_folder)
     print(f"Draft save result: {save_result}")
@@ -1224,7 +1221,7 @@ def test_audio04():
 
     print("\nTest: Adding audio 2")
     audio_result = add_audio_track(
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         audio_url="https://lf3-lv-music-tos.faceu.com/obj/tos-cn-ve-2774/oYACBQRCMlWBIrZipvQZhI5LAlUFYii0RwEPh",
         start=4,
         end=5,
@@ -1237,8 +1234,8 @@ def test_audio04():
         effect_params=[90.0, 50.0]
     )
     print(f"Audio addition result 2: {audio_result}")
-    query_draft_status_impl_polling(audio_result['output']['draft_id'])
-    save_draft_impl(audio_result['output']['draft_id'], draft_folder)
+    query_draft_status_impl_polling(audio_result["output"]["draft_id"])
+    save_draft_impl(audio_result["output"]["draft_id"], draft_folder)
 
 def add_subtitle_impl(srt, draft_id=None, time_offset=0.0, font_size=5.0, font = "思源粗宋",
                     bold=False, italic=False, underline=False, font_color="#ffffff",
@@ -1301,7 +1298,7 @@ def query_draft_status_impl(task_id):
         "task_id": task_id
     }
     return make_request("query_draft_status", data)
-    
+
 def query_draft_status_impl_polling(task_id, timeout=300, callback=None):
     """
     Poll for draft download status, implemented with async thread to avoid blocking the main thread
@@ -1313,28 +1310,28 @@ def query_draft_status_impl_polling(task_id, timeout=300, callback=None):
     """
     # Create result container to store final result
     result_container = {"result": None}
-    
+
     def _polling_thread():
         start_time = time.time()
         print(f"Starting to query status for task {task_id}...")
-        
+
         while True:
             try:
                 # Get current task status
                 task_status = query_draft_status_impl(task_id).get("output", {})
-                
+
                 # Print current status
                 status = task_status.get("status", "unknown")
                 message = task_status.get("message", "")
                 progress = task_status.get("progress", 0)
                 print(f"Current status: {status}, progress: {progress}%, message: {message}")
-                
+
                 # Check if completed or failed
                 if status == "completed":
                     print(f"Task completed! Draft URL: {task_status.get('draft_url', 'Not provided')}")
-                    result_container["result"] = task_status.get('draft_url', 'Not provided')
+                    result_container["result"] = task_status.get("draft_url", "Not provided")
                     if callback:
-                        callback(task_status.get('draft_url', 'Not provided'))
+                        callback(task_status.get("draft_url", "Not provided"))
                     break
                 elif status == "failed":
                     print(f"Task failed: {message}")
@@ -1348,7 +1345,7 @@ def query_draft_status_impl_polling(task_id, timeout=300, callback=None):
                     if callback:
                         callback(task_status)
                     break
-                
+
                 # Check if timed out
                 elapsed_time = time.time() - start_time
                 if elapsed_time > timeout:
@@ -1362,15 +1359,15 @@ def query_draft_status_impl_polling(task_id, timeout=300, callback=None):
                 print(f"Exception occurred during query: {e}")
                 time.sleep(1)  # Wait 1 second before retrying after error
                 continue
-            
+
             # Wait 1 second before querying again
             time.sleep(1)
-    
+
     # Create and start thread
     thread = threading.Thread(target=_polling_thread)
     # thread.daemon = True  # Set as daemon thread, automatically terminates when main thread ends
     thread.start()
-    
+
     # Return thread object and result container for external code to get results
     return thread, result_container
 
@@ -1402,10 +1399,10 @@ def test_subtitle():
         border_alpha=1.0  # Fully opaque
     )
     print(f"Text addition result: {text_result}")
-    
+
     # Save draft
-    if text_result.get('success') and text_result.get('output'):
-        save_result = save_draft_impl(text_result['output']['draft_id'], draft_folder)
+    if text_result.get("success") and text_result.get("output"):
+        save_result = save_draft_impl(text_result["output"]["draft_id"], draft_folder)
         print(f"Draft save result: {save_result}")
 
 def test01():
@@ -1427,7 +1424,7 @@ def test01():
     print(f"Audio addition result 1: {audio_result}")
 
     audio_result = add_audio_track(
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         audio_url = "https://lf3-lv-music-tos.faceu.com/obj/tos-cn-ve-2774/oYACBQRCMlWBIrZipvQZhI5LAlUFYii0RwEPh",
         start=4,
         end=5,
@@ -1441,7 +1438,7 @@ def test01():
     print(f"Audio addition result 2: {audio_result}")
 
     audio_result = add_audio_track(
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         audio_url = "https://lf3-lv-music-tos.faceu.com/obj/tos-cn-ve-2774/oYACBQRCMlWBIrZipvQZhI5LAlUFYii0RwEPh",
         start=4,
         end=5,
@@ -1458,7 +1455,7 @@ def test01():
     text_result = add_text_impl(
         draft_folder=draft_folder,
         text="Test Text 1",
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         start=0,
         end=3,
         font="思源中宋",  # Use Source Han Serif font
@@ -1472,7 +1469,7 @@ def test01():
 
     # Test case 2: Vertical text
     result2 = add_text_impl(
-        draft_id=text_result['output']['draft_id'],
+        draft_id=text_result["output"]["draft_id"],
         text="Vertical Text Test",
         start=3,
         end=6,
@@ -1482,14 +1479,14 @@ def test01():
         track_name="main_text",
         vertical=True,  # Enable vertical text
         transform_y=-0.5,
-        outro_animation='Fade_Out'
+        outro_animation="Fade_Out"
     )
     print("Test case 2 (Vertical text) successful:", result2)
 
     print("Test completed")
     # Test adding image
     image_result = add_image_impl(
-        draft_id=result2['output']['draft_id'],  # Replace with actual draft ID
+        draft_id=result2["output"]["draft_id"],  # Replace with actual draft ID
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",  # Replace with actual image URL
         width=480,
         height=480,
@@ -1506,7 +1503,7 @@ def test01():
 
     # Test adding image
     image_result = add_image_impl(
-        draft_id=result2['output']['draft_id'],  # Replace with actual draft ID
+        draft_id=result2["output"]["draft_id"],  # Replace with actual draft ID
         image_url="http://gips0.baidu.com/it/u=3602773692,1512483864&fm=3028&app=3028&f=JPEG&fmt=auto?w=960&h=1280",  # Replace with actual image URL
         width=480,
         height=480,
@@ -1521,7 +1518,7 @@ def test01():
     print("Image added successfully!")
 
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],  # Replace with actual draft ID
+        draft_id=image_result["output"]["draft_id"],  # Replace with actual draft ID
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",  # Replace with actual image URL
         width=480,
         height=480,
@@ -1538,7 +1535,7 @@ def test01():
     # Test adding video keyframe
     print("\nTest: Add video keyframe")
     keyframe_result = add_video_keyframe_impl(
-        draft_id=image_result['output']['draft_id'],  # Use existing draft ID
+        draft_id=image_result["output"]["draft_id"],  # Use existing draft ID
         track_name="main",
         property_type="position_y",  # Test opacity
         time=1.5,  # Add keyframe at 3.5 seconds
@@ -1548,16 +1545,16 @@ def test01():
 
     print("\nTest: Add video keyframe")
     keyframe_result = add_video_keyframe_impl(
-        draft_id=image_result['output']['draft_id'],  # Use existing draft ID
+        draft_id=image_result["output"]["draft_id"],  # Use existing draft ID
         track_name="main",
         property_type="position_y",  # Test opacity
         time=3.5,  # Add keyframe at 3.5 seconds
         value="0.4"  # Move 300px
     )
     print(f"Keyframe addition result: {keyframe_result}")
-    
-    query_draft_status_impl_polling(keyframe_result['output']['draft_id'])
-    save_draft_impl(keyframe_result['output']['draft_id'], draft_folder)
+
+    query_draft_status_impl_polling(keyframe_result["output"]["draft_id"])
+    save_draft_impl(keyframe_result["output"]["draft_id"], draft_folder)
 
 def test02():
     draft_folder = CAPCUT_DRAFT_FOLDER
@@ -1578,7 +1575,7 @@ def test02():
     print(f"Audio addition result 1: {audio_result}")
 
     audio_result = add_audio_track(
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         audio_url = "https://lf3-lv-music-tos.faceu.com/obj/tos-cn-ve-2774/oYACBQRCMlWBIrZipvQZhI5LAlUFYii0RwEPh",
         start=4,
         end=5,
@@ -1592,7 +1589,7 @@ def test02():
     print(f"Audio addition result 2: {audio_result}")
 
     audio_result = add_audio_track(
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         audio_url = "https://lf3-lv-music-tos.faceu.com/obj/tos-cn-ve-2774/oYACBQRCMlWBIrZipvQZhI5LAlUFYii0RwEPh",
         start=4,
         end=5,
@@ -1609,7 +1606,7 @@ def test02():
     text_result = add_text_impl(
         draft_folder=draft_folder,
         text="Test Text 1",
-        draft_id=audio_result['output']['draft_id'],
+        draft_id=audio_result["output"]["draft_id"],
         start=0,
         end=3,
         font="思源中宋",  # Use Source Han Serif font
@@ -1623,7 +1620,7 @@ def test02():
 
     # Test case 2: Vertical text
     result2 = add_text_impl(
-        draft_id=text_result['output']['draft_id'],
+        draft_id=text_result["output"]["draft_id"],
         text="Vertical Text Test",
         start=3,
         end=6,
@@ -1633,14 +1630,14 @@ def test02():
         track_name="main_text",
         vertical=True,  # Enable vertical text
         transform_y=-0.5,
-        outro_animation='Throw_Back'
+        outro_animation="Throw_Back"
     )
     print("Test case 2 (Vertical text) successful:", result2)
 
     print("Test completed")
     # Test adding image
     image_result = add_image_impl(
-        draft_id=result2['output']['draft_id'],  # Replace with actual draft ID
+        draft_id=result2["output"]["draft_id"],  # Replace with actual draft ID
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",  # Replace with actual image URL
         width=480,
         height=480,
@@ -1657,7 +1654,7 @@ def test02():
 
     # Test adding image
     image_result = add_image_impl(
-        draft_id=result2['output']['draft_id'],  # Replace with actual draft ID
+        draft_id=result2["output"]["draft_id"],  # Replace with actual draft ID
         image_url="http://gips0.baidu.com/it/u=3602773692,1512483864&fm=3028&app=3028&f=JPEG&fmt=auto?w=960&h=1280",  # Replace with actual image URL
         width=480,
         height=480,
@@ -1672,7 +1669,7 @@ def test02():
     print("Image added successfully!")
 
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],  # Replace with actual draft ID
+        draft_id=image_result["output"]["draft_id"],  # Replace with actual draft ID
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",  # Replace with actual image URL
         width=480,
         height=480,
@@ -1689,7 +1686,7 @@ def test02():
     # Test adding video keyframe
     print("\nTest: Add video keyframe")
     keyframe_result = add_video_keyframe_impl(
-        draft_id=image_result['output']['draft_id'],  # Use existing draft ID
+        draft_id=image_result["output"]["draft_id"],  # Use existing draft ID
         track_name="main",
         property_type="position_y",  # Test opacity
         time=1.5,  # Add keyframe at 3.5 seconds
@@ -1699,16 +1696,16 @@ def test02():
 
     print("\nTest: Add video keyframe")
     keyframe_result = add_video_keyframe_impl(
-        draft_id=image_result['output']['draft_id'],  # Use existing draft ID
+        draft_id=image_result["output"]["draft_id"],  # Use existing draft ID
         track_name="main",
         property_type="position_y",  # Test opacity
         time=3.5,  # Add keyframe at 3.5 seconds
         value="0.4"  # Move 300px
     )
     print(f"Keyframe addition result: {keyframe_result}")
-    
-    query_draft_status_impl_polling(keyframe_result['output']['draft_id'])
-    save_draft_impl(keyframe_result['output']['draft_id'], draft_folder)
+
+    query_draft_status_impl_polling(keyframe_result["output"]["draft_id"])
+    save_draft_impl(keyframe_result["output"]["draft_id"], draft_folder)
 
 def test_video_track01():
     """Test adding video track"""
@@ -1727,8 +1724,8 @@ def test_video_track01():
     )
     print(f"Video track addition result: {video_result}")
 
-    if video_result and 'output' in video_result and 'draft_id' in video_result['output']:
-        draft_id = video_result['output']['draft_id']
+    if video_result and "output" in video_result and "draft_id" in video_result["output"]:
+        draft_id = video_result["output"]["draft_id"]
         print(f"Save draft: {save_draft_impl(draft_id, draft_folder)}")
     else:
         print("Unable to get draft ID, skipping save operation.")
@@ -1739,10 +1736,10 @@ def test_video_track02():
     draft_folder = CAPCUT_DRAFT_FOLDER
     video_url = "https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4" # Replace with actual video URL
     draft_id = None  # Initialize draft_id
-    
+
     for i in range(5):
         target_start = i * 5  # Increment by 5 seconds each time
-        
+
         video_result = add_video_impl(
             draft_id=draft_id,  # Pass in draft_id
             video_url=video_url,
@@ -1753,9 +1750,9 @@ def test_video_track02():
             target_start=target_start,
             track_name="main_video_track"
         )
-        draft_id = video_result['output']['draft_id']  # Update draft_id
+        draft_id = video_result["output"]["draft_id"]  # Update draft_id
         print(f"Video addition result {i+1}: {video_result}")
-    
+
     # Finally save and upload the draft
     save_result = save_draft_impl(draft_id, draft_folder)
     print(f"Draft save result: {save_result}")
@@ -1766,7 +1763,7 @@ def test_video_track03():
     draft_folder = CAPCUT_DRAFT_FOLDER
     video_url = "https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4" # Replace with actual video URL
     draft_id = None  # Initialize draft_id
-    
+
     # Add video to the first track
     video_result = add_video_impl(
         draft_id=draft_id,  # Pass in draft_id
@@ -1778,9 +1775,9 @@ def test_video_track03():
         target_start=0,
         track_name="main_video_track"
     )
-    draft_id = video_result['output']['draft_id']  # Update draft_id
+    draft_id = video_result["output"]["draft_id"]  # Update draft_id
     print(f"First video addition result: {video_result}")
-    
+
     # Add video to the second track
     video_result = add_video_impl(
         draft_id=draft_id,  # Use previous draft_id
@@ -1795,9 +1792,9 @@ def test_video_track03():
         scale_x=0.5,  # Reduce video width
         transform_y=0.5  # Position video at bottom of screen
     )
-    draft_id = video_result['output']['draft_id']  # Update draft_id
+    draft_id = video_result["output"]["draft_id"]  # Update draft_id
     print(f"Second video addition result: {video_result}")
-    
+
     # Third time add video to another track
     video_result = add_video_impl(
         draft_id=draft_id,  # Use previous draft_id
@@ -1812,9 +1809,9 @@ def test_video_track03():
         scale_x=0.3,  # Smaller video width
         transform_y=-0.5  # Position video at top of screen
     )
-    draft_id = video_result['output']['draft_id']  # Update draft_id
+    draft_id = video_result["output"]["draft_id"]  # Update draft_id
     print(f"Third video addition result: {video_result}")
-    
+
     # Finally save and upload the draft
     save_result = save_draft_impl(draft_id, draft_folder)
     print(f"Draft save result: {save_result}")
@@ -1826,19 +1823,19 @@ def test_video_track04():
 
     print("\nTest: Add video track")
     video_result = add_video_impl(
-        video_url='https://p26-bot-workflow-sign.byteimg.com/tos-cn-i-mdko3gqilj/07bf6797a1834d75beb05c63293af204.mp4~tplv-mdko3gqilj-image.image?rk3s=81d4c505&x-expires=1782141919&x-signature=2ETX83Swh%2FwKzHeWB%2F9oGq9vqt4%3D&x-wf-file_name=output-997160b5.mp4'
+        video_url="https://p26-bot-workflow-sign.byteimg.com/tos-cn-i-mdko3gqilj/07bf6797a1834d75beb05c63293af204.mp4~tplv-mdko3gqilj-image.image?rk3s=81d4c505&x-expires=1782141919&x-signature=2ETX83Swh%2FwKzHeWB%2F9oGq9vqt4%3D&x-wf-file_name=output-997160b5.mp4"
     )
     print(f"Video track addition result: {video_result}")
 
     print("\nTest: Add video track")
     video_result = add_video_impl(
-        video_url='https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4',
-        draft_id=video_result['output']['draft_id'],  # Use existing draft ID
+        video_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4",
+        draft_id=video_result["output"]["draft_id"],  # Use existing draft ID
         target_start=19.84
     )
     print(f"Video track addition result: {video_result}")
-    if video_result and 'output' in video_result and 'draft_id' in video_result['output']:
-        draft_id = video_result['output']['draft_id']
+    if video_result and "output" in video_result and "draft_id" in video_result["output"]:
+        draft_id = video_result["output"]["draft_id"]
         print(f"Save draft: {save_draft_impl(draft_id, draft_folder)}")
     else:
         print("Unable to get draft ID, skipping save operation.")
@@ -1851,15 +1848,15 @@ def test_video_track05():
 
     print("\n测试：添加视频轨道")
     video_result = add_video_impl(
-        video_url='https://p26-bot-workflow-sign.byteimg.com/tos-cn-i-mdko3gqilj/07bf6797a1834d75beb05c63293af204.mp4~tplv-mdko3gqilj-image.image?rk3s=81d4c505&x-expires=1782141919&x-signature=2ETX83Swh%2FwKzHeWB%2F9oGq9vqt4%3D&x-wf-file_name=output-997160b5.mp4',
+        video_url="https://p26-bot-workflow-sign.byteimg.com/tos-cn-i-mdko3gqilj/07bf6797a1834d75beb05c63293af204.mp4~tplv-mdko3gqilj-image.image?rk3s=81d4c505&x-expires=1782141919&x-signature=2ETX83Swh%2FwKzHeWB%2F9oGq9vqt4%3D&x-wf-file_name=output-997160b5.mp4",
         background_blur=2,
         width=1920,
         height=1080
     )
 
     print(f"视频轨道添加结果: {video_result}")
-    if video_result and 'output' in video_result and 'draft_id' in video_result['output']:
-        draft_id = video_result['output']['draft_id']
+    if video_result and "output" in video_result and "draft_id" in video_result["output"]:
+        draft_id = video_result["output"]["draft_id"]
         print(f"保存草稿: {save_draft_impl(draft_id, draft_folder)}")
     else:
         print("无法获取草稿ID，跳过保存操作。")
@@ -1868,7 +1865,7 @@ def test_keyframe():
     """Test adding keyframes"""
     draft_folder = CAPCUT_DRAFT_FOLDER
     draft_id = None  # Initialize draft_id
-    
+
     print("\nTest: Add basic video track")
     video_result = add_video_impl(
         video_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4",
@@ -1880,9 +1877,9 @@ def test_keyframe():
         track_name="main_video_track"
     )
     print("Video addition result:", video_result)
-    
-    if video_result.get('success') and video_result.get('output'):
-        draft_id = video_result['output']['draft_id']
+
+    if video_result.get("success") and video_result.get("output"):
+        draft_id = video_result["output"]["draft_id"]
         print("Using existing draft_id:", draft_id)
     else:
         print("Unable to get draft ID, terminating test.")
@@ -1926,7 +1923,7 @@ def test_keyframe_02():
     """Test adding keyframes - Batch adding to implement fade-in and zoom bounce effects"""
     draft_folder = CAPCUT_DRAFT_FOLDER
     draft_id = None  # Initialize draft_id
-    
+
     print("\nTest: Adding basic video track")
     video_result = add_video_impl(
         video_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4",
@@ -1938,9 +1935,9 @@ def test_keyframe_02():
         track_name="main_video_track"
     )
     print("Video adding result:", video_result)
-    
-    if video_result.get('success') and video_result.get('output'):
-        draft_id = video_result['output']['draft_id']
+
+    if video_result.get("success") and video_result.get("output"):
+        draft_id = video_result["output"]["draft_id"]
         print("Using existing draft_id:", draft_id)
     else:
         print("Unable to get draft ID, terminating test.")
@@ -1986,7 +1983,7 @@ def test_keyframe_02():
 def test_subtitle_01():
     """Test adding text subtitles"""
     draft_folder = CAPCUT_DRAFT_FOLDER
-    
+
     print("\nTest 3: Adding text subtitles")
     text_result = add_subtitle_impl(
         srt="1\n00:00:00,000 --> 00:00:04,433\n你333好，我是孙关南开发的剪映草稿助手。\n\n2\n00:00:04,433 --> 00:00:11,360\n我擅长将音频、视频、图片素材拼接在一起剪辑输出剪映草稿。\n",
@@ -2003,18 +2000,18 @@ def test_subtitle_01():
         vertical=True
     )
     print(f"Text adding result: {text_result}")
-    
-    if text_result.get('success') and text_result.get('output'):
-        save_result = save_draft_impl(text_result['output']['draft_id'], draft_folder)
+
+    if text_result.get("success") and text_result.get("output"):
+        save_result = save_draft_impl(text_result["output"]["draft_id"], draft_folder)
         print(f"Draft saving result: {save_result}")
-    
+
     return text_result
 
 
 def test_subtitle_02():
     """Test adding text subtitles via SRT URL"""
     draft_folder = CAPCUT_DRAFT_FOLDER
-    
+
     print("\nTest 3: Adding text subtitles (from URL)")
     text_result = add_subtitle_impl(
         srt="https://oss-oversea-bucket.oss-cn-hongkong.aliyuncs.com/dfd_srt_1748575460_kmtu56iu.srt?Expires=1748707452&OSSAccessKeyId=TMP.3Km5TL5giRLgDkc3CamKPcWZTmSrLVeRxPWxEisNB2CTymvUxrpX8VXzy5r99F6bJkwjwFM5d1RsiV3cF18iaMriAPtA1y&Signature=4JzB4YGiChsxcTFuvUyZ0v3MjMI%3D",
@@ -2031,11 +2028,11 @@ def test_subtitle_02():
         vertical=True
     )
     print(f"Text adding result: {text_result}")
-    
-    if text_result.get('success') and text_result.get('output'):
-        save_result = save_draft_impl(text_result['output']['draft_id'], draft_folder)
+
+    if text_result.get("success") and text_result.get("output"):
+        save_result = save_draft_impl(text_result["output"]["draft_id"], draft_folder)
         print(f"Draft saving result: {save_result}")
-    
+
     return text_result
 
 
@@ -2063,10 +2060,10 @@ def test_video_01():
     print(f"Video adding result: {video_result}")
 
     # Save draft
-    if video_result.get('success') and video_result.get('output'):
-        query_draft_status_impl_polling(video_result['output']['draft_id'])
-        save_draft_impl(video_result['output']['draft_id'], draft_folder)
-        
+    if video_result.get("success") and video_result.get("output"):
+        query_draft_status_impl_polling(video_result["output"]["draft_id"])
+        save_draft_impl(video_result["output"]["draft_id"], draft_folder)
+
 def test_video_02():
     """Test adding multiple videos with different resolutions to the same draft"""
     # Set draft folder path for saving
@@ -2092,7 +2089,7 @@ def test_video_02():
 
     video_result = add_video_impl(
         video_url="https://videos.pexels.com/video-files/3129769/3129769-hd_1280_720_30fps.mp4", # Replace with actual video URL
-        draft_id=video_result['output']['draft_id'],
+        draft_id=video_result["output"]["draft_id"],
         start=0,
         end=5,
         width=1920,
@@ -2108,7 +2105,7 @@ def test_video_02():
     )
     video_result = add_video_impl(
         video_url="https://videos.pexels.com/video-files/3129769/3129769-uhd_3840_2160_30fps.mp4", # Replace with actual video URL
-        draft_id=video_result['output']['draft_id'],
+        draft_id=video_result["output"]["draft_id"],
         start=0,
         end=5,
         width=1920,
@@ -2124,7 +2121,7 @@ def test_video_02():
     )
     video_result = add_video_impl(
         video_url="https://videos.pexels.com/video-files/3129769/3129769-sd_426_240_30fps.mp4", # Replace with actual video URL
-        draft_id=video_result['output']['draft_id'],
+        draft_id=video_result["output"]["draft_id"],
         start=0,
         end=5,
         width=1920,
@@ -2140,7 +2137,7 @@ def test_video_02():
     )
     video_result = add_video_impl(
         video_url="https://videos.pexels.com/video-files/3129769/3129769-sd_640_360_30fps.mp4", # Replace with actual video URL
-        draft_id=video_result['output']['draft_id'],
+        draft_id=video_result["output"]["draft_id"],
         start=0,
         end=5,
         width=1920,
@@ -2156,7 +2153,7 @@ def test_video_02():
     )
     video_result = add_video_impl(
         video_url="https://videos.pexels.com/video-files/3129769/3129769-uhd_2560_1440_30fps.mp4", # Replace with actual video URL
-        draft_id=video_result['output']['draft_id'],
+        draft_id=video_result["output"]["draft_id"],
         start=0,
         end=5,
         width=1920,
@@ -2171,11 +2168,11 @@ def test_video_02():
         relative_index=0
     )
 
-    if video_result.get('success') and video_result.get('output'):
-        print(json.loads(query_script_impl(video_result['output']['draft_id'])['output']))
+    if video_result.get("success") and video_result.get("output"):
+        print(json.loads(query_script_impl(video_result["output"]["draft_id"])["output"]))
         # query_draft_status_impl_polling(video_result['output']['draft_id'])
         # save_draft_impl(video_result['output']['draft_id'], draft_folder)
-   
+
 def test_stiker_01():
     """Test adding stickers"""
     # Add stickers, test various parameters, only for jianyingpro
@@ -2212,7 +2209,7 @@ def test_stiker_02():
     )
     result = add_sticker_impl(
         resource_id="7107529669750066445",
-        draft_id=result['output']['draft_id'],
+        draft_id=result["output"]["draft_id"],
         start=5.0,
         end=10.0,
         transform_y=-0.3,     # Move up
@@ -2244,7 +2241,7 @@ def test_stiker_03():
     )
     result = add_sticker_impl(
         resource_id="7107529669750066445",
-        draft_id=result['output']['draft_id'],
+        draft_id=result["output"]["draft_id"],
         start=5.0,
         end=10.0,
         transform_y=-0.3,     # Move up
@@ -2280,10 +2277,10 @@ def test_transition_01():
         transition_duration=1.0
     )
     print(f"Image 1 added successfully! {image_result['output']['draft_id']}")
-    
+
     print("\nTest: Adding image 2")
     image_result = add_image_impl(
-        draft_id=image_result['output']['draft_id'],
+        draft_id=image_result["output"]["draft_id"],
         image_url="https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_image_v2/d6e33c84d7554146a25b1093b012838b_0.png?x-oss-process=image/resize,w_500/watermark,image_aW1nL3dhdGVyMjAyNDExMjkwLnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSxtX2ZpeGVkLHdfMTQ1LGhfMjU=,t_80,g_se,x_10,y_10/format,webp",
         width=480,
         height=480,
@@ -2296,12 +2293,12 @@ def test_transition_01():
         track_name="main"
     )
     print(f"Image 2 added successfully! {image_result['output']['draft_id']}")
-    print(save_draft_impl(image_result['output']['draft_id'], draft_folder))
+    print(save_draft_impl(image_result["output"]["draft_id"], draft_folder))
 
 
 def test_transition_02():
     """Test adding video tracks with transition effects"""
-    # Set draft folder path for saving  
+    # Set draft folder path for saving
     draft_folder = CAPCUT_DRAFT_FOLDER
     # Define video URL for testing
     video_url = "https://cdn.wanx.aliyuncs.com/wanx/1719234057367822001/text_to_video/092faf3c94244973ab752ee1280ba76f.mp4?spm=5176.29623064.0.0.41ed26d6cBOhV3&file=092faf3c94244973ab752ee1280ba76f.mp4"
@@ -2323,7 +2320,7 @@ def test_transition_02():
     print("\nTest: Adding video track")
     video_result = add_video_impl(
         video_url=video_url,
-        draft_id=video_result['output']['draft_id'],
+        draft_id=video_result["output"]["draft_id"],
         width=1920,
         height=1080,
         start=0,
@@ -2333,8 +2330,8 @@ def test_transition_02():
     )
     print(f"Video track adding result: {video_result}")
 
-    if video_result and 'output' in video_result and 'draft_id' in video_result['output']:
-        draft_id = video_result['output']['draft_id']
+    if video_result and "output" in video_result and "draft_id" in video_result["output"]:
+        draft_id = video_result["output"]["draft_id"]
         print(f"Saving draft: {save_draft_impl(draft_id, draft_folder)}")
     else:
         print("Unable to get draft ID, skipping save operation.")

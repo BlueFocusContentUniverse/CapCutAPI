@@ -1,11 +1,15 @@
-import pyJianYingDraft as draft
-from util import generate_draft_url, hex_to_rgb
-from draft_cache import update_cache
-from create_draft import get_or_create_draft
-from pyJianYingDraft.text_segment import TextBubble, TextEffect
-from typing import Optional
-import requests
 import os
+from typing import Optional
+
+import requests
+
+import pyJianYingDraft as draft
+from draft_cache import update_cache
+from pyJianYingDraft.text_segment import TextBubble, TextEffect
+from util import hex_to_rgb
+
+from .create_draft import get_or_create_draft
+
 
 def add_subtitle_impl(
     srt_path: str,
@@ -19,21 +23,21 @@ def add_subtitle_impl(
     italic: bool = False,
     underline: bool = False,
     font_color: str = "#FFFFFF",
-    
+
     # Border parameters
     border_alpha: float = 1.0,
     border_color: str = "#000000",
     border_width: float = 0.0,  # Default no border display
-    
+
     # Background parameters
     background_color: str = "#000000",
     background_style: int = 1,
     background_alpha: float = 0.0,  # Default no background display
-    
+
     # Bubble effect
     bubble_effect_id: Optional[str] = None,
     bubble_resource_id: Optional[str] = None,
-    
+
     # Text effect
     effect_effect_id: Optional[str] = None,
     # Image adjustment parameters
@@ -67,32 +71,32 @@ def add_subtitle_impl(
         width=width,
         height=height
     )
-    
+
     # Process subtitle content
     srt_content = None
-    
+
     # Check if it's a URL
-    if srt_path.startswith(('http://', 'https://')):
+    if srt_path.startswith(("http://", "https://")):
         try:
             response = requests.get(srt_path)
             response.raise_for_status()
 
-            response.encoding = 'utf-8'
+            response.encoding = "utf-8"
             srt_content = response.text
         except Exception as e:
-            raise Exception(f"Failed to download subtitle file: {str(e)}")
+            raise Exception(f"Failed to download subtitle file: {e!s}")
     elif os.path.isfile(srt_path):  # Check if it's a file
         try:
-            with open(srt_path, 'r', encoding='utf-8-sig') as f:
+            with open(srt_path, encoding="utf-8-sig") as f:
                 srt_content = f.read()
         except Exception as e:
-            raise Exception(f"Failed to read local subtitle file: {str(e)}")
+            raise Exception(f"Failed to read local subtitle file: {e!s}")
     else:
         # If not a URL or local file, use content directly
         srt_content = srt_path
         # Handle possible escape characters
-        srt_content = srt_content.replace('\\n', '\n').replace('/n', '\n')
-    
+        srt_content = srt_content.replace("\\n", "\n").replace("/n", "\n")
+
     # Import subtitles
     # Convert hexadecimal color to RGB
     rgb_color = hex_to_rgb(font_color)
@@ -105,7 +109,7 @@ def add_subtitle_impl(
             color=hex_to_rgb(border_color),
             width=border_width
         )
-    
+
     # Create text_background
     text_background = None
     if background_alpha > 0:
@@ -114,7 +118,7 @@ def add_subtitle_impl(
             style=background_style,
             alpha=background_alpha
         )
-    
+
     # Create text_style
     text_style = draft.Text_style(
         size=font_size,
@@ -126,7 +130,7 @@ def add_subtitle_impl(
         vertical=vertical,  # Use the passed vertical parameter
         alpha=alpha  # Use the passed alpha parameter
     )
-    
+
     # Create bubble effect
     text_bubble = None
     if bubble_effect_id and bubble_resource_id:
@@ -134,7 +138,7 @@ def add_subtitle_impl(
             effect_id=bubble_effect_id,
             resource_id=bubble_resource_id
         )
-    
+
     # Create text effect
     text_effect = None
     if effect_effect_id:
@@ -142,7 +146,7 @@ def add_subtitle_impl(
             effect_id=effect_effect_id,
             resource_id=effect_effect_id
         )
-    
+
     # Create clip_settings
     clip_settings = draft.Clip_settings(
         transform_x=transform_x,

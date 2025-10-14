@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from db import get_session, init_db
-from models import Draft as DraftModel
+from models import Draft as DraftModel, DraftVersion as DraftVersionModel
 
 
 logger = logging.getLogger(__name__)
@@ -49,10 +49,28 @@ class PostgresDraftStorage:
                         size_bytes=len(serialized_data),
                         draft_name=getattr(script_obj, 'name', None),
                         resource=getattr(script_obj, 'resource', None),
+                        current_version=1,
                         accessed_at=datetime.now(timezone.utc),
                     )
                     session.add(row)
                 else:
+                    # Persist previous version into history table before updating
+                    previous_version = existing.current_version or 1
+                    history = DraftVersionModel(
+                        draft_id=existing.draft_id,
+                        version=previous_version,
+                        data=existing.data,
+                        width=existing.width,
+                        height=existing.height,
+                        duration=existing.duration,
+                        fps=existing.fps,
+                        script_version=existing.version,
+                        size_bytes=existing.size_bytes,
+                        draft_name=existing.draft_name,
+                        resource=existing.resource,
+                    )
+                    session.add(history)
+
                     # Update in place; if previously soft-deleted, resurrect it
                     existing.data = serialized_data
                     existing.width = getattr(script_obj, 'width', None)
@@ -64,6 +82,7 @@ class PostgresDraftStorage:
                     existing.draft_name = getattr(script_obj, 'name', None)
                     existing.resource = getattr(script_obj, 'resource', None)
                     existing.is_deleted = False
+                    existing.current_version = previous_version + 1
                     existing.accessed_at = datetime.now(timezone.utc)
 
             logger.info(f"Successfully saved draft {draft_id} to Postgres (size: {len(serialized_data)} bytes)")
@@ -91,6 +110,48 @@ class PostgresDraftStorage:
             return None
         except Exception as e:
             logger.error(f"Failed to retrieve draft {draft_id}: {e}")
+            return None
+
+    def get_draft_version(self, draft_id: str, version: int) -> Optional[draft.Script_file]:
+        try:
+            with get_session() as session:
+                # First try to fetch from history table
+                q = session.execute(
+                    select(DraftVersionModel)
+                    .where(
+                        DraftVersionModel.draft_id == draft_id,
+                        DraftVersionModel.version == version,
+                    )
+                )
+                row = q.scalar_one_or_none()
+
+                if row is None:
+                    # If version equals current_version we can read from main table
+                    current = session.execute(
+                        select(DraftModel).where(
+                            DraftModel.draft_id == draft_id,
+                            DraftModel.is_deleted.is_(False),
+                        )
+                    ).scalar_one_or_none()
+                    if current is None:
+                        logger.warning(f"Draft {draft_id} not found when requesting version {version}")
+                        return None
+                    if (current.current_version or 1) != version:
+                        logger.warning(
+                            f"Draft {draft_id} version {version} not found in history and does not match current version"
+                        )
+                        return None
+                    script_obj = pickle.loads(current.data)
+                    current.accessed_at = datetime.now(timezone.utc)
+                    return script_obj
+
+                script_obj = pickle.loads(row.data)
+                return script_obj
+        except SQLAlchemyError as e:
+            logger.error(f"Database error retrieving draft {draft_id} version {version}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to retrieve draft {draft_id} version {version}: {e}")
             return None
 
     def exists(self, draft_id: str) -> bool:
@@ -134,6 +195,7 @@ class PostgresDraftStorage:
                     'created_at': int(row.created_at.timestamp()),
                     'updated_at': int(row.updated_at.timestamp()),
                     'version': row.version,
+                    'current_version': row.current_version,
                     'size_bytes': row.size_bytes,
                     'accessed_at': int(row.accessed_at.timestamp()) if row.accessed_at else None,
                 }
@@ -161,6 +223,7 @@ class PostgresDraftStorage:
                         'created_at': int(row.created_at.timestamp()),
                         'updated_at': int(row.updated_at.timestamp()),
                         'version': row.version,
+                        'current_version': row.current_version,
                         'size_bytes': row.size_bytes,
                     })
                 return results

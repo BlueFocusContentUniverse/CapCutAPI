@@ -3,7 +3,6 @@ Redis configuration settings for draft storage.
 """
 
 import os
-from typing import Optional
 
 # Redis connection settings
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')

@@ -1,13 +1,15 @@
 import os
-import pyJianYingDraft as draft
-from settings.local import IS_CAPCUT_ENV
-from util import generate_draft_url, is_windows_path, url_to_hash
-from pyJianYingDraft import trange, Clip_settings
-from draft_cache import update_cache
 import re
-from typing import Optional, Dict
-from pyJianYingDraft import exceptions
-from create_draft import get_or_create_draft
+from typing import Dict, Optional
+
+import pyJianYingDraft as draft
+from draft_cache import update_cache
+from pyJianYingDraft import Clip_settings, exceptions, trange
+from settings.local import IS_CAPCUT_ENV
+from util import is_windows_path, url_to_hash
+
+from .create_draft import get_or_create_draft
+
 
 def add_image_impl(
     image_url: str,
@@ -88,7 +90,7 @@ def add_image_impl(
         width=width,
         height=height
     )
-    
+
     # Check if video track exists, if not, add a default video track
     try:
         script.get_track(draft.Track_type.video, track_name=None)
@@ -108,39 +110,39 @@ def add_image_impl(
             script.add_track(draft.Track_type.video, track_name=track_name, relative_index=relative_index)
     else:
         script.add_track(draft.Track_type.video, relative_index=relative_index)
-    
+
     # Generate material_name but don't download the image
     material_name = f"image_{url_to_hash(image_url)}.png"
-    
+
     # Build draft_image_path
     draft_image_path = None
     if draft_folder:
         # Detect input path type and process
         if is_windows_path(draft_folder):
             # Windows path processing
-            windows_drive, windows_path = re.match(r'([a-zA-Z]:)(.*)', draft_folder).groups()
-            parts = [p for p in windows_path.split('\\') if p]  # Split path and filter empty parts
+            windows_drive, windows_path = re.match(r"([a-zA-Z]:)(.*)", draft_folder).groups()
+            parts = [p for p in windows_path.split("\\") if p]  # Split path and filter empty parts
             draft_image_path = os.path.join(windows_drive, *parts, draft_id, "assets", "image", material_name)
             # Normalize path (ensure consistent separators)
-            draft_image_path = draft_image_path.replace('/', '\\')
+            draft_image_path = draft_image_path.replace("/", "\\")
         else:
             # macOS/Linux path processing
             draft_image_path = os.path.join(draft_folder, draft_id, "assets", "image", material_name)
-        
+
         # Print path information
-        print('replace_path:', draft_image_path)
-    
+        print("replace_path:", draft_image_path)
+
     # Create image material
     if draft_image_path:
-        image_material = draft.Video_material(path=None, material_type='photo', replace_path=draft_image_path, remote_url=image_url, material_name=material_name)
+        image_material = draft.Video_material(path=None, material_type="photo", replace_path=draft_image_path, remote_url=image_url, material_name=material_name)
     else:
-        image_material = draft.Video_material(path=None, material_type='photo', remote_url=image_url, material_name=material_name)
-    
+        image_material = draft.Video_material(path=None, material_type="photo", remote_url=image_url, material_name=material_name)
+
     # Create target_timerange (image)
     duration = end - start
     target_timerange = trange(f"{start}s", f"{duration}s")
     source_timerange = trange(f"{0}s", f"{duration}s")
-    
+
     # Create image segment
     image_segment = draft.Video_segment(
         image_material,
@@ -153,7 +155,7 @@ def add_image_impl(
             transform_x=transform_x
         )
     )
-    
+
     # Add entrance animation (prioritize intro_animation, then use animation)
     intro_anim = intro_animation if intro_animation is not None else animation
     intro_animation_duration = intro_animation_duration if intro_animation_duration is not None else animation_duration
@@ -166,7 +168,7 @@ def add_image_impl(
             image_segment.add_animation(animation_type, intro_animation_duration * 1e6)  # Use microsecond unit for animation duration
         except AttributeError:
             raise ValueError(f"Warning: Unsupported entrance animation type {intro_anim}, this parameter will be ignored")
-    
+
     # Add exit animation
     if outro_animation:
         try:
@@ -177,7 +179,7 @@ def add_image_impl(
             image_segment.add_animation(outro_type, outro_animation_duration * 1e6)  # Use microsecond unit for animation duration
         except AttributeError:
             raise ValueError(f"Warning: Unsupported exit animation type {outro_animation}, this parameter will be ignored")
-    
+
     # Add combo animation
     if combo_animation:
         try:
@@ -188,7 +190,7 @@ def add_image_impl(
             image_segment.add_animation(combo_type, combo_animation_duration * 1e6)  # Use microsecond unit for animation duration
         except AttributeError:
             raise ValueError(f"Warning: Unsupported combo animation type {combo_animation}, this parameter will be ignored")
-    
+
     # Add transition effect
     if transition:
         try:
@@ -201,7 +203,7 @@ def add_image_impl(
             image_segment.add_transition(transition_type, duration=duration_microseconds)
         except AttributeError:
             raise ValueError(f"Warning: Unsupported transition type {transition}, this parameter will be ignored")
-    
+
     # Add mask effect
     if mask_type:
         try:
@@ -223,7 +225,7 @@ def add_image_impl(
             )
         except Exception:
             raise ValueError(f"Unsupported mask type {mask_type}, supported types include: Linear, Mirror, Circle, Rectangle, Heart, Star")
-    
+
     # Add background blur effect
     if background_blur is not None:
         # Background blur level mapping table
@@ -233,17 +235,17 @@ def add_image_impl(
             3: 0.75,    # Heavy blur
             4: 1.0      # Maximum blur
         }
-        
+
         # Validate background blur level
         if background_blur not in blur_levels:
             raise ValueError(f"Invalid background blur level {background_blur}, valid values are 1-4")
-        
+
         # Add background blur effect
         image_segment.add_background_filling("blur", blur=blur_levels[background_blur])
-    
+
     # Add image segment to track
     script.add_segment(image_segment, track_name=track_name)
-    
+
     # Persist updated script
     update_cache(draft_id, script)
 

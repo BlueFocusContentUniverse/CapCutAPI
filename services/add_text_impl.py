@@ -1,12 +1,14 @@
+from typing import List, Optional  # add List type hint
+
 import pyJianYingDraft as draft
-from settings.local import IS_CAPCUT_ENV
-from util import generate_draft_url, hex_to_rgb
-from pyJianYingDraft import trange, FontType
-from typing import Optional, List  # add List type hint
-from pyJianYingDraft import exceptions
-from create_draft import get_or_create_draft
-from pyJianYingDraft.text_segment import TextBubble, TextEffect, TextStyleRange
 from draft_cache import update_cache
+from pyJianYingDraft import FontType, exceptions, trange
+from pyJianYingDraft.text_segment import TextBubble, TextEffect, TextStyleRange
+from settings.local import IS_CAPCUT_ENV
+from util import hex_to_rgb
+
+from .create_draft import get_or_create_draft
+
 
 def add_text_impl(
     text: str,
@@ -118,9 +120,9 @@ def add_text_impl(
         try:
             font_type = getattr(FontType, font)
         except Exception:
-            available_fonts = [attr for attr in dir(FontType) if not attr.startswith('_')]
+            available_fonts = [attr for attr in dir(FontType) if not attr.startswith("_")]
             raise ValueError(f"Unsupported font: {font}, please use one of the fonts in Font_type: {available_fonts}")
-    
+
     # Validate alpha value range
     if not 0.0 <= font_alpha <= 1.0:
         raise ValueError("alpha value must be between 0.0 and 1.0")
@@ -128,7 +130,7 @@ def add_text_impl(
         raise ValueError("border_alpha value must be between 0.0 and 1.0")
     if not 0.0 <= background_alpha <= 1.0:
         raise ValueError("background_alpha value must be between 0.0 and 1.0")
-    
+
     # Get or create draft
     draft_id, script = get_or_create_draft(
         draft_id=draft_id,
@@ -152,8 +154,8 @@ def add_text_impl(
         rgb_color = hex_to_rgb(font_color)
         rgb_border_color = hex_to_rgb(border_color)
     except ValueError as e:
-        raise ValueError(f"Color parameter error: {str(e)}")
-    
+        raise ValueError(f"Color parameter error: {e!s}")
+
     # Create text_border
     text_border = None
     if border_width > 0:
@@ -162,7 +164,7 @@ def add_text_impl(
             color=rgb_border_color,
             width=border_width
         )
-    
+
     # Create text_background
     text_background = None
     if background_alpha > 0:
@@ -176,7 +178,7 @@ def add_text_impl(
             horizontal_offset=background_horizontal_offset,
             vertical_offset=background_vertical_offset
         )
-    
+
     # 创建text_shadow (阴影)
     text_shadow = None
     if shadow_enabled:
@@ -196,14 +198,14 @@ def add_text_impl(
             effect_id=bubble_effect_id,
             resource_id=bubble_resource_id
         )
-    
+
     # Create text effect
     text_effect = None
     if effect_effect_id:
         text_effect = TextEffect(
             effect_id=effect_effect_id
         )
-    
+
     # Convert ratio to pixel value
     pixel_fixed_width = -1
     pixel_fixed_height = -1
@@ -211,7 +213,7 @@ def add_text_impl(
         pixel_fixed_width = int(fixed_width * script.width)
     if fixed_height > 0:
         pixel_fixed_height = int(fixed_height * script.height)
-    
+
     # Create text segment (using configurable parameters)
     text_segment = draft.Text_segment(
         text,
@@ -241,7 +243,7 @@ def add_text_impl(
             # 验证范围有效性
             if style_range.start < 0 or style_range.end > len(text) or style_range.start >= style_range.end:
                 raise ValueError(f"无效的文本范围: [{style_range.start}, {style_range.end}), 文本长度: {len(text)}")
-            
+
             # 应用样式到特定文本范围
             text_segment.add_text_style(style_range)
 

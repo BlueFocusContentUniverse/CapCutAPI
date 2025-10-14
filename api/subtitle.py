@@ -1,45 +1,44 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 
-from add_subtitle_impl import add_subtitle_impl
+from services.add_subtitle_impl import add_subtitle_impl
+
+bp = Blueprint("subtitle", __name__)
 
 
-bp = Blueprint('subtitle', __name__)
-
-
-@bp.route('/add_subtitle', methods=['POST'])
+@bp.route("/add_subtitle", methods=["POST"])
 def add_subtitle():
     data = request.get_json()
 
-    srt = data.get('srt')
-    draft_id = data.get('draft_id')
-    time_offset = data.get('time_offset', 0.0)
+    srt = data.get("srt")
+    draft_id = data.get("draft_id")
+    time_offset = data.get("time_offset", 0.0)
 
-    font = data.get('font', "思源粗宋")
-    font_size = data.get('font_size', 5.0)
-    bold = data.get('bold', False)
-    italic = data.get('italic', False)
-    underline = data.get('underline', False)
-    font_color = data.get('font_color', '#FFFFFF')
-    align = data.get('align', 1)
-    vertical = data.get('vertical', False)
-    alpha = data.get('alpha', 1)
+    font = data.get("font", "思源粗宋")
+    font_size = data.get("font_size", 5.0)
+    bold = data.get("bold", False)
+    italic = data.get("italic", False)
+    underline = data.get("underline", False)
+    font_color = data.get("font_color", "#FFFFFF")
+    align = data.get("align", 1)
+    vertical = data.get("vertical", False)
+    alpha = data.get("alpha", 1)
 
-    border_alpha = data.get('border_alpha', 1.0)
-    border_color = data.get('border_color', '#000000')
-    border_width = data.get('border_width', 0.0)
+    border_alpha = data.get("border_alpha", 1.0)
+    border_color = data.get("border_color", "#000000")
+    border_width = data.get("border_width", 0.0)
 
-    background_color = data.get('background_color', '#000000')
-    background_style = data.get('background_style', 0)
-    background_alpha = data.get('background_alpha', 0.0)
+    background_color = data.get("background_color", "#000000")
+    background_style = data.get("background_style", 0)
+    background_alpha = data.get("background_alpha", 0.0)
 
-    transform_x = data.get('transform_x', 0.0)
-    transform_y = data.get('transform_y', -0.8)
-    scale_x = data.get('scale_x', 1.0)
-    scale_y = data.get('scale_y', 1.0)
-    rotation = data.get('rotation', 0.0)
-    track_name = data.get('track_name', 'subtitle')
-    width = data.get('width', 1080)
-    height = data.get('height', 1920)
+    transform_x = data.get("transform_x", 0.0)
+    transform_y = data.get("transform_y", -0.8)
+    scale_x = data.get("scale_x", 1.0)
+    scale_y = data.get("scale_y", 1.0)
+    rotation = data.get("rotation", 0.0)
+    track_name = data.get("track_name", "subtitle")
+    width = data.get("width", 1080)
+    height = data.get("height", 1920)
 
     result = {
         "success": False,
@@ -86,7 +85,7 @@ def add_subtitle():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while processing subtitle: {str(e)}."
+        result["error"] = f"Error occurred while processing subtitle: {e!s}."
         return jsonify(result)
 
 

@@ -1,34 +1,49 @@
 from flask import Blueprint, jsonify
 
-from pyJianYingDraft.metadata import IntroType, OutroType, GroupAnimationType
-from pyJianYingDraft.metadata import CapCutIntroType, CapCutOutroType, CapCutGroupAnimationType
-from pyJianYingDraft.metadata.transition_meta import TransitionType
-from pyJianYingDraft.metadata.capcut_transition_meta import CapCutTransitionType
-from pyJianYingDraft.metadata.mask_meta import MaskType
-from pyJianYingDraft.metadata.capcut_mask_meta import CapCutMaskType
-from pyJianYingDraft.metadata.filter_meta import FilterType
-from pyJianYingDraft.metadata import ToneEffectType, AudioSceneEffectType, SpeechToSongType
-from pyJianYingDraft.metadata.capcut_audio_effect_meta import (
-    CapCutVoiceFiltersEffectType,
-    CapCutVoiceCharactersEffectType,
-    CapCutSpeechToSongEffectType,
+from pyJianYingDraft.metadata import (
+    AudioSceneEffectType,
+    CapCutGroupAnimationType,
+    CapCutIntroType,
+    CapCutOutroType,
+    GroupAnimationType,
+    IntroType,
+    OutroType,
+    SpeechToSongType,
+    TextIntro,
+    TextLoopAnim,
+    TextOutro,
+    ToneEffectType,
 )
-from pyJianYingDraft.metadata.font_meta import FontType
-from pyJianYingDraft.metadata import TextIntro, TextOutro, TextLoopAnim
+from pyJianYingDraft.metadata.capcut_audio_effect_meta import (
+    CapCutSpeechToSongEffectType,
+    CapCutVoiceCharactersEffectType,
+    CapCutVoiceFiltersEffectType,
+)
+from pyJianYingDraft.metadata.capcut_effect_meta import (
+    CapCutVideoCharacterEffectType,
+    CapCutVideoSceneEffectType,
+)
+from pyJianYingDraft.metadata.capcut_mask_meta import CapCutMaskType
 from pyJianYingDraft.metadata.capcut_text_animation_meta import (
     CapCutTextIntro,
-    CapCutTextOutro,
     CapCutTextLoopAnim,
+    CapCutTextOutro,
 )
-from pyJianYingDraft.metadata.video_effect_meta import VideoSceneEffectType, VideoCharacterEffectType
-from pyJianYingDraft.metadata.capcut_effect_meta import CapCutVideoSceneEffectType, CapCutVideoCharacterEffectType
+from pyJianYingDraft.metadata.capcut_transition_meta import CapCutTransitionType
+from pyJianYingDraft.metadata.filter_meta import FilterType
+from pyJianYingDraft.metadata.font_meta import FontType
+from pyJianYingDraft.metadata.mask_meta import MaskType
+from pyJianYingDraft.metadata.transition_meta import TransitionType
+from pyJianYingDraft.metadata.video_effect_meta import (
+    VideoCharacterEffectType,
+    VideoSceneEffectType,
+)
 from settings.local import IS_CAPCUT_ENV
 
+bp = Blueprint("metadata", __name__)
 
-bp = Blueprint('metadata', __name__)
 
-
-@bp.route('/get_intro_animation_types', methods=['GET'])
+@bp.route("/get_intro_animation_types", methods=["GET"])
 def get_intro_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -43,11 +58,11 @@ def get_intro_animation_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting entrance animation types: {str(e)}"
+        result["error"] = f"Error occurred while getting entrance animation types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_outro_animation_types', methods=['GET'])
+@bp.route("/get_outro_animation_types", methods=["GET"])
 def get_outro_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -62,11 +77,11 @@ def get_outro_animation_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting exit animation types: {str(e)}"
+        result["error"] = f"Error occurred while getting exit animation types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_combo_animation_types', methods=['GET'])
+@bp.route("/get_combo_animation_types", methods=["GET"])
 def get_combo_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -81,11 +96,11 @@ def get_combo_animation_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting combo animation types: {str(e)}"
+        result["error"] = f"Error occurred while getting combo animation types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_transition_types', methods=['GET'])
+@bp.route("/get_transition_types", methods=["GET"])
 def get_transition_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -100,11 +115,11 @@ def get_transition_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting transition animation types: {str(e)}"
+        result["error"] = f"Error occurred while getting transition animation types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_mask_types', methods=['GET'])
+@bp.route("/get_mask_types", methods=["GET"])
 def get_mask_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -119,11 +134,11 @@ def get_mask_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting mask types: {str(e)}"
+        result["error"] = f"Error occurred while getting mask types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_filter_types', methods=['GET'])
+@bp.route("/get_filter_types", methods=["GET"])
 def get_filter_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -134,11 +149,11 @@ def get_filter_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting filter types: {str(e)}"
+        result["error"] = f"Error occurred while getting filter types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_audio_effect_types', methods=['GET'])
+@bp.route("/get_audio_effect_types", methods=["GET"])
 def get_audio_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -213,11 +228,11 @@ def get_audio_effect_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting audio effect types: {str(e)}"
+        result["error"] = f"Error occurred while getting audio effect types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_font_types', methods=['GET'])
+@bp.route("/get_font_types", methods=["GET"])
 def get_font_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -228,11 +243,11 @@ def get_font_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting font types: {str(e)}"
+        result["error"] = f"Error occurred while getting font types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_text_intro_types', methods=['GET'])
+@bp.route("/get_text_intro_types", methods=["GET"])
 def get_text_intro_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -247,11 +262,11 @@ def get_text_intro_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting text entrance animation types: {str(e)}"
+        result["error"] = f"Error occurred while getting text entrance animation types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_text_outro_types', methods=['GET'])
+@bp.route("/get_text_outro_types", methods=["GET"])
 def get_text_outro_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -266,11 +281,11 @@ def get_text_outro_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting text exit animation types: {str(e)}"
+        result["error"] = f"Error occurred while getting text exit animation types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_text_loop_anim_types', methods=['GET'])
+@bp.route("/get_text_loop_anim_types", methods=["GET"])
 def get_text_loop_anim_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -285,11 +300,11 @@ def get_text_loop_anim_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting text loop animation types: {str(e)}"
+        result["error"] = f"Error occurred while getting text loop animation types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_video_scene_effect_types', methods=['GET'])
+@bp.route("/get_video_scene_effect_types", methods=["GET"])
 def get_video_scene_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -304,11 +319,11 @@ def get_video_scene_effect_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting scene effect types: {str(e)}"
+        result["error"] = f"Error occurred while getting scene effect types: {e!s}"
         return jsonify(result)
 
 
-@bp.route('/get_video_character_effect_types', methods=['GET'])
+@bp.route("/get_video_character_effect_types", methods=["GET"])
 def get_video_character_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -323,7 +338,7 @@ def get_video_character_effect_types():
         return jsonify(result)
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting character effect types: {str(e)}"
+        result["error"] = f"Error occurred while getting character effect types: {e!s}"
         return jsonify(result)
 
 

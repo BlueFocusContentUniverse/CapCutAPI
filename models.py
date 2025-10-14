@@ -4,7 +4,20 @@ ORM models for Draft and VideoTask.
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, LargeBinary, Text, DateTime, Float, Enum as SAEnum, Boolean
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 
 from db import Base
@@ -15,6 +28,7 @@ class Draft(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     draft_id = Column(String(255), unique=True, index=True, nullable=False)
+    current_version = Column(Integer, nullable=False, default=1)
 
     # Serialized Script_file object (pickle bytes)
     data = Column(LargeBinary, nullable=False)
@@ -28,7 +42,7 @@ class Draft(Base):
     size_bytes = Column(Integer, nullable=True)
     draft_name = Column(String(255), nullable=True)
     # Resource origin of the draft: 'api' or 'mcp'
-    resource = Column(SAEnum('api', 'mcp', name='draft_resource'), nullable=True)
+    resource = Column(SAEnum("api", "mcp", name="draft_resource"), nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),
@@ -45,6 +59,35 @@ class Draft(Base):
 
     # Soft delete flag
     is_deleted = Column(Boolean, nullable=False, default=False, index=True)
+
+
+class DraftVersion(Base):
+    __tablename__ = "draft_versions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    draft_id = Column(String(255), index=True, nullable=False)
+    version = Column(Integer, nullable=False)
+
+    data = Column(LargeBinary, nullable=False)
+
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    duration = Column(Integer, nullable=True)
+    fps = Column(Float, nullable=True)
+    script_version = Column(String(64), nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    draft_name = Column(String(255), nullable=True)
+    resource = Column(SAEnum("api", "mcp", name="draft_resource"), nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("draft_id", "version", name="uq_draft_versions_draft_id_version"),
+    )
 
 
 class VideoTask(Base):

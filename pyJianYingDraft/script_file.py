@@ -285,6 +285,50 @@ class Script_file:
         self.tracks[track_name] = Track(track_type, track_name, render_index, mute)
         return self
 
+    def delete_track(self, track_name: str) -> "Script_file":
+        """Delete a track by name from the Script_file
+
+        Args:
+            track_name (str): Name of the track to delete
+
+        Returns:
+            Script_file: Self for method chaining
+
+        Raises:
+            NameError: If no track with the given name exists
+        """
+        # Check if track exists in regular tracks
+        if track_name in self.tracks:
+            del self.tracks[track_name]
+            # Recalculate total duration after deletion
+            self._update_duration()
+            return self
+
+        # Check if track exists in imported tracks
+        for i, track in enumerate(self.imported_tracks):
+            if track.name == track_name:
+                del self.imported_tracks[i]
+                # Recalculate total duration after deletion
+                self._update_duration()
+                return self
+
+        # Track not found
+        raise NameError("不存在名为 '%s' 的轨道" % track_name)
+
+    def _update_duration(self) -> None:
+        """Recalculate the total duration based on all tracks"""
+        max_duration = 0
+
+        # Check duration from regular tracks
+        for track in self.tracks.values():
+            max_duration = max(max_duration, track.end_time)
+
+        # Check duration from imported tracks
+        for track in self.imported_tracks:
+            max_duration = max(max_duration, track.end_time)
+
+        self.duration = max_duration
+
     def get_track(self, segment_type: Type[Base_segment], track_name: Optional[str]) -> Track:
         # 指定轨道名称
         if track_name is not None:
@@ -694,7 +738,7 @@ class Script_file:
 
         assert len(material_ids) == 0, "未找到以下素材: %s" % material_ids
 
-        # 更新总时长
+        # 更新总时长duplicate_as_template
         self.duration = max(self.duration, track.end_time)
 
         return self

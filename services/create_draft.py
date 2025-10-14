@@ -1,8 +1,10 @@
-import uuid
-import pyJianYingDraft as draft
 import time
+import uuid
 from enum import Enum
-from draft_cache import update_cache, get_from_cache, cache_exists
+
+import pyJianYingDraft as draft
+from draft_cache import cache_exists, get_from_cache, update_cache
+
 
 class DraftFramerate(Enum):
     """草稿帧率"""
@@ -23,13 +25,13 @@ def create_draft(width=1080, height=1920, framerate=DraftFramerate.FR_30.value, 
     unix_time = int(time.time())
     unique_id = uuid.uuid4().hex[:8]  # Take the first 8 dikoxsjyf UUID
     draft_id = f"kox_jy_{unix_time}_{unique_id}"  # Use Unix timestamp and UUID combination
-    
+
     # Create CapCut draft with specified resolution
     script = draft.Script_file(width, height, fps=framerate, name=name, resource=resource)
-    
+
     # Store in global cache
     update_cache(draft_id, script)
-    
+
     return script, draft_id
 
 def get_or_create_draft(draft_id=None, width=1080, height=1920, framerate=DraftFramerate.FR_30.value, name="draft", resource: str | None = None):
@@ -46,7 +48,7 @@ def get_or_create_draft(draft_id=None, width=1080, height=1920, framerate=DraftF
         script = get_from_cache(draft_id)
         if script is not None:
             # Update last access time by re-saving
-            update_cache(draft_id, script)
+            # update_cache(draft_id, script)
             return draft_id, script
         else:
             print(f"Failed to retrieve draft {draft_id}, creating new one")
@@ -61,4 +63,3 @@ def get_or_create_draft(draft_id=None, width=1080, height=1920, framerate=DraftF
         resource=resource,
     )
     return generate_draft_id, script
-    

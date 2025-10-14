@@ -5,11 +5,11 @@ CapCut API MCP Server (Complete Version)
 完整版本的MCP服务器，集成所有CapCut API接口
 """
 
-import sys
-import os
-import traceback
-import io
 import contextlib
+import io
+import os
+import sys
+import traceback
 from typing import Any, Dict
 
 # 添加项目根目录到Python路径
@@ -17,12 +17,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 导入CapCut API功能
 try:
-    from add_audio_track import add_audio_track
-    from add_image_impl import add_image_impl
-    from add_subtitle_impl import add_subtitle_impl
-    from add_sticker_impl import add_sticker_impl
-    from add_video_keyframe_impl import add_video_keyframe_impl
-    from pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
+    from pyJianYingDraft.text_segment import Text_border, Text_style, TextStyleRange
+    from services.add_audio_track import add_audio_track
+    from services.add_image_impl import add_image_impl
+    from services.add_sticker_impl import add_sticker_impl
+    from services.add_subtitle_impl import add_subtitle_impl
+    from services.add_video_keyframe_impl import add_video_keyframe_impl
     from util import hex_to_rgb
     CAPCUT_AVAILABLE = True
 except ImportError as e:
@@ -378,7 +378,7 @@ def convert_text_styles(text_styles_data):
     """将字典格式的text_styles转换为TextStyleRange对象列表"""
     if not text_styles_data:
         return None
-    
+
     try:
         text_style_ranges = []
         for style_dict in text_styles_data:
@@ -429,12 +429,12 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """执行具体的工具"""
     try:
         print(f"[DEBUG] Executing tool: {tool_name} with args: {arguments}", file=sys.stderr)
-        
+
         if not CAPCUT_AVAILABLE:
             return {"success": False, "error": "CapCut modules not available"}
-        
+
         # 捕获标准输出，防止调试信息干扰
-        with capture_stdout():                          
+        with capture_stdout():
             if tool_name == "add_audio":
                 # 将 effect_type/effect_params 映射为实现所需的 sound_effects
                 effect_type = arguments.pop("effect_type", None)
@@ -449,7 +449,7 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                     else:
                         arguments["sound_effects"] = [(effect_type, effect_params)]
                 result = add_audio_track(**arguments)
-                
+
             elif tool_name == "add_image":
                 result = add_image_impl(**arguments)
 
@@ -458,21 +458,21 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                 if "srt" in arguments and "srt_path" not in arguments:
                     arguments["srt_path"] = arguments.pop("srt")
                 result = add_subtitle_impl(**arguments)
-                
+
             elif tool_name == "add_sticker":
                 result = add_sticker_impl(**arguments)
-                
+
             elif tool_name == "add_video_keyframe":
                 result = add_video_keyframe_impl(**arguments)
 
             else:
                 return {"success": False, "error": f"Unknown tool: {tool_name}"}
-        
+
         return {
             "success": True,
             "result": result
         }
-        
+
     except Exception as e:
         print(f"[ERROR] Tool execution error: {e}", file=sys.stderr)
         print(f"[ERROR] Traceback: {traceback.format_exc()}", file=sys.stderr)

@@ -1,32 +1,31 @@
-from flask import Blueprint, request, jsonify
 import requests
+from flask import Blueprint, jsonify, request
 
-from add_sticker_impl import add_sticker_impl
+from services.add_sticker_impl import add_sticker_impl
+
+bp = Blueprint("sticker", __name__)
 
 
-bp = Blueprint('sticker', __name__)
-
-
-@bp.route('/add_sticker', methods=['POST'])
+@bp.route("/add_sticker", methods=["POST"])
 def add_sticker():
     data = request.get_json()
 
-    resource_id = data.get('sticker_id')
-    start = data.get('start', 0)
-    end = data.get('end', 5.0)
-    draft_id = data.get('draft_id')
-    transform_y = data.get('transform_y', 0)
-    transform_x = data.get('transform_x', 0)
-    alpha = data.get('alpha', 1.0)
-    flip_horizontal = data.get('flip_horizontal', False)
-    flip_vertical = data.get('flip_vertical', False)
-    rotation = data.get('rotation', 0.0)
-    scale_x = data.get('scale_x', 1.0)
-    scale_y = data.get('scale_y', 1.0)
-    track_name = data.get('track_name', 'sticker_main')
-    relative_index = data.get('relative_index', 0)
-    width = data.get('width', 1080)
-    height = data.get('height', 1920)
+    resource_id = data.get("sticker_id")
+    start = data.get("start", 0)
+    end = data.get("end", 5.0)
+    draft_id = data.get("draft_id")
+    transform_y = data.get("transform_y", 0)
+    transform_x = data.get("transform_x", 0)
+    alpha = data.get("alpha", 1.0)
+    flip_horizontal = data.get("flip_horizontal", False)
+    flip_vertical = data.get("flip_vertical", False)
+    rotation = data.get("rotation", 0.0)
+    scale_x = data.get("scale_x", 1.0)
+    scale_y = data.get("scale_y", 1.0)
+    track_name = data.get("track_name", "sticker_main")
+    relative_index = data.get("relative_index", 0)
+    width = data.get("width", 1080)
+    height = data.get("height", 1920)
 
     result = {
         "success": False,
@@ -63,16 +62,16 @@ def add_sticker():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while adding sticker: {str(e)}. "
+        result["error"] = f"Error occurred while adding sticker: {e!s}. "
         return jsonify(result)
 
 
 
-@bp.route('/search_sticker', methods=['POST'])
+@bp.route("/search_sticker", methods=["POST"])
 def search_sticker():
     data = request.get_json() or {}
 
-    keywords = data.get('keywords')
+    keywords = data.get("keywords")
 
     result = {
         "error": "",
@@ -152,5 +151,5 @@ def search_sticker():
             result["error"] = errmsg or "Search failed"
         return jsonify(result)
     except Exception as e:
-        result["error"] = f"Error occurred while searching sticker: {str(e)}. "
+        result["error"] = f"Error occurred while searching sticker: {e!s}. "
         return jsonify(result)

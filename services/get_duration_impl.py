@@ -1,6 +1,7 @@
-import subprocess
 import json
+import subprocess
 import time
+
 
 def get_video_duration(video_url):
     """
@@ -8,7 +9,7 @@ def get_video_duration(video_url):
     :param video_url: Video URL
     :return: Video duration (seconds)
     """
-    
+
     # Define retry count and wait time for each retry
     max_retries = 3
     retry_delay_seconds = 1 # 1 second interval between retries
@@ -17,41 +18,41 @@ def get_video_duration(video_url):
     for attempt in range(max_retries):
         print(f"Attempting to get video duration (Attempt {attempt + 1}/{max_retries}) ...")
         result = {"success": False, "output": 0, "error": None} # Reset result before each retry
-        
+
         try:
             command = [
-                'ffprobe',
-                '-v', 'error',
-                '-show_entries', 'stream=duration',
-                '-show_entries', 'format=duration',
-                '-print_format', 'json',
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "stream=duration",
+                "-show_entries", "format=duration",
+                "-print_format", "json",
                 video_url
             ]
-            
+
             # Use subprocess.run for more flexible handling of timeout and output
-            process = subprocess.run(command, 
-                                     capture_output=True, 
+            process = subprocess.run(command,
+                                     capture_output=True,
                                      text=True, # Auto decode to text
                                      timeout=timeout_seconds, # Use variable to set timeout
                                      check=True) # Raise CalledProcessError if non-zero exit code
 
             info = json.loads(process.stdout)
-            
+
             # Prioritize getting duration from streams because it's more accurate
-            media_streams = [s for s in info.get('streams', []) if 'duration' in s]
-            
+            media_streams = [s for s in info.get("streams", []) if "duration" in s]
+
             if media_streams:
-                duration = float(media_streams[0]['duration'])
+                duration = float(media_streams[0]["duration"])
                 result["output"] = duration
                 result["success"] = True
             # Otherwise get duration from format information
-            elif 'format' in info and 'duration' in info['format']:
-                duration = float(info['format']['duration'])
+            elif "format" in info and "duration" in info["format"]:
+                duration = float(info["format"]["duration"])
                 result["output"] = duration
                 result["success"] = True
             else:
                 result["error"] = "Audio/video duration information not found."
-            
+
             # If duration is successfully obtained, return result directly without retrying
             if result["success"]:
                 print(f"Successfully obtained duration: {result['output']:.2f} seconds")
@@ -73,10 +74,10 @@ def get_video_duration(video_url):
         except Exception as e:
             result["error"] = f"Unknown error occurred: {e}"
             print(f"Attempt {attempt + 1} failed. Unknown error: {e}")
-        
+
         # Try using remote service to get duration after each local failure
         if not result["success"]:
-            print(f"Local retrieval failed")
+            print("Local retrieval failed")
             # try:
             #     remote_duration = get_duration(video_url)
             #     if remote_duration is not None:
@@ -89,12 +90,12 @@ def get_video_duration(video_url):
             #         print(f"Remote service also unable to get duration (Attempt {attempt + 1})")
             # except Exception as e:
             #     print(f"Remote service failed to get duration (Attempt {attempt + 1}): {e}")
-        
+
         # If current attempt failed and max retries not reached, wait and prepare for next retry
         if not result["success"] and attempt < max_retries - 1:
             print(f"Waiting {retry_delay_seconds} seconds before retrying...")
             time.sleep(retry_delay_seconds)
         elif not result["success"] and attempt == max_retries - 1:
             print(f"Maximum retry count {max_retries} reached, both local and remote services unable to get duration.")
-            
+
     return result # Return the last failure result after all retries fail

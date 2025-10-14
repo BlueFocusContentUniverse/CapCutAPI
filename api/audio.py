@@ -1,29 +1,28 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 
-from add_audio_track import add_audio_track
+from services.add_audio_track import add_audio_track
+
+bp = Blueprint("audio", __name__)
 
 
-bp = Blueprint('audio', __name__)
-
-
-@bp.route('/add_audio', methods=['POST'])
+@bp.route("/add_audio", methods=["POST"])
 def add_audio():
     data = request.get_json()
 
-    draft_folder = data.get('draft_folder')
-    audio_url = data.get('audio_url')
-    start = data.get('start', 0)
-    end = data.get('end', None)
-    draft_id = data.get('draft_id')
-    volume = data.get('volume', 1.0)
-    target_start = data.get('target_start', 0)
-    speed = data.get('speed', 1.0)
-    track_name = data.get('track_name', 'audio_main')
-    duration = data.get('duration', None)
-    effect_type = data.get('effect_type', None)
-    effect_params = data.get('effect_params', None)
-    width = data.get('width', 1080)
-    height = data.get('height', 1920)
+    draft_folder = data.get("draft_folder")
+    audio_url = data.get("audio_url")
+    start = data.get("start", 0)
+    end = data.get("end", None)
+    draft_id = data.get("draft_id")
+    volume = data.get("volume", 1.0)
+    target_start = data.get("target_start", 0)
+    speed = data.get("speed", 1.0)
+    track_name = data.get("track_name", "audio_main")
+    duration = data.get("duration", None)
+    effect_type = data.get("effect_type", None)
+    effect_params = data.get("effect_params", None)
+    width = data.get("width", 1080)
+    height = data.get("height", 1920)
 
     sound_effects = None
     if effect_type is not None:
@@ -61,7 +60,7 @@ def add_audio():
         return jsonify(result)
 
     except Exception as e:
-        result["error"] = f"Error occurred while processing audio: {str(e)}."
+        result["error"] = f"Error occurred while processing audio: {e!s}."
         return jsonify(result)
 
 
