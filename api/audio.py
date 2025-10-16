@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.add_audio_track import add_audio_track
 
 bp = Blueprint("audio", __name__)
 
 
 @bp.route("/add_audio", methods=["POST"])
+@api_endpoint_logger
 def add_audio():
     data = request.get_json()
 

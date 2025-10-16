@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.add_effect_impl import add_effect_impl
 
 bp = Blueprint("effects", __name__)
 
 
 @bp.route("/add_effect", methods=["POST"])
+@api_endpoint_logger
 def add_effect():
     data = request.get_json()
 

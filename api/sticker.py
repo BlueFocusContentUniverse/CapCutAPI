@@ -1,12 +1,14 @@
 import requests
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.add_sticker_impl import add_sticker_impl
 
 bp = Blueprint("sticker", __name__)
 
 
 @bp.route("/add_sticker", methods=["POST"])
+@api_endpoint_logger
 def add_sticker():
     data = request.get_json()
 
@@ -68,6 +70,7 @@ def add_sticker():
 
 
 @bp.route("/search_sticker", methods=["POST"])
+@api_endpoint_logger
 def search_sticker():
     data = request.get_json() or {}
 

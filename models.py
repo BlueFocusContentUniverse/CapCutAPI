@@ -3,6 +3,7 @@ ORM models for Draft and VideoTask.
 """
 
 from datetime import datetime, timezone
+from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -90,6 +91,12 @@ class DraftVersion(Base):
     )
 
 
+class VideoTaskStatus(Enum):
+    INITIALIZED = "initialized"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
 class VideoTask(Base):
     __tablename__ = "video_tasks"
 
@@ -101,6 +108,7 @@ class VideoTask(Base):
 
     # status: initialized, processing, completed, failed
     status = Column(String(64), index=True, nullable=False, default="initialized")
+    render_status = Column(SAEnum(VideoTaskStatus, name="video_task_status"), index=True, nullable=False, default=VideoTaskStatus.INITIALIZED)
     progress = Column(Integer, nullable=True)
     message = Column(Text, nullable=True)
     draft_url = Column(Text, nullable=True)

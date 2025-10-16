@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.add_image_impl import add_image_impl
 
 bp = Blueprint("image", __name__)
 
 
 @bp.route("/add_image", methods=["POST"])
+@api_endpoint_logger
 def add_image():
     data = request.get_json()
 

@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 import pyJianYingDraft as draft
 from draft_cache import update_cache
+from logging_utils import service_logger
 from pyJianYingDraft import Clip_settings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
 from util import is_windows_path, url_to_hash
@@ -11,6 +12,7 @@ from util import is_windows_path, url_to_hash
 from .create_draft import get_or_create_draft
 
 
+@service_logger
 def add_video_track(
     video_url: str,
     draft_folder: Optional[str] = None,

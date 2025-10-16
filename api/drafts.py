@@ -4,6 +4,7 @@ import os
 
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.create_draft import DraftFramerate, create_draft
 from services.save_draft_impl import (
     query_script_impl,
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @bp.route("/create_draft", methods=["POST"])
+@api_endpoint_logger
 def create_draft_service():
     data = request.get_json()
 
@@ -47,6 +49,7 @@ def create_draft_service():
 
 
 @bp.route("/query_script", methods=["POST"])
+@api_endpoint_logger
 def query_script():
     data = request.get_json()
 
@@ -82,6 +85,7 @@ def query_script():
 
 
 @bp.route("/save_draft", methods=["POST"])
+@api_endpoint_logger
 def save_draft():
     data = request.get_json()
 
@@ -111,6 +115,7 @@ def save_draft():
 
 
 @bp.route("/archive_draft", methods=["POST"])
+@api_endpoint_logger
 def archive_draft():
     data = request.get_json() or {}
 
@@ -173,6 +178,7 @@ def archive_draft():
 
 
 @bp.route("/query_draft_status", methods=["POST"])
+@api_endpoint_logger
 def query_draft_status_api():
     data = request.get_json()
 
@@ -205,6 +211,7 @@ def query_draft_status_api():
 
 
 @bp.route("/generate_draft_url", methods=["POST"])
+@api_endpoint_logger
 def generate_draft_url():
     from settings.local import DRAFT_DOMAIN, PREVIEW_ROUTER
 

@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.add_subtitle_impl import add_subtitle_impl
 
 bp = Blueprint("subtitle", __name__)
 
 
 @bp.route("/add_subtitle", methods=["POST"])
+@api_endpoint_logger
 def add_subtitle():
     data = request.get_json()
 

@@ -11,6 +11,7 @@ import os
 from flask import Blueprint, jsonify, request
 
 from draft_cache import get_cache_stats, remove_from_cache
+from logging_utils import api_endpoint_logger
 from postgres_draft_storage import get_postgres_storage
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,7 @@ def _require_authentication():
     return jsonify({"success": False, "error": "Unauthorized: invalid token"}), 401
 
 @draft_bp.route("/list", methods=["GET"])
+@api_endpoint_logger
 def list_drafts():
     """List all stored drafts with metadata"""
     try:
@@ -122,6 +124,7 @@ def list_drafts():
         }), 500
 
 @draft_bp.route("/<draft_id>", methods=["GET"])
+@api_endpoint_logger
 def get_draft_info(draft_id):
     """Get draft metadata without loading the full object"""
     try:
@@ -147,6 +150,7 @@ def get_draft_info(draft_id):
 
 
 @draft_bp.route("/<draft_id>/content", methods=["GET"])
+@api_endpoint_logger
 def get_draft_content(draft_id):
     """Fetch full draft content JSON stored in Postgres."""
     try:
@@ -178,6 +182,7 @@ def get_draft_content(draft_id):
         }), 500
 
 @draft_bp.route("/<draft_id>", methods=["DELETE"])
+@api_endpoint_logger
 def delete_draft(draft_id):
     """Delete a draft from cache and soft-delete from database"""
     try:
@@ -205,6 +210,7 @@ def delete_draft(draft_id):
         }), 500
 
 @draft_bp.route("/<draft_id>/exists", methods=["GET"])
+@api_endpoint_logger
 def check_draft_exists(draft_id):
     """Check if a draft exists in storage"""
     try:
@@ -224,6 +230,7 @@ def check_draft_exists(draft_id):
         }), 500
 
 @draft_bp.route("/stats", methods=["GET"])
+@api_endpoint_logger
 def get_storage_stats():
     """Get storage statistics"""
     try:
@@ -240,6 +247,7 @@ def get_storage_stats():
         }), 500
 
 @draft_bp.route("/cleanup", methods=["POST"])
+@api_endpoint_logger
 def cleanup_expired():
     """Clean up expired or orphaned drafts"""
     try:
@@ -259,6 +267,7 @@ def cleanup_expired():
         }), 500
 
 @draft_bp.route("/search", methods=["GET"])
+@api_endpoint_logger
 def search_drafts():
     """Search drafts by criteria"""
     try:

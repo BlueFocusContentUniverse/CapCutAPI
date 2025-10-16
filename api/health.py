@@ -4,11 +4,13 @@ from flask import Blueprint, jsonify
 from sqlalchemy import text
 
 from db import get_engine
+from logging_utils import api_endpoint_logger
 
 bp = Blueprint("health", __name__)
 
 
 @bp.route("/health", methods=["GET"])
+@api_endpoint_logger
 def health_check():
     try:
         db_status = "unknown"

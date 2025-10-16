@@ -1,23 +1,24 @@
-from flask import Blueprint, request, jsonify
 import logging
 from typing import Any, Dict
 
+from flask import Blueprint, jsonify, request
 from sqlalchemy import select
 
 from db import get_session
+from logging_utils import api_endpoint_logger
 from models import VideoTask
 
-
 logger = logging.getLogger(__name__)
-bp = Blueprint('tasks', __name__)
+bp = Blueprint("tasks", __name__)
 
 
-@bp.route('/tasks', methods=['POST'])
+@bp.route("/tasks", methods=["POST"])
+@api_endpoint_logger
 def create_task():
     data = request.get_json() or {}
-    task_id = data.get('task_id')
-    draft_id = data.get('draft_id')
-    extra = data.get('extra')
+    task_id = data.get("task_id")
+    draft_id = data.get("draft_id")
+    extra = data.get("extra")
 
     if not task_id or not draft_id:
         return jsonify({"success": False, "error": "task_id and draft_id are required"}), 400
@@ -27,13 +28,14 @@ def create_task():
         if existing:
             return jsonify({"success": True, "output": {"task_id": existing.task_id}})
 
-        row = VideoTask(task_id=task_id, draft_id=draft_id, status='initialized', extra=extra)
+        row = VideoTask(task_id=task_id, draft_id=draft_id, status="initialized", extra=extra)
         session.add(row)
 
     return jsonify({"success": True, "output": {"task_id": task_id}})
 
 
-@bp.route('/tasks/<task_id>', methods=['GET'])
+@bp.route("/tasks/<task_id>", methods=["GET"])
+@api_endpoint_logger
 def get_task(task_id: str):
     with get_session() as session:
         row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
@@ -53,7 +55,8 @@ def get_task(task_id: str):
         })
 
 
-@bp.route('/tasks/<task_id>', methods=['PATCH'])
+@bp.route("/tasks/<task_id>", methods=["PATCH"])
+@api_endpoint_logger
 def update_task(task_id: str):
     data: Dict[str, Any] = request.get_json() or {}
     with get_session() as session:
@@ -61,7 +64,7 @@ def update_task(task_id: str):
         if not row:
             return jsonify({"success": False, "error": "not_found"}), 404
 
-        allowed = {'status', 'progress', 'message', 'draft_url', 'extra'}
+        allowed = {"status", "progress", "message", "draft_url", "extra"}
         for key, value in data.items():
             if key in allowed:
                 setattr(row, key, value)
@@ -69,7 +72,8 @@ def update_task(task_id: str):
     return jsonify({"success": True, "output": {"task_id": task_id}})
 
 
-@bp.route('/tasks/by_draft/<draft_id>', methods=['PATCH'])
+@bp.route("/tasks/by_draft/<draft_id>", methods=["PATCH"])
+@api_endpoint_logger
 def update_tasks_by_draft(draft_id: str):
     data: Dict[str, Any] = request.get_json() or {}
     with get_session() as session:
@@ -77,7 +81,7 @@ def update_tasks_by_draft(draft_id: str):
         if not rows:
             return jsonify({"success": False, "error": "not_found"}), 404
 
-        allowed = {'status', 'progress', 'message', 'draft_url', 'extra'}
+        allowed = {"status", "progress", "message", "draft_url", "extra"}
         updates = {k: v for k, v in data.items() if k in allowed}
         if not updates:
             return jsonify({"success": False, "error": "no_valid_fields"}), 400

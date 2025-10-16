@@ -6,9 +6,13 @@ from flask import Flask
 
 # Load environment variables from .env file BEFORE importing modules that may touch DB
 env_file = Path(__file__).parent / ".env"
+
+# Setup logging before anything else - must import after env setup
+from logging_utils import setup_logging  # noqa: E402
+
+setup_logging(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
-if not logging.getLogger().hasHandlers():
-    logging.basicConfig(level=logging.INFO)
 if env_file.exists():
     load_dotenv(env_file)
     logger.info(f"Loaded environment from: {env_file}")

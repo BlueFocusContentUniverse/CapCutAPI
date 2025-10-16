@@ -1,16 +1,18 @@
-import shutil
-import re
-import os
-import hashlib
 import functools
+import hashlib
+import os
+import re
+import shutil
 import time
-from settings.local import DRAFT_DOMAIN, PREVIEW_ROUTER, IS_CAPCUT_ENV
+
+from settings.local import DRAFT_DOMAIN, IS_CAPCUT_ENV, PREVIEW_ROUTER
+
 
 def hex_to_rgb(hex_color: str) -> tuple:
     """Convert hexadecimal color code to RGB tuple (range 0.0-1.0)"""
-    hex_color = hex_color.lstrip('#')
+    hex_color = hex_color.lstrip("#")
     if len(hex_color) == 3:
-        hex_color = ''.join([c*2 for c in hex_color])  # Handle shorthand form (e.g. #fff)
+        hex_color = "".join([c*2 for c in hex_color])  # Handle shorthand form (e.g. #fff)
     try:
         r = int(hex_color[0:2], 16) / 255.0
         g = int(hex_color[2:4], 16) / 255.0
@@ -23,7 +25,7 @@ def hex_to_rgb(hex_color: str) -> tuple:
 def is_windows_path(path):
     """Detect if the path is Windows style"""
     # Check if it starts with a drive letter (e.g. C:\) or contains Windows style separators
-    return re.match(r'^[a-zA-Z]:\\|\\\\', path) is not None
+    return re.match(r"^[a-zA-Z]:\\|\\\\", path) is not None
 
 
 def zip_draft(draft_id):
@@ -32,7 +34,7 @@ def zip_draft(draft_id):
     zip_dir = os.path.join(current_dir, "tmp/zip")
     os.makedirs(zip_dir, exist_ok=True)
     zip_path = os.path.join(zip_dir, f"{draft_id}.zip")
-    shutil.make_archive(os.path.join(zip_dir, draft_id), 'zip', os.path.join(current_dir, draft_id))
+    shutil.make_archive(os.path.join(zip_dir, draft_id), "zip", os.path.join(current_dir, draft_id))
     return zip_path
 
 def url_to_hash(url, length=16):
@@ -47,11 +49,11 @@ def url_to_hash(url, length=16):
     - Hash string (e.g.: 3a7f9e7d9a1b4e2d)
     """
     # Ensure URL is bytes type
-    url_bytes = url.encode('utf-8')
-    
+    url_bytes = url.encode("utf-8")
+
     # Use SHA-256 to generate hash (secure and highly unique)
     hash_object = hashlib.sha256(url_bytes)
-    
+
     # Truncate to specified length of hexadecimal string
     return hash_object.hexdigest()[:length]
 

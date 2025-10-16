@@ -20,6 +20,7 @@ from mcp.server.fastmcp import FastMCP
 
 from api.metadata import get_audio_effect_types, get_font_types
 from db import init_db
+from logging_utils import mcp_tool_logger
 
 # pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
@@ -45,12 +46,14 @@ else:
 
 
 # Manual tool handlers with flattened parameters (required first)
+@mcp_tool_logger("create_draft")
 def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 30.0, name: str = "mcp_draft", resource: str = "mcp") -> Dict[str, Any]:
-    draft_id, script =  get_or_create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
+    draft_id, _ =  get_or_create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
     return {
         "draft_id": draft_id,
     }
 
+@mcp_tool_logger("add_video")
 def tool_add_video(
     video_url: str,
     draft_id: str,
@@ -105,6 +108,7 @@ def tool_add_video(
     )
 
 
+@mcp_tool_logger("add_audio")
 def tool_add_audio(
     audio_url: str,
     draft_id: str,
@@ -133,6 +137,7 @@ def tool_add_audio(
     return execute_tool("add_audio", arguments)
 
 
+@mcp_tool_logger("add_image")
 def tool_add_image(
     image_url: str,
     draft_id: str,
@@ -171,6 +176,7 @@ def tool_add_image(
     return execute_tool("add_image", arguments)
 
 
+@mcp_tool_logger("add_text")
 def tool_add_text(
     text: str,
     start: float,
@@ -233,6 +239,7 @@ def tool_add_text(
     )
 
 
+@mcp_tool_logger("add_subtitle")
 def tool_add_subtitle(
     srt_path: str,
     draft_id: str,
@@ -277,6 +284,7 @@ def tool_add_subtitle(
     return execute_tool("add_subtitle", arguments)
 
 
+@mcp_tool_logger("add_effect")
 def tool_add_effect(
     effect_type: str,
     draft_id: str,
@@ -301,6 +309,7 @@ def tool_add_effect(
     )
 
 
+@mcp_tool_logger("add_sticker")
 def tool_add_sticker(
     resource_id: str,
     start: float,
@@ -335,6 +344,7 @@ def tool_add_sticker(
     return execute_tool("add_sticker", arguments)
 
 
+@mcp_tool_logger("add_video_keyframe")
 def tool_add_video_keyframe(
     draft_id: str,
     track_name: str = "main",
@@ -359,6 +369,7 @@ def tool_add_video_keyframe(
     return execute_tool("add_video_keyframe", arguments)
 
 
+@mcp_tool_logger("generate_video")
 def tool_generate_video(
     draft_id: str,
     resolution: str = "1080p",
@@ -375,6 +386,7 @@ def tool_generate_video(
     return generate_video_impl(**arguments)
 
 
+@mcp_tool_logger("get_font_types")
 def tool_get_font_types() -> Dict[str, Any]:
     """Fetch available font types using the Flask view function."""
     app = Flask(__name__)
@@ -386,6 +398,7 @@ def tool_get_font_types() -> Dict[str, Any]:
             return {"success": False, "error": f"Failed to get font types: {e}"}
 
 
+@mcp_tool_logger("get_audio_effect_types")
 def tool_get_audio_effect_types() -> Dict[str, Any]:
     """Fetch available audio effect types using the Flask view function."""
     app = Flask(__name__)
@@ -397,16 +410,19 @@ def tool_get_audio_effect_types() -> Dict[str, Any]:
             return {"success": False, "error": f"Failed to get audio effect types: {e}"}
 
 
+@mcp_tool_logger("get_tracks")
 def tool_get_tracks(draft_id: str) -> Dict[str, Any]:
     """Get all tracks from a draft."""
     return get_tracks(draft_id=draft_id)
 
 
+@mcp_tool_logger("delete_track")
 def tool_delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     """Delete a track from a draft."""
     return delete_track(draft_id=draft_id, track_name=track_name)
 
 
+@mcp_tool_logger("get_track_details")
 def tool_get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     """Get detailed information about a specific track."""
     return get_track_details(draft_id=draft_id, track_name=track_name)

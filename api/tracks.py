@@ -5,6 +5,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.track_management import delete_track, get_track_details, get_tracks
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ bp = Blueprint("tracks", __name__)
 
 
 @bp.route("/get_tracks", methods=["POST"])
+@api_endpoint_logger
 def get_tracks_api():
     """
     Get all tracks from a draft
@@ -61,6 +63,7 @@ def get_tracks_api():
 
 
 @bp.route("/delete_track", methods=["POST"])
+@api_endpoint_logger
 def delete_track_api():
     """
     Delete a track from a draft by name
@@ -116,6 +119,7 @@ def delete_track_api():
 
 
 @bp.route("/get_track_details", methods=["POST"])
+@api_endpoint_logger
 def get_track_details_api():
     """
     Get detailed information about a specific track

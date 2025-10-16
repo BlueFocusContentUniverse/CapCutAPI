@@ -2,6 +2,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
+from logging_utils import api_endpoint_logger
 from services.add_video_keyframe_impl import add_video_keyframe_impl
 from services.add_video_track import add_video_track
 
@@ -10,6 +11,7 @@ bp = Blueprint("video", __name__)
 
 
 @bp.route("/add_video", methods=["POST"])
+@api_endpoint_logger
 def add_video():
     data = request.get_json()
 
@@ -117,6 +119,7 @@ def add_video():
 
 
 @bp.route("/add_video_keyframe", methods=["POST"])
+@api_endpoint_logger
 def add_video_keyframe():
     data = request.get_json()
 

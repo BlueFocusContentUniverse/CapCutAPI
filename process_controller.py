@@ -1,11 +1,9 @@
-import os
-import sys
-import time
 import logging
+import os
+import time
 from typing import Iterable, List, Optional
 
 import psutil
-
 
 logger = logging.getLogger("flask_video_generator")
 if not logger.handlers:

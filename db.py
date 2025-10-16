@@ -1,6 +1,20 @@
 """
 SQLAlchemy database setup for PostgreSQL.
 Reads DATABASE_URL from environment, provides Base, Session and init_db.
+
+Environment Variables for Database Configuration:
+- DATABASE_URL: Complete database connection string (overrides individual settings)
+- POSTGRES_USER: PostgreSQL username (default: postgres)
+- POSTGRES_PASSWORD: PostgreSQL password (default: postgres)
+- POSTGRES_HOST: PostgreSQL host (default: localhost)
+- POSTGRES_PORT: PostgreSQL port (default: 5432)
+- POSTGRES_DB: PostgreSQL database name (default: kox)
+
+Connection Pool Configuration (environment variables):
+- DB_POOL_SIZE: Number of persistent connections in pool (default: 10)
+- DB_MAX_OVERFLOW: Additional connections beyond pool_size (default: 20)
+- DB_POOL_RECYCLE: Recycle connections after N seconds (default: 3600)
+- DB_POOL_TIMEOUT: Timeout for getting connection from pool (default: 30)
 """
 
 import logging
@@ -16,6 +30,10 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 logger = logging.getLogger(__name__)
 Base = declarative_base()
+
+# Global engine instance - created once and reused
+_engine: Engine | None = None
+_SessionLocal: sessionmaker | None = None
 
 
 # Load .env early so any importers that touch DB use the correct settings
@@ -43,16 +61,48 @@ def _database_url() -> str:
     return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
 
 
+def _get_pool_config() -> dict:
+    """Get connection pool configuration from environment variables."""
+    return {
+        'pool_size': int(os.getenv('DB_POOL_SIZE', '10')),  # Number of persistent connections
+        'max_overflow': int(os.getenv('DB_MAX_OVERFLOW', '20')),  # Additional connections beyond pool_size
+        'pool_recycle': int(os.getenv('DB_POOL_RECYCLE', '3600')),  # Recycle connections after 1 hour (in seconds)
+        'pool_timeout': int(os.getenv('DB_POOL_TIMEOUT', '30')),  # Timeout for getting connection from pool
+        'pool_pre_ping': True,  # Verify connections before use
+    }
+
+
 def get_engine(echo: bool = False) -> Engine:
-    dbEngine = create_engine(_database_url(), echo=echo, pool_pre_ping=True, future=True)
-    logger.info(f"Engine: {dbEngine}")
-    return dbEngine
+    """Get or create the singleton database engine with proper connection pooling."""
+    global _engine
+    if _engine is None:
+        pool_config = _get_pool_config()
+        logger.info(f"Creating database engine with pool config: {pool_config}")
+
+        _engine = create_engine(
+            _database_url(),
+            echo=echo,
+            future=True,
+            **pool_config
+        )
+        logger.info(f"Created engine: {_engine}")
+    return _engine
+
+
+def get_sessionmaker() -> sessionmaker:
+    """Get or create the singleton sessionmaker."""
+    global _SessionLocal
+    if _SessionLocal is None:
+        engine = get_engine()
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        logger.info("Created sessionmaker")
+    return _SessionLocal
 
 
 @contextmanager
 def get_session() -> Iterator[Session]:
-    # Lazily create a sessionmaker bound to the current engine/env
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+    """Get a database session with proper connection management."""
+    SessionLocal = get_sessionmaker()
     session: Session = SessionLocal()
     try:
         yield session
@@ -67,7 +117,7 @@ def get_session() -> Iterator[Session]:
 def init_db(engine: Engine | None = None) -> None:
     """Create tables if they do not exist."""
     eng = engine or get_engine()
-    logger.info(f"Engine: {eng}")
+    logger.info(f"Initializing database with engine: {eng}")
     # Import models to ensure metadata is populated
     from models import Draft, DraftVersion, VideoTask  # noqa: F401
     Base.metadata.create_all(bind=eng)
@@ -75,5 +125,34 @@ def init_db(engine: Engine | None = None) -> None:
     with eng.connect() as conn:
         conn.execute(text("SELECT 1"))
         conn.commit()
+    logger.info("Database initialization completed")
+
+
+def get_pool_status() -> dict:
+    """Get current connection pool status for monitoring."""
+    engine = get_engine()
+    pool = engine.pool
+
+    # Get pool statistics (these are internal SQLAlchemy attributes)
+    status = {
+        'pool_size': getattr(pool, '_pool_size', 'N/A'),
+        'checked_in': len(getattr(pool, '_checked_in', [])),
+        'checked_out': len(getattr(pool, '_checked_out', [])),
+        'overflow': getattr(pool, '_overflow', 0),
+        'invalid': len(getattr(pool, '_invalid', [])),
+    }
+
+    logger.info(f"Pool status: {status}")
+    return status
+
+
+def dispose_engine() -> None:
+    """Dispose of the engine and reset global state. Useful for testing or forced cleanup."""
+    global _engine, _SessionLocal
+    if _engine:
+        logger.info("Disposing database engine")
+        _engine.dispose()
+        _engine = None
+    _SessionLocal = None
 
 

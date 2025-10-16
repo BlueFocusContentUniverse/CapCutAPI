@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 
+from logging_utils import api_endpoint_logger
 from pyJianYingDraft.metadata import (
     AudioSceneEffectType,
     CapCutGroupAnimationType,
@@ -44,6 +45,7 @@ bp = Blueprint("metadata", __name__)
 
 
 @bp.route("/get_intro_animation_types", methods=["GET"])
+@api_endpoint_logger
 def get_intro_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -63,6 +65,7 @@ def get_intro_animation_types():
 
 
 @bp.route("/get_outro_animation_types", methods=["GET"])
+@api_endpoint_logger
 def get_outro_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -82,6 +85,7 @@ def get_outro_animation_types():
 
 
 @bp.route("/get_combo_animation_types", methods=["GET"])
+@api_endpoint_logger
 def get_combo_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -101,6 +105,7 @@ def get_combo_animation_types():
 
 
 @bp.route("/get_transition_types", methods=["GET"])
+@api_endpoint_logger
 def get_transition_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -120,6 +125,7 @@ def get_transition_types():
 
 
 @bp.route("/get_mask_types", methods=["GET"])
+@api_endpoint_logger
 def get_mask_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -139,6 +145,7 @@ def get_mask_types():
 
 
 @bp.route("/get_filter_types", methods=["GET"])
+@api_endpoint_logger
 def get_filter_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -154,6 +161,7 @@ def get_filter_types():
 
 
 @bp.route("/get_audio_effect_types", methods=["GET"])
+@api_endpoint_logger
 def get_audio_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -233,6 +241,7 @@ def get_audio_effect_types():
 
 
 @bp.route("/get_font_types", methods=["GET"])
+@api_endpoint_logger
 def get_font_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -248,6 +257,7 @@ def get_font_types():
 
 
 @bp.route("/get_text_intro_types", methods=["GET"])
+@api_endpoint_logger
 def get_text_intro_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -267,6 +277,7 @@ def get_text_intro_types():
 
 
 @bp.route("/get_text_outro_types", methods=["GET"])
+@api_endpoint_logger
 def get_text_outro_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -286,6 +297,7 @@ def get_text_outro_types():
 
 
 @bp.route("/get_text_loop_anim_types", methods=["GET"])
+@api_endpoint_logger
 def get_text_loop_anim_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -305,6 +317,7 @@ def get_text_loop_anim_types():
 
 
 @bp.route("/get_video_scene_effect_types", methods=["GET"])
+@api_endpoint_logger
 def get_video_scene_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -324,6 +337,7 @@ def get_video_scene_effect_types():
 
 
 @bp.route("/get_video_character_effect_types", methods=["GET"])
+@api_endpoint_logger
 def get_video_character_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:

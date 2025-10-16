@@ -3,18 +3,18 @@ PostgreSQL-backed storage for CapCut draft objects.
 Retains a compatible interface with redis_draft_storage.RedisDraftStorage where practical.
 """
 
-import pickle
 import logging
-from typing import Optional, Dict, Any
+import pickle
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
-import pyJianYingDraft as draft
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
+import pyJianYingDraft as draft
 from db import get_session, init_db
-from models import Draft as DraftModel, DraftVersion as DraftVersionModel
-
+from models import Draft as DraftModel
+from models import DraftVersion as DraftVersionModel
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,14 @@ class PostgresDraftStorage:
                     row = DraftModel(
                         draft_id=draft_id,
                         data=serialized_data,
-                        width=getattr(script_obj, 'width', None),
-                        height=getattr(script_obj, 'height', None),
-                        duration=getattr(script_obj, 'duration', None),
-                        fps=getattr(script_obj, 'fps', None),
-                        version=getattr(script_obj, 'version', '1.0'),
+                        width=getattr(script_obj, "width", None),
+                        height=getattr(script_obj, "height", None),
+                        duration=getattr(script_obj, "duration", None),
+                        fps=getattr(script_obj, "fps", None),
+                        version=getattr(script_obj, "version", "1.0"),
                         size_bytes=len(serialized_data),
-                        draft_name=getattr(script_obj, 'name', None),
-                        resource=getattr(script_obj, 'resource', None),
+                        draft_name=getattr(script_obj, "name", None),
+                        resource=getattr(script_obj, "resource", None),
                         current_version=1,
                         accessed_at=datetime.now(timezone.utc),
                     )
@@ -73,14 +73,14 @@ class PostgresDraftStorage:
 
                     # Update in place; if previously soft-deleted, resurrect it
                     existing.data = serialized_data
-                    existing.width = getattr(script_obj, 'width', None)
-                    existing.height = getattr(script_obj, 'height', None)
-                    existing.duration = getattr(script_obj, 'duration', None)
-                    existing.fps = getattr(script_obj, 'fps', None)
-                    existing.version = getattr(script_obj, 'version', '1.0')
+                    existing.width = getattr(script_obj, "width", None)
+                    existing.height = getattr(script_obj, "height", None)
+                    existing.duration = getattr(script_obj, "duration", None)
+                    existing.fps = getattr(script_obj, "fps", None)
+                    existing.version = getattr(script_obj, "version", "1.0")
                     existing.size_bytes = len(serialized_data)
-                    existing.draft_name = getattr(script_obj, 'name', None)
-                    existing.resource = getattr(script_obj, 'resource', None)
+                    existing.draft_name = getattr(script_obj, "name", None)
+                    existing.resource = getattr(script_obj, "resource", None)
                     existing.is_deleted = False
                     existing.current_version = previous_version + 1
                     existing.accessed_at = datetime.now(timezone.utc)
@@ -185,19 +185,19 @@ class PostgresDraftStorage:
                 if row is None:
                     return None
                 return {
-                    'draft_id': row.draft_id,
-                    'draft_name': row.draft_name,
-                    'resource': row.resource,
-                    'width': row.width,
-                    'height': row.height,
-                    'duration': row.duration,
-                    'fps': row.fps,
-                    'created_at': int(row.created_at.timestamp()),
-                    'updated_at': int(row.updated_at.timestamp()),
-                    'version': row.version,
-                    'current_version': row.current_version,
-                    'size_bytes': row.size_bytes,
-                    'accessed_at': int(row.accessed_at.timestamp()) if row.accessed_at else None,
+                    "draft_id": row.draft_id,
+                    "draft_name": row.draft_name,
+                    "resource": row.resource,
+                    "width": row.width,
+                    "height": row.height,
+                    "duration": row.duration,
+                    "fps": row.fps,
+                    "created_at": int(row.created_at.timestamp()),
+                    "updated_at": int(row.updated_at.timestamp()),
+                    "version": row.version,
+                    "current_version": row.current_version,
+                    "size_bytes": row.size_bytes,
+                    "accessed_at": int(row.accessed_at.timestamp()) if row.accessed_at else None,
                 }
         except Exception as e:
             logger.error(f"Failed to get metadata for draft {draft_id}: {e}")
@@ -213,18 +213,18 @@ class PostgresDraftStorage:
                 results = []
                 for row in rows:
                     results.append({
-                        'draft_id': row.draft_id,
-                        'draft_name': row.draft_name,
-                        'resource': row.resource,
-                        'width': row.width,
-                        'height': row.height,
-                        'duration': row.duration,
-                        'fps': row.fps,
-                        'created_at': int(row.created_at.timestamp()),
-                        'updated_at': int(row.updated_at.timestamp()),
-                        'version': row.version,
-                        'current_version': row.current_version,
-                        'size_bytes': row.size_bytes,
+                        "draft_id": row.draft_id,
+                        "draft_name": row.draft_name,
+                        "resource": row.resource,
+                        "width": row.width,
+                        "height": row.height,
+                        "duration": row.duration,
+                        "fps": row.fps,
+                        "created_at": int(row.created_at.timestamp()),
+                        "updated_at": int(row.updated_at.timestamp()),
+                        "version": row.version,
+                        "current_version": row.current_version,
+                        "size_bytes": row.size_bytes,
                     })
                 return results
         except Exception as e:
@@ -240,8 +240,8 @@ class PostgresDraftStorage:
             with get_session() as session:
                 total = session.execute(select(DraftModel.id)).scalars().all()
                 return {
-                    'total_drafts': len(total),
-                    'backend': 'postgresql'
+                    "total_drafts": len(total),
+                    "backend": "postgresql"
                 }
         except Exception as e:
             logger.error(f"Failed to get storage stats: {e}")
