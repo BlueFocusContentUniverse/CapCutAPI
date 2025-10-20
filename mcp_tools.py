@@ -47,14 +47,106 @@ TOOLS = [
     },
     {
         "name": "add_video",
-        "description": "添加视频素材到草稿时间线。支持素材裁剪、转场效果、蒙版遮罩、背景模糊等高级视频编辑功能。",
+        "description": """添加视频素材到草稿时间线。支持素材裁剪、转场效果、蒙版遮罩、背景模糊等高级视频编辑功能。
+
+【重要】素材裁剪参数组合说明：
+═══════════════════════════════════════════════════════════════
+1️⃣ 基础用法（截取部分片段）：
+   • start=10, end=20, duration=60 → 从60秒视频中截取第10-20秒
+   • start=5, end=15 → 截取第5-15秒（建议同时提供duration以提升性能）
+
+2️⃣ 截取到末尾用法（推荐）：
+   • start=10, end=0, duration=60 → 截取第10秒到末尾（第60秒）✅ 最常用
+   • start=10, duration=60 → 同上（end可省略，默认为0）
+
+3️⃣ 完整播放用法：
+   • duration=60 → 播放完整60秒视频（start和end可省略，默认为0）
+   • start=0, end=0, duration=60 → 同上（显式指定）
+
+【关键约束】
+⚠️  当 end=0 或 end=None 时，必须提供 duration 参数，否则会导致黑屏
+⚠️  start 必须 < end（当end>0时）且 < duration（当提供duration时）
+✅  建议：始终提供 duration 参数以提升性能和避免错误
+
+【错误示例及修复】
+❌ 错误：start=25, end=0, duration=None → 黑屏（duration缺失导致时长计算为负数）
+✅ 修复：start=25, end=0, duration=60.5 → 正确截取第25-60.5秒
+""",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "video_url": {"type": "string", "description": "视频素材文件的URL地址或本地文件路径"},
-                "start": {"type": "number", "default": 0, "description": "【素材裁剪-入点】从原始视频素材的第几秒开始截取。例如：2.5表示从素材的2.5秒位置开始裁剪"},
-                "end": {"type": "number", "default": 0, "description": "【素材裁剪-出点】到原始视频素材的第几秒结束截取。0或负数表示截取到素材末尾。例如：5.0表示裁剪到素材的5秒位置。注意：如果end<=start会导致空片段"},
-                "target_start": {"type": "number", "default": 0, "description": "【时间线位置】该视频片段在成片时间线上的起始时间点（秒）。例如：10.0表示这段视频从成片的第10秒开始播放"},
+                "start": {
+                    "type": "number",
+                    "default": 0,
+                    "description": """【素材裁剪-入点】从原始视频素材的第几秒开始截取（>=0）。
+
+示例：
+  • start=0 → 从视频开头开始
+  • start=2.5 → 从2.5秒位置开始
+  • start=10 → 跳过前10秒
+
+⚠️ 约束：必须 < duration（如已提供）且 < end（如end>0）
+"""
+                },
+                "end": {
+                    "type": "number",
+                    "default": 0,
+                    "description": """【素材裁剪-出点】到原始视频素材的第几秒结束截取。
+
+语义说明：
+  • end=0（默认） → 截取到视频末尾（⚠️ 需提供duration参数）
+  • end=None → 同end=0
+  • end>0 → 截取到指定秒数（例如end=5.0表示截取到第5秒）
+  • end<0 → 非法值，会被视为end=0处理
+
+示例：
+  • start=0, end=5 → 截取前5秒
+  • start=2, end=8 → 截取第2-8秒（共6秒）
+  • start=10, end=0, duration=60 → 截取第10-60秒（共50秒）✅ 推荐用法
+
+⚠️ 约束：
+  • 当end>0时，必须满足 end > start
+  • 当end=0时，必须提供duration参数，否则会导致黑屏
+"""
+                },
+                "duration": {
+                    "type": ["number", "null"],
+                    "default": None,
+                    "description": """【性能优化+容错保障】原始视频素材的总时长（秒）。
+
+作用：
+  1. 性能优化：提前提供可避免重复解析素材，显著提升处理速度
+  2. 计算依据：当end=0时，作为裁剪终点的计算依据（必需）
+  3. 容错保障：防止参数错误导致黑屏
+
+使用建议：
+  ✅ 推荐：始终提供此参数（即使不裁剪）
+  ⚠️  警告：当end=0或end=None时，此参数为必需，否则会导致黑屏
+  ❌ 错误示例：start=10, end=0, duration=None → 黑屏（duration缺失导致负时长）
+  ✅ 正确示例：start=10, end=0, duration=60.5 → 正确截取第10-60.5秒
+
+示例：
+  • duration=60.5 → 视频总时长60.5秒
+  • start=10, end=0, duration=60.5 → 截取第10-60.5秒（共50.5秒）
+  • start=0, duration=60.5 → 播放完整60.5秒视频
+"""
+                },
+                "target_start": {
+                    "type": "number",
+                    "default": 0,
+                    "description": """【时间线位置】该视频片段在成片时间线上的起始时间点（秒）。
+
+示例：
+  • target_start=0 → 成片从第0秒开始播放此片段
+  • target_start=10 → 成片从第10秒开始播放此片段
+  • target_start=25 → 成片从第25秒开始播放此片段
+
+⚠️ 注意：此参数与start不同：
+  • start：素材的裁剪入点（从素材的哪一秒开始截取）
+  • target_start：成片的时间线位置（在成片的哪一秒开始播放）
+"""
+                },
                 "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
                 "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"},
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
@@ -71,7 +163,7 @@ TOOLS = [
                 "outro_animation_duration": {"type": "number", "default": 0.5, "description": "出场动画持续时长（秒）。建议范围：0.3-2.0秒"},
                 "combo_animation": {"type": "string", "description": "组合动画效果名称。同时包含入场和出场的预设动画组合"},
                 "combo_animation_duration": {"type": "number", "default": 0.5, "description": "组合动画总持续时长（秒）。会平均分配给入场和出场"},
-                "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始视频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示自动检测"},
+                "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始视频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示自动检测。⚠️ 当end=0时必须提供此参数，否则会导致黑屏"},
                 "transition": {"type": "string", "description": "转场效果类型名称。应用于当前素材与前一个素材之间的过渡效果，需与系统支持的转场类型匹配"},
                 "transition_duration": {"type": "number", "default": 0.5, "description": "转场效果持续时长（秒）。建议范围：0.3-2.0秒。转场会占用前后两个素材各一半的时长"},
                 "volume": {"type": "number", "default": 1.0, "description": "视频原声音量增益。范围：0.0-2.0。0.0为静音，1.0为原始音量，2.0为放大两倍"},
@@ -380,6 +472,33 @@ def capture_stdout():
     finally:
         sys.stdout = old_stdout
 
+
+def format_validation_error(error_type: str, current_values: dict, suggestions: list[str]) -> str:
+    """格式化验证错误消息
+
+    Args:
+        error_type: 错误类型描述
+        current_values: 当前参数值字典
+        suggestions: 修复建议列表
+
+    Returns:
+        格式化的错误消息字符串
+    """
+    error_msg = f"❌ 参数错误：{error_type}\n"
+
+    if current_values:
+        error_msg += "当前："
+        error_msg += ", ".join([f"{k}={v}" for k, v in current_values.items()])
+        error_msg += "\n"
+
+    if suggestions:
+        error_msg += "建议：\n"
+        for suggestion in suggestions:
+            error_msg += f"  • {suggestion}\n"
+
+    return error_msg.rstrip()
+
+
 def convert_text_styles(text_styles_data):
     """将字典格式的text_styles转换为TextStyleRange对象列表"""
     if not text_styles_data:
@@ -436,9 +555,78 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
         print(f"[DEBUG] Executing tool: {tool_name} with args: {arguments}", file=sys.stderr)
 
+        # ========== add_video参数预验证（在CAPCUT检查之前） ==========
+        if tool_name == "add_video":
+            start = arguments.get("start", 0)
+            end = arguments.get("end", 0)
+            duration = arguments.get("duration")
+
+            # 验证1：start不能为负数
+            if start < 0:
+                return {
+                    "success": False,
+                    "error": f"❌ 参数错误：start={start}秒不能为负数"
+                }
+
+            # 验证2：end>0时必须大于start
+            if end is not None and end > 0 and end <= start:
+                return {
+                    "success": False,
+                    "error": format_validation_error(
+                        "当end>0时，必须满足 end > start",
+                        {"start": start, "end": end},
+                        [
+                            f"修改为 end={start + 5}（截取{start}-{start+5}秒）",
+                            "或设置 end=0 并提供 duration 参数（截取到末尾）"
+                        ]
+                    )
+                }
+
+            # 验证3：end=0时必须提供duration
+            if (end is None or end <= 0) and duration is None:
+                error_msg = (
+                    f"❌ 参数缺失：当 end=0 或 end=None 时，必须提供 duration 参数\n"
+                    f"原因：系统需要知道视频总时长才能计算'截取到末尾'的终点位置\n"
+                    f"当前参数：start={start}, end={end}, duration=None\n"
+                    f"建议：添加 duration 参数，例如：\n"
+                    f"  • duration=60.5（视频总时长60.5秒）\n"
+                    f"  • 完整示例：start={start}, end=0, duration=60.5"
+                )
+                return {
+                    "success": False,
+                    "error": error_msg
+                }
+
+            # 验证4：duration必须为正数
+            if duration is not None and duration <= 0:
+                return {
+                    "success": False,
+                    "error": f"❌ 参数错误：duration={duration}秒必须为正数"
+                }
+
+            # 验证5：start不能超过duration
+            if duration is not None and start >= duration:
+                return {
+                    "success": False,
+                    "error": format_validation_error(
+                        f"start={start}秒 >= duration={duration}秒",
+                        {},
+                        [f"start应小于{duration}秒，例如 start={max(0, duration-5)}"]
+                    )
+                }
+
+            # 验证6：end不能超过duration（警告而非错误）
+            if duration is not None and end is not None and end > duration:
+                print(
+                    f"⚠️  警告：end={end}秒超出duration={duration}秒，系统将自动调整为{duration}秒",
+                    file=sys.stderr
+                )
+
+        # ========== 检查CapCut模块可用性 ==========
         if not CAPCUT_AVAILABLE:
             return {"success": False, "error": "CapCut modules not available"}
 
+        # ========== 原有的工具执行逻辑 ==========
         # 捕获标准输出，防止调试信息干扰
         with capture_stdout():
             if tool_name == "add_audio":
