@@ -1,18 +1,14 @@
 import os
-import re
-from typing import Dict, Optional
-
 import pyJianYingDraft as draft
-from draft_cache import update_cache
-from logging_utils import service_logger
-from pyJianYingDraft import Clip_settings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
-from util import is_windows_path, url_to_hash
+from util import generate_draft_url, is_windows_path, url_to_hash
+from pyJianYingDraft import trange, Clip_settings
+from draft_cache import update_cache
+import re
+from typing import Optional, Dict
+from pyJianYingDraft import exceptions
+from create_draft import get_or_create_draft
 
-from .create_draft import get_or_create_draft
-
-
-@service_logger
 def add_video_track(
     video_url: str,
     draft_folder: Optional[str] = None,
@@ -104,7 +100,7 @@ def add_video_track(
         width=width,
         height=height
     )
-
+    
     # Check if video track exists, if not, add a default video track
     try:
         script.get_track(draft.Track_type.video, track_name=None)
@@ -124,68 +120,114 @@ def add_video_track(
             script.add_track(draft.Track_type.video, track_name=track_name, relative_index=relative_index)
     else:
         script.add_track(draft.Track_type.video, relative_index=relative_index)
+    
+    # ========== 参数验证与时长处理 ==========
 
-    # If duration parameter is passed, use it preferentially; otherwise use default duration of 0 seconds, and get the real duration when downloading the draft
+    # 1. 验证start参数
+    if start < 0:
+        raise ValueError(f"❌ 参数错误：start={start}秒不能为负数")
+
+    # 2. 确定视频总时长
     if duration is not None:
-        # Use the passed duration, skip duration retrieval and check
+        if duration <= 0:
+            raise ValueError(f"❌ 参数错误：duration={duration}秒必须为正数")
         video_duration = duration
+        print(f"✅ 使用提供的视频时长: {video_duration}秒")
     else:
-        # Use default duration of 0 seconds, and get the real duration when downloading the draft
-        video_duration = 0.0  # Default video duration is 0 seconds
-        # duration_result = get_video_duration(video_url)
-        # if not duration_result["success"]:
-        #     print(f"Failed to get video duration: {duration_result['error']}")
-
-        # # Check if video duration exceeds 2 minutes
-        # if duration_result["output"] > 120:  # 120 seconds = 2 minutes
-        #     raise Exception(f"Video duration exceeds 2-minute limit, current duration: {duration_result['output']} seconds")
-
-        # video_duration = duration_result["output"]
-
+        # 使用-1标记"未知时长"，后续在save_draft_impl中获取
+        video_duration = -1.0
+        print("⚠️  警告：未提供duration参数，视频时长将在下载时自动获取（可能耗时较长）")
+    
     # Generate local filename
     material_name = f"video_{url_to_hash(video_url)}.mp4"
     # local_video_path = download_video(video_url, draft_dir)
-
+    
     # Build draft_video_path
     draft_video_path = None
     if draft_folder:
         # Detect input path type and process
         if is_windows_path(draft_folder):
             # Windows path processing
-            windows_drive, windows_path = re.match(r"([a-zA-Z]:)(.*)", draft_folder).groups()
-            parts = [p for p in windows_path.split("\\") if p]  # Split path and filter empty parts
+            windows_drive, windows_path = re.match(r'([a-zA-Z]:)(.*)', draft_folder).groups()
+            parts = [p for p in windows_path.split('\\') if p]  # Split path and filter empty parts
             draft_video_path = os.path.join(windows_drive, *parts, draft_id, "assets", "video", material_name)
             # Normalize path (ensure consistent separators)
-            draft_video_path = draft_video_path.replace("/", "\\")
+            draft_video_path = draft_video_path.replace('/', '\\')
         else:
             # macOS/Linux path processing
             draft_video_path = os.path.join(draft_folder, draft_id, "assets", "video", material_name)
-
+        
         # Print path information
-        print("replace_path:", draft_video_path)
+        print('replace_path:', draft_video_path)
 
-    # Set video end time
-    # If end is None or <= 0, use full video duration
+    # ========== 计算裁剪时长（增强验证） ==========
+
+    # 3. 确定裁剪终点
     if end is None or end <= 0:
-        video_end = video_duration
+        # end为None/0/负数时，表示截取到视频末尾
+        if video_duration == -1.0:
+            # 时长未知，使用0标记"使用完整时长"
+            video_end = 0
+            source_duration = 0  # 占位符，实际时长在下载时计算
+            print(f"📹 裁剪模式：从{start}秒截取到视频末尾（时长待获取）")
+        else:
+            video_end = video_duration
+            source_duration = video_end - start
+            print(f"📹 裁剪模式：从{start}秒截取到{video_end}秒（共{source_duration}秒）")
     else:
         video_end = end
+        source_duration = video_end - start
+        print(f"📹 裁剪模式：从{start}秒截取到{video_end}秒（共{source_duration}秒）")
 
-    # Calculate source video duration
-    source_duration = video_end - start
-    # Calculate target video duration (considering speed factor)
-    target_duration = source_duration / speed
+    # 4. 关键验证：防止负数时长（仅在已知时长时检查）
+    if video_duration > 0 and source_duration <= 0:
+        raise ValueError(
+            f"❌ 素材裁剪参数错误：计算出的source_duration={source_duration}秒 ≤ 0\n"
+            f"参数检查：start={start}, end={video_end}, video_duration={video_duration}\n"
+            f"建议：\n"
+            f"  - 确保 end > start（当前 {video_end} - {start} = {source_duration}）\n"
+            f"  - 如需截取到视频末尾，设置 end=0 并提供 duration 参数\n"
+            f"  - 示例：start=10, end=0, duration=60 → 截取第10-60秒"
+        )
 
+    # 5. 边界检查（仅在已知时长时检查）
+    if video_duration > 0:
+        if start >= video_duration:
+            raise ValueError(
+                f"❌ 参数错误：start={start}秒 >= 视频总时长{video_duration}秒\n"
+                f"建议：start应小于{video_duration}秒"
+            )
+        if video_end > video_duration:
+            print(f"⚠️  警告：end={video_end}秒超出视频总时长{video_duration}秒，自动调整为{video_duration}秒")
+            video_end = video_duration
+            source_duration = video_end - start
+
+    # 6. 计算目标时长（考虑speed）
+    target_duration = source_duration / speed if source_duration > 0 else 0
+
+    # 7. 输出处理信息
+    if video_duration > 0:
+        print(f"""
+📹 视频素材处理信息：
+  - 素材URL: {video_url[:60]}...
+  - 视频总时长: {video_duration}秒
+  - 裁剪参数: start={start}秒, end={video_end}秒
+  - 裁剪时长: {source_duration}秒
+  - 播放速度: {speed}x
+  - 成片时长: {target_duration}秒
+  - 时间线位置: target_start={target_start}秒
+""")
+    
     # Create video clip
     if draft_video_path:
-        video_material = draft.Video_material(material_type="video", replace_path=draft_video_path, remote_url=video_url, material_name=material_name, duration=video_duration, width=0, height=0)
+        video_material = draft.Video_material(material_type='video', replace_path=draft_video_path, remote_url=video_url, material_name=material_name, duration=video_duration, width=0, height=0)
     else:
-        video_material = draft.Video_material(material_type="video", remote_url=video_url, material_name=material_name, duration = video_duration, width=0, height=0)
-
+        video_material = draft.Video_material(material_type='video', remote_url=video_url, material_name=material_name, duration = video_duration, width=0, height=0)
+    
     # Create source_timerange and target_timerange
     source_timerange = trange(f"{start}s", f"{source_duration}s")
     target_timerange = trange(f"{target_start}s", f"{target_duration}s")
-
+    
     video_segment = draft.Video_segment(
         video_material,
         target_timerange=target_timerange,
@@ -210,7 +252,7 @@ def add_video_track(
             video_segment.add_animation(animation_type, intro_animation_duration * 1e6)  # Use microsecond unit for animation duration
         except AttributeError:
             raise ValueError(f"Warning: Unsupported entrance animation type {intro_animation}, this parameter will be ignored")
-
+    
      # Add exit animation
     if outro_animation:
         try:
@@ -232,7 +274,7 @@ def add_video_track(
             video_segment.add_animation(combo_type, combo_animation_duration * 1e6)  # Use microsecond unit for animation duration
         except AttributeError:
             raise ValueError(f"Warning: Unsupported combo animation type {combo_animation}, this parameter will be ignored")
-
+    
     # Add transition effect
     if transition:
         try:
@@ -241,15 +283,15 @@ def add_video_track(
                 transition_type = getattr(draft.CapCutTransitionType, transition)
             else:
                 transition_type = getattr(draft.TransitionType, transition)
-
+            
             # Set transition duration (convert to microseconds)
             duration_microseconds = int(transition_duration * 1e6)
-
+            
             # Add transition
             video_segment.add_transition(transition_type, duration=duration_microseconds)
         except AttributeError:
             raise ValueError(f"Unsupported transition type: {transition}, transition setting skipped")
-
+    
 
     # Add fade effect
     if fade_in_duration > 0 or fade_out_duration > 0:
@@ -276,7 +318,7 @@ def add_video_track(
             )
         except Exception:
             raise ValueError(f"Unsupported mask type {mask_type}, supported types include: linear, mirror, circle, rectangle, heart, star")
-
+    
     # Add filter effect
     if filter_type:
         try:
@@ -284,13 +326,13 @@ def add_video_track(
             video_segment.add_filter(filter_type_enum, filter_intensity)
         except Exception:
             raise ValueError(f"Unsupported filter type {filter_type}, supported types include: linear, mirror, circle, rectangle, heart, star")
-
+    
     # Add background blur effect
     if background_blur is not None:
         # Validate if background blur level is valid
         if background_blur not in [1, 2, 3, 4]:
             raise ValueError(f"Invalid background blur level: {background_blur}, valid values are: 1, 2, 3, 4")
-
+        
         # Map blur level to specific blur values
         blur_values = {
             1: 0.0625,  # Light blur
@@ -298,16 +340,16 @@ def add_video_track(
             3: 0.75,    # Strong blur
             4: 1.0      # Maximum blur
         }
-
+        
         # Add background blur
         video_segment.add_background_filling("blur", blur=blur_values[background_blur])
-
+    
     # Add video segment to track
     # if imported_track is not None:
     #     imported_track.add_segment(video_segment)
     # else:
     script.add_segment(video_segment, track_name=track_name)
-
+    
     # Persist updated script
     update_cache(draft_id, script)
 

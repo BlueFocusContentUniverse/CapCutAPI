@@ -426,8 +426,20 @@ def update_media_metadata(script, task_id=None):
                                             if current_source.end > video.duration or current_source.end <= 0:
                                                 # Adjust source_timerange to fit the new video duration
                                                 new_source_duration = video.duration - current_source.start
+
+                                                # ========== 新增：防止start超出视频时长导致黑屏 ==========
                                                 if new_source_duration <= 0:
-                                                    logger.warning(f"Warning: Video segment {segment.segment_id} start time {current_source.start} exceeds video duration {video.duration}, will skip this segment.")
+                                                    logger.error(
+                                                        f"❌ 严重错误：视频片段 {segment.segment_id} 的 start={current_source.start/1e6:.2f}秒 "
+                                                        f"超出或等于视频总时长 {video.duration/1e6:.2f}秒，无法生成有效片段。\n"
+                                                        f"详细信息：\n"
+                                                        f"  - 素材URL: {video.remote_url}\n"
+                                                        f"  - start参数: {current_source.start/1e6:.2f}秒\n"
+                                                        f"  - 视频总时长: {video.duration/1e6:.2f}秒\n"
+                                                        f"  - 计算出的素材时长: {new_source_duration/1e6:.2f}秒（无效）\n"
+                                                        f"建议检查调用参数：start应小于{video.duration/1e6:.2f}秒"
+                                                    )
+                                                    # 跳过此片段，避免黑屏
                                                     continue
 
                                                 # Update source_timerange
