@@ -472,6 +472,33 @@ def capture_stdout():
     finally:
         sys.stdout = old_stdout
 
+
+def format_validation_error(error_type: str, current_values: dict, suggestions: list[str]) -> str:
+    """格式化验证错误消息
+
+    Args:
+        error_type: 错误类型描述
+        current_values: 当前参数值字典
+        suggestions: 修复建议列表
+
+    Returns:
+        格式化的错误消息字符串
+    """
+    error_msg = f"❌ 参数错误：{error_type}\n"
+
+    if current_values:
+        error_msg += "当前："
+        error_msg += ", ".join([f"{k}={v}" for k, v in current_values.items()])
+        error_msg += "\n"
+
+    if suggestions:
+        error_msg += "建议：\n"
+        for suggestion in suggestions:
+            error_msg += f"  • {suggestion}\n"
+
+    return error_msg.rstrip()
+
+
 def convert_text_styles(text_styles_data):
     """将字典格式的text_styles转换为TextStyleRange对象列表"""
     if not text_styles_data:
@@ -545,27 +572,29 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
             if end is not None and end > 0 and end <= start:
                 return {
                     "success": False,
-                    "error": (
-                        f"❌ 参数错误：当end>0时，必须满足 end > start\n"
-                        f"当前：start={start}, end={end}\n"
-                        f"建议：\n"
-                        f"  • 修改为 end={start + 5}（截取{start}-{start+5}秒）\n"
-                        f"  • 或设置 end=0 并提供 duration 参数（截取到末尾）"
+                    "error": format_validation_error(
+                        "当end>0时，必须满足 end > start",
+                        {"start": start, "end": end},
+                        [
+                            f"修改为 end={start + 5}（截取{start}-{start+5}秒）",
+                            "或设置 end=0 并提供 duration 参数（截取到末尾）"
+                        ]
                     )
                 }
 
             # 验证3：end=0时必须提供duration
             if (end is None or end <= 0) and duration is None:
+                error_msg = (
+                    f"❌ 参数缺失：当 end=0 或 end=None 时，必须提供 duration 参数\n"
+                    f"原因：系统需要知道视频总时长才能计算'截取到末尾'的终点位置\n"
+                    f"当前参数：start={start}, end={end}, duration=None\n"
+                    f"建议：添加 duration 参数，例如：\n"
+                    f"  • duration=60.5（视频总时长60.5秒）\n"
+                    f"  • 完整示例：start={start}, end=0, duration=60.5"
+                )
                 return {
                     "success": False,
-                    "error": (
-                        f"❌ 参数缺失：当 end=0 或 end=None 时，必须提供 duration 参数\n"
-                        f"原因：系统需要知道视频总时长才能计算'截取到末尾'的终点位置\n"
-                        f"当前参数：start={start}, end={end}, duration=None\n"
-                        f"建议：添加 duration 参数，例如：\n"
-                        f"  • duration=60.5（视频总时长60.5秒）\n"
-                        f"  • 完整示例：start={start}, end=0, duration=60.5"
-                    )
+                    "error": error_msg
                 }
 
             # 验证4：duration必须为正数
@@ -579,9 +608,10 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
             if duration is not None and start >= duration:
                 return {
                     "success": False,
-                    "error": (
-                        f"❌ 参数错误：start={start}秒 >= duration={duration}秒\n"
-                        f"建议：start应小于{duration}秒，例如 start={max(0, duration-5)}"
+                    "error": format_validation_error(
+                        f"start={start}秒 >= duration={duration}秒",
+                        {},
+                        [f"start应小于{duration}秒，例如 start={max(0, duration-5)}"]
                     )
                 }
 

@@ -28,7 +28,21 @@ from util import is_windows_path
 
 # --- Get your Logger instance ---
 # The name here must match the logger name you configured in app.py
-logger = logging.getLogger("flask_video_generator")
+logger = logging.getLogger("uvicorn")
+
+
+# ========== 辅助函数：时间格式化 ==========
+def format_seconds(microseconds: int) -> str:
+    """将微秒转换为格式化的秒数字符串
+
+    Args:
+        microseconds: 微秒数
+
+    Returns:
+        格式化的秒数字符串，例如 "25.50秒"
+    """
+    return f"{microseconds / 1e6:.2f}秒"
+
 
 # Define task status enumeration type
 TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_found"]
@@ -430,14 +444,14 @@ def update_media_metadata(script, task_id=None):
                                                 # ========== 新增：防止start超出视频时长导致黑屏 ==========
                                                 if new_source_duration <= 0:
                                                     logger.error(
-                                                        f"❌ 严重错误：视频片段 {segment.segment_id} 的 start={current_source.start/1e6:.2f}秒 "
-                                                        f"超出或等于视频总时长 {video.duration/1e6:.2f}秒，无法生成有效片段。\n"
+                                                        f"❌ 严重错误：视频片段 {segment.segment_id} 的 start={format_seconds(current_source.start)} "
+                                                        f"超出或等于视频总时长 {format_seconds(video.duration)}，无法生成有效片段。\n"
                                                         f"详细信息：\n"
                                                         f"  - 素材URL: {video.remote_url}\n"
-                                                        f"  - start参数: {current_source.start/1e6:.2f}秒\n"
-                                                        f"  - 视频总时长: {video.duration/1e6:.2f}秒\n"
-                                                        f"  - 计算出的素材时长: {new_source_duration/1e6:.2f}秒（无效）\n"
-                                                        f"建议检查调用参数：start应小于{video.duration/1e6:.2f}秒"
+                                                        f"  - start参数: {format_seconds(current_source.start)}\n"
+                                                        f"  - 视频总时长: {format_seconds(video.duration)}\n"
+                                                        f"  - 计算出的素材时长: {format_seconds(new_source_duration)}（无效）\n"
+                                                        f"建议检查调用参数：start应小于{format_seconds(video.duration)}"
                                                     )
                                                     # 跳过此片段，避免黑屏
                                                     continue

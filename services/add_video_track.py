@@ -207,9 +207,11 @@ def add_video_track(
 
     # 7. 输出处理信息
     if video_duration > 0:
+        # 智能截断URL：保留开头和结尾，避免截断重要信息
+        url_display = video_url if len(video_url) <= 80 else f"{video_url[:40]}...{video_url[-37:]}"
         print(f"""
 📹 视频素材处理信息：
-  - 素材URL: {video_url[:60]}...
+  - 素材URL: {url_display}
   - 视频总时长: {video_duration}秒
   - 裁剪参数: start={start}秒, end={video_end}秒
   - 裁剪时长: {source_duration}秒
