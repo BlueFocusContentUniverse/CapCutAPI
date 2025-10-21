@@ -306,6 +306,87 @@ def search_drafts():
             "error": str(e)
         }), 500
 
+@draft_bp.route("/<draft_id>/versions", methods=["GET"])
+@api_endpoint_logger
+def list_draft_versions(draft_id):
+    """List all versions of a draft"""
+    try:
+        pg_storage = get_postgres_storage()
+        versions = pg_storage.list_draft_versions(draft_id)
+
+        return jsonify({
+            "success": True,
+            "draft_id": draft_id,
+            "versions": versions,
+            "count": len(versions)
+        })
+    except Exception as e:
+        logger.error(f"Failed to list versions for draft {draft_id}: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@draft_bp.route("/<draft_id>/versions/<int:version>", methods=["GET"])
+@api_endpoint_logger
+def get_draft_version_content(draft_id, version):
+    """Get full draft content for a specific version"""
+    try:
+        pg_storage = get_postgres_storage()
+        script_obj = pg_storage.get_draft_version(draft_id, version)
+
+        if script_obj is None:
+            return jsonify({
+                "success": False,
+                "error": f"Version {version} not found for draft {draft_id}"
+            }), 404
+
+        try:
+            draft_content = json.loads(script_obj.dumps())
+        except Exception as decode_err:
+            logger.warning(f"Failed to decode draft {draft_id} version {version} to JSON object: {decode_err}")
+            draft_content = script_obj.dumps()
+
+        return jsonify({
+            "success": True,
+            "draft_id": draft_id,
+            "version": version,
+            "content": draft_content
+        })
+    except Exception as e:
+        logger.error(f"Failed to get draft version content for {draft_id} version {version}: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@draft_bp.route("/<draft_id>/versions/<int:version>/metadata", methods=["GET"])
+@api_endpoint_logger
+def get_draft_version_metadata(draft_id, version):
+    """Get metadata for a specific version of a draft"""
+    try:
+        pg_storage = get_postgres_storage()
+        metadata = pg_storage.get_draft_version_metadata(draft_id, version)
+
+        if metadata is None:
+            return jsonify({
+                "success": False,
+                "error": f"Version {version} not found for draft {draft_id}"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "draft_id": draft_id,
+            "version": version,
+            "metadata": metadata
+        })
+    except Exception as e:
+        logger.error(f"Failed to get metadata for draft {draft_id} version {version}: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
 # Usage example for integrating with your Flask app:
 """
@@ -317,9 +398,13 @@ app.register_blueprint(draft_bp)
 Then you can use these endpoints:
 - GET /api/drafts/list - List all drafts
 - GET /api/drafts/<draft_id> - Get draft metadata
+- GET /api/drafts/<draft_id>/content - Get draft content
 - DELETE /api/drafts/<draft_id> - Delete a draft
 - GET /api/drafts/<draft_id>/exists - Check if draft exists
 - GET /api/drafts/stats - Get storage statistics
 - POST /api/drafts/cleanup - Clean up expired drafts
 - GET /api/drafts/search?width=1080&height=1920 - Search drafts
+- GET /api/drafts/<draft_id>/versions - List all versions of a draft
+- GET /api/drafts/<draft_id>/versions/<version> - Get specific version content
+- GET /api/drafts/<draft_id>/versions/<version>/metadata - Get metadata for a specific version
 """
