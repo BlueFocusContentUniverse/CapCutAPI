@@ -349,7 +349,16 @@ def update_media_metadata(script, task_id=None):
                                         # Adjust source_timerange to fit the new audio duration
                                         new_source_duration = audio.duration - current_source.start
                                         if new_source_duration <= 0:
-                                            logger.warning(f"Warning: Audio segment {segment.segment_id} start time {current_source.start} exceeds audio duration {audio.duration}, will skip this segment.")
+                                            logger.error(
+                                                f"❌ 严重错误：音频片段 {segment.segment_id} 的 start={format_seconds(current_source.start)} "
+                                                f"超出或等于音频总时长 {format_seconds(audio.duration)}，无法生成有效片段。\n"
+                                                f"详细信息：\n"
+                                                f"  - 素材URL: {audio.remote_url}\n"
+                                                f"  - start参数: {format_seconds(current_source.start)}\n"
+                                                f"  - 音频总时长: {format_seconds(audio.duration)}\n"
+                                                f"  - 计算出的素材时长: {format_seconds(new_source_duration)}（无效）\n"
+                                                f"建议检查调用参数：start应小于{format_seconds(audio.duration)}"
+                                            )
                                             continue
 
                                         # Update source_timerange

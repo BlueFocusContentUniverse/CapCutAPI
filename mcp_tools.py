@@ -622,6 +622,58 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                     file=sys.stderr
                 )
 
+        # ========== add_audio参数预验证 ==========
+        if tool_name == "add_audio":
+            start = arguments.get("start", 0)
+            end = arguments.get("end")
+            duration = arguments.get("duration")
+
+            # 验证1：start不能为负数
+            if start < 0:
+                return {
+                    "success": False,
+                    "error": f"❌ 参数错误：start={start}秒不能为负数"
+                }
+
+            # 验证2：end>0时必须大于start
+            if end is not None and end > 0 and end <= start:
+                return {
+                    "success": False,
+                    "error": format_validation_error(
+                        "当end>0时，必须满足 end > start",
+                        {"start": start, "end": end},
+                        [
+                            f"修改为 end={start + 5}（截取{start}-{start+5}秒）",
+                            "或设置 end=0/None 并提供 duration 参数（截取到末尾）"
+                        ]
+                    )
+                }
+
+            # 验证3：duration必须为正数（如果提供）
+            if duration is not None and duration <= 0:
+                return {
+                    "success": False,
+                    "error": f"❌ 参数错误：duration={duration}秒必须为正数"
+                }
+
+            # 验证4：start不能超过duration
+            if duration is not None and start >= duration:
+                return {
+                    "success": False,
+                    "error": format_validation_error(
+                        f"start={start}秒 >= duration={duration}秒",
+                        {},
+                        [f"start应小于{duration}秒，例如 start={max(0, duration-5)}"]
+                    )
+                }
+
+            # 验证5：end不能超过duration（警告而非错误）
+            if duration is not None and end is not None and end > duration:
+                print(
+                    f"⚠️  警告：end={end}秒超出duration={duration}秒，系统将自动调整为{duration}秒",
+                    file=sys.stderr
+                )
+
         # ========== 检查CapCut模块可用性 ==========
         if not CAPCUT_AVAILABLE:
             return {"success": False, "error": "CapCut modules not available"}

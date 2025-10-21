@@ -113,8 +113,8 @@ def add_audio_track(
     else:
         audio_end = end
 
-    # Calculate audio duration
-    duration = audio_end - start
+    # Calculate audio duration (use source_duration to avoid overwriting parameter)
+    source_duration = audio_end - start
 
     # Create audio segment
     if draft_audio_path:
@@ -124,8 +124,8 @@ def add_audio_track(
         audio_material = draft.Audio_material(remote_url=audio_url, material_name=material_name, duration=audio_duration)
     audio_segment = draft.Audio_segment(
         audio_material,  # Pass material object
-        target_timerange=trange(f"{target_start}s", f"{duration}s"),  # Use target_start and duration
-        source_timerange=trange(f"{start}s", f"{duration}s"),
+        target_timerange=trange(f"{target_start}s", f"{source_duration}s"),  # Use target_start and source_duration
+        source_timerange=trange(f"{start}s", f"{source_duration}s"),
         speed=speed,  # Set playback speed
         volume=volume  # Set volume
     )
