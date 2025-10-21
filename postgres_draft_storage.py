@@ -235,6 +235,128 @@ class PostgresDraftStorage:
         # TTL semantics are not supported here; return 0 for compatibility
         return 0
 
+    def list_draft_versions(self, draft_id: str) -> list:
+        """List all versions of a draft"""
+        try:
+            with get_session() as session:
+                # Get current version from main table
+                current_q = session.execute(
+                    select(DraftModel).where(
+                        DraftModel.draft_id == draft_id,
+                        DraftModel.is_deleted.is_(False)
+                    )
+                )
+                current_row = current_q.scalar_one_or_none()
+
+                versions = []
+
+                # Add current version if exists
+                if current_row:
+                    versions.append({
+                        "version": current_row.current_version or 1,
+                        "is_current": True,
+                        "created_at": int(current_row.created_at.timestamp()),
+                        "updated_at": int(current_row.updated_at.timestamp()),
+                        "draft_name": current_row.draft_name,
+                        "width": current_row.width,
+                        "height": current_row.height,
+                        "duration": current_row.duration,
+                        "fps": current_row.fps,
+                        "size_bytes": current_row.size_bytes,
+                    })
+
+                # Get historical versions
+                history_q = session.execute(
+                    select(DraftVersionModel).where(
+                        DraftVersionModel.draft_id == draft_id
+                    ).order_by(DraftVersionModel.version.desc())
+                )
+                history_rows = history_q.scalars().all()
+
+                for row in history_rows:
+                    # Skip if this version is already in current (shouldn't happen, but safety check)
+                    if any(v["version"] == row.version for v in versions):
+                        continue
+
+                    versions.append({
+                        "version": row.version,
+                        "is_current": False,
+                        "created_at": int(row.created_at.timestamp()),
+                        "draft_name": row.draft_name,
+                        "width": row.width,
+                        "height": row.height,
+                        "duration": row.duration,
+                        "fps": row.fps,
+                        "size_bytes": row.size_bytes,
+                    })
+
+                # Sort by version number descending
+                versions.sort(key=lambda x: x["version"], reverse=True)
+                return versions
+
+        except Exception as e:
+            logger.error(f"Failed to list versions for draft {draft_id}: {e}")
+            return []
+
+    def get_draft_version_metadata(self, draft_id: str, version: int) -> Optional[Dict[str, Any]]:
+        """Get metadata for a specific version of a draft"""
+        try:
+            with get_session() as session:
+                # Check if this is the current version first
+                current_q = session.execute(
+                    select(DraftModel).where(
+                        DraftModel.draft_id == draft_id,
+                        DraftModel.is_deleted.is_(False)
+                    )
+                )
+                current_row = current_q.scalar_one_or_none()
+
+                if current_row and (current_row.current_version or 1) == version:
+                    return {
+                        "draft_id": current_row.draft_id,
+                        "version": version,
+                        "is_current": True,
+                        "draft_name": current_row.draft_name,
+                        "resource": current_row.resource,
+                        "width": current_row.width,
+                        "height": current_row.height,
+                        "duration": current_row.duration,
+                        "fps": current_row.fps,
+                        "created_at": int(current_row.created_at.timestamp()),
+                        "updated_at": int(current_row.updated_at.timestamp()),
+                        "size_bytes": current_row.size_bytes,
+                    }
+
+                # Check historical versions
+                history_q = session.execute(
+                    select(DraftVersionModel).where(
+                        DraftVersionModel.draft_id == draft_id,
+                        DraftVersionModel.version == version
+                    )
+                )
+                history_row = history_q.scalar_one_or_none()
+
+                if history_row:
+                    return {
+                        "draft_id": history_row.draft_id,
+                        "version": history_row.version,
+                        "is_current": False,
+                        "draft_name": history_row.draft_name,
+                        "resource": history_row.resource,
+                        "width": history_row.width,
+                        "height": history_row.height,
+                        "duration": history_row.duration,
+                        "fps": history_row.fps,
+                        "created_at": int(history_row.created_at.timestamp()),
+                        "size_bytes": history_row.size_bytes,
+                    }
+
+                return None
+
+        except Exception as e:
+            logger.error(f"Failed to get metadata for draft {draft_id} version {version}: {e}")
+            return None
+
     def get_stats(self) -> Dict[str, Any]:
         try:
             with get_session() as session:
