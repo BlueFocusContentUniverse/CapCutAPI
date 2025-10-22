@@ -228,9 +228,16 @@ def add_video_track(
     else:
         video_material = draft.Video_material(material_type="video", remote_url=video_url, material_name=material_name, duration = video_duration, width=0, height=0)
 
+    # 【调试】打印素材时长
+    print(f"🔍 DEBUG: Video_material.duration = {video_material.duration}微秒 ({video_material.duration/1e6:.3f}秒)")
+
     # Create source_timerange and target_timerange
     source_timerange = trange(f"{start}s", f"{source_duration}s")
     target_timerange = trange(f"{target_start}s", f"{target_duration}s")
+
+    # 【调试】打印timerange
+    print(f"🔍 DEBUG: source_timerange = Timerange(start={source_timerange.start}, duration={source_timerange.duration}) → end={source_timerange.end}")
+    print(f"🔍 DEBUG: target_timerange = Timerange(start={target_timerange.start}, duration={target_timerange.duration}) → end={target_timerange.end}")
 
     video_segment = draft.Video_segment(
         video_material,

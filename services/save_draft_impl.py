@@ -447,6 +447,8 @@ def update_media_metadata(script, task_id=None):
 
                                             # If the end time of source_timerange exceeds the new video duration, adjust it
                                             if current_source.end > video.duration or current_source.end <= 0:
+                                                logger.info(f"🔍 DEBUG [片段{segment.segment_id}]: 需要调整时长 - current_source.end={current_source.end} ({format_seconds(current_source.end)}), video.duration={video.duration} ({format_seconds(video.duration)})")
+
                                                 # Adjust source_timerange to fit the new video duration
                                                 new_source_duration = video.duration - current_source.start
 
