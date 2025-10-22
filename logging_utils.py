@@ -9,9 +9,13 @@ import functools
 import logging
 import time
 import traceback
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, ParamSpec, TypeVar
 
 from flask import Request, request
+
+# Type variables for preserving function signatures
+P = ParamSpec("P")
+T = TypeVar("T")
 
 # Configure logging format
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
@@ -75,7 +79,7 @@ def log_api_response(logger: logging.Logger, response: Dict[str, Any], duration:
         logger.error(f"Error Details: {response['error']}")
 
 
-def api_endpoint_logger(func: Callable) -> Callable:
+def api_endpoint_logger(func: Callable[P, T]) -> Callable[P, T]:
     """
     Decorator for Flask API endpoints to add comprehensive logging.
     
@@ -93,7 +97,7 @@ def api_endpoint_logger(func: Callable) -> Callable:
             ...
     """
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         logger = logging.getLogger(func.__module__)
         endpoint_name = func.__name__
 
@@ -132,7 +136,7 @@ def api_endpoint_logger(func: Callable) -> Callable:
     return wrapper
 
 
-def service_logger(func: Callable) -> Callable:
+def service_logger(func: Callable[P, T]) -> Callable[P, T]:
     """
     Decorator for service functions to add comprehensive logging.
     
@@ -148,7 +152,7 @@ def service_logger(func: Callable) -> Callable:
             ...
     """
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         logger = logging.getLogger(func.__module__)
         service_name = func.__name__
 
@@ -200,7 +204,7 @@ def service_logger(func: Callable) -> Callable:
     return wrapper
 
 
-def mcp_tool_logger(tool_name: str, logger: Optional[logging.Logger] = None) -> Callable:
+def mcp_tool_logger(tool_name: str, logger: Optional[logging.Logger] = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator for MCP tool functions to add comprehensive logging.
     
@@ -219,9 +223,9 @@ def mcp_tool_logger(tool_name: str, logger: Optional[logging.Logger] = None) -> 
         def tool_create_draft(width: int, height: int, ...):
             ...
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             nonlocal logger
             if logger is None:
                 logger = logging.getLogger(func.__module__)

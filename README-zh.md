@@ -1,11 +1,4 @@
-# 通过CapCutAPI连接AI生成的一切   [在线体验](https://www.capcutapi.top)
-
-<div align="center">
-
-```
-👏👏👏👏 庆祝github 800星，送出价值8000点不记名云渲染券：040346B5-8D8F-459E-8EE7-332C0B827117
-```
-</div>
+# 通过CapCutAPI连接AI生成的一切
 
 ## 项目概览
 
@@ -22,24 +15,6 @@
 3. 可以下载剪辑结果，并导入到剪映/CapCut中二次编辑。
 
 4. 可以利用API将剪辑结果生成视频，实现全云端操作。
-
-## 效果展示
-
-<div align="center">
-
-**MCP,创建属于自己的剪辑Agent**
-
-[![AI Cut](https://img.youtube.com/vi/fBqy6WFC78E/hqdefault.jpg)](https://www.youtube.com/watch?v=fBqy6WFC78E)
-
-**通过CapCutAPI，将AI生成的图片，视频组合起来**
-
-[![Airbnb](https://img.youtube.com/vi/1zmQWt13Dx0/hqdefault.jpg)](https://www.youtube.com/watch?v=1zmQWt13Dx0)
-
-[![Horse](https://img.youtube.com/vi/IF1RDFGOtEU/hqdefault.jpg)](https://www.youtube.com/watch?v=IF1RDFGOtEU)
-
-[![Song](https://img.youtube.com/vi/rGNLE_slAJ8/hqdefault.jpg)](https://www.youtube.com/watch?v=rGNLE_slAJ8)
-
-</div>
 
 ## 核心功能
 
@@ -269,24 +244,6 @@ mcp_client.call_tool("add_text", {
 
 - **加入我们**: 我们的目标是提供稳定可靠的视频剪辑工具，方便融合AI生成的图片/视频/语音。如果你有兴趣，可以先从将工程里的中文翻译成英文开始！提交pr，我会看到。更深入的，还有MCP剪辑Agent, web剪辑端，云渲染这三个模块代码还没有开源出来。
 
-- **联系方式**:
-  - 微信：sguann
-  - 抖音：剪映草稿助手
-
-
-## 📈 Star History
-
-<div align="center">
-
-[![Star History Chart](https://api.star-history.com/svg?repos=sun-guannan/CapCutAPI&type=Date)](https://www.star-history.com/#sun-guannan/CapCutAPI&Date)
-
-![GitHub repo size](https://img.shields.io/github/repo-size/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub code size](https://img.shields.io/github/languages/code-size/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub issues](https://img.shields.io/github/issues/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub last commit](https://img.shields.io/github/last-commit/sun-guannan/CapCutAPI?style=flat-square)
-
-</div>
 
 *Made with ❤️ by the CapCutAPI Community*
 

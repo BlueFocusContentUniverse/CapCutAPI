@@ -187,7 +187,8 @@ class Track(Base_track, Generic[Seg_type]):
         # 检查片段是否重叠
         for seg in self.segments:
             if seg.overlaps(segment):
-                raise SegmentOverlap(f"New segment overlaps with existing segment [start: {segment.target_timerange.start}, end: {segment.target_timerange.end}]"
+                raise SegmentOverlap(f"New segment overlaps with existing segment [start: {segment.target_timerange.start}, end: {segment.target_timerange.end}]. "
+                                   f"Conflicting existing segment range: [start: {seg.target_timerange.start}, end: {seg.target_timerange.end}]"
                                      )
 
         self.segments.append(segment)

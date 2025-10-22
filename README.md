@@ -20,27 +20,6 @@ Enjoy It!  😀😀😀
 
 4. **Automated Cloud Generation:** Use the API to render and generate final videos directly in the cloud.
 
-## Demos
-
-<div align="center">
-
-**MCP, create your own editing Agent**
-
-[![AI Cut](https://img.youtube.com/vi/fBqy6WFC78E/hqdefault.jpg)](https://www.youtube.com/watch?v=fBqy6WFC78E)
-
-**Combine AI-generated images and videos using CapCutAPI**
-
-[More](pattern)
-
-[![Airbnb](https://img.youtube.com/vi/1zmQWt13Dx0/hqdefault.jpg)](https://www.youtube.com/watch?v=1zmQWt13Dx0)
-
-[![Horse](https://img.youtube.com/vi/IF1RDFGOtEU/hqdefault.jpg)](https://www.youtube.com/watch?v=IF1RDFGOtEU)
-
-[![Song](https://img.youtube.com/vi/rGNLE_slAJ8/hqdefault.jpg)](https://www.youtube.com/watch?v=rGNLE_slAJ8)
-
-
-</div>
-
 ## Key Features
 
 | Feature Module | API | MCP Protocol | Description |
@@ -266,30 +245,5 @@ If you want to:
   - Feedback on issues
   - Feature suggestions
   - Get latest news
-
-**Contact**: sguann2023@gmail.com
-### 🤝 Collaboration
-
-  - **Video Production**: Want to use this API for batch production of videos? I offer free consulting services to help you use this API. In return, I'll ask for the production workflow template to be **open-sourced** in the `template` directory of this project.
-
-  - **Join us**: Our goal is to provide a stable and reliable video editing tool that integrates well with AI-generated images, videos, and audio. If you are interested, submit a PR and I'll see it. For more in-depth involvement, the code for the MCP Editing Agent, web-based editing client, and cloud rendering modules has not been open-sourced yet.
-
-**Contact**: sguann2023@gmail.com
-
-## 📈 Star History
-
-<div align="center">
-
-[![Star History Chart](https://api.star-history.com/svg?repos=sun-guannan/CapCutAPI&type=Date)](https://www.star-history.com/#sun-guannan/CapCutAPI&Date)
-
-![GitHub repo size](https://img.shields.io/github/repo-size/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub code size](https://img.shields.io/github/languages/code-size/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub issues](https://img.shields.io/github/issues/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/sun-guannan/CapCutAPI?style=flat-square)
-![GitHub last commit](https://img.shields.io/github/last-commit/sun-guannan/CapCutAPI?style=flat-square)
-
-
-[![Verified on MSeeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/69c38d28-a97c-4397-849d-c3e3d241b800)
-</div>
 
 *Made with ❤️ by the CapCutAPI Community*
