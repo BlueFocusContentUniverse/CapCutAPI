@@ -113,7 +113,7 @@ TOOLS = [
                 "duration": {
                     "type": ["number", "null"],
                     "default": None,
-                    "description": """【性能优化+容错保障】原始视频素材的总时长（秒）。
+                    "description": """【性能优化+容错保障】原始视频素材的总时长（秒）。⚠️ 注意单位是秒，非微秒。
 
 作用：
   1. 性能优化：提前提供可避免重复解析素材，显著提升处理速度
@@ -163,7 +163,7 @@ TOOLS = [
                 "outro_animation_duration": {"type": "number", "default": 0.5, "description": "出场动画持续时长（秒）。建议范围：0.3-2.0秒"},
                 "combo_animation": {"type": "string", "description": "组合动画效果名称。同时包含入场和出场的预设动画组合"},
                 "combo_animation_duration": {"type": "number", "default": 0.5, "description": "组合动画总持续时长（秒）。会平均分配给入场和出场"},
-                "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始视频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示自动检测。⚠️ 当end=0时必须提供此参数，否则会导致黑屏"},
+                "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始视频素材的总时长（秒）。⚠️ 注意单位是秒，非微秒。提前提供可避免重复解析素材，显著提升处理速度。null表示自动检测。⚠️ 当end=0时必须提供此参数，否则会导致黑屏"},
                 "transition": {"type": "string", "description": "转场效果类型名称。应用于当前素材与前一个素材之间的过渡效果，需与系统支持的转场类型匹配"},
                 "transition_duration": {"type": "number", "default": 0.5, "description": "转场效果持续时长（秒）。建议范围：0.3-2.0秒。转场会占用前后两个素材各一半的时长"},
                 "volume": {"type": "number", "default": 1.0, "description": "视频原声音量增益。范围：0.0-2.0。0.0为静音，1.0为原始音量，2.0为放大两倍"},
@@ -199,7 +199,7 @@ TOOLS = [
                 "volume": {"type": "number", "default": 1.0, "description": "音量增益倍数。范围：0.0-2.0（实现中为0.0-1.0，但支持>1.0）。0.0为静音，1.0为原始音量，>1.0为放大"},
                 "speed": {"type": "number", "default": 1.0, "description": "音频播放速率。范围：0.1-100（理论值）。1.0为正常速度，2.0为2倍速（加速），0.5为0.5倍速（减速）。影响最终片段时长：target_duration = source_duration / speed"},
                 "track_name": {"type": "string", "default": "audio_main", "description": "音频轨道名称标识。建议命名：audio_main（主背景音乐）、audio_voice（人声配音）、audio_sfx（音效轨）。会自动创建不存在的轨道"},
-                "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始音频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示使用默认值0.0，实际时长在下载时获取"},
+                "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始音频素材的总时长（秒）。⚠️ 注意单位是秒，非微秒。提前提供可避免重复解析素材，显著提升处理速度。null表示使用默认值0.0，实际时长在下载时获取"},
                 "effect_type": {"type": "string", "description": "音效处理类型名称。根据IS_CAPCUT_ENV自动选择：CapCut环境支持CapCutVoiceFiltersEffectType/CapCutVoiceCharactersEffectType/CapCutSpeechToSongEffectType；剪映环境支持AudioSceneEffectType/ToneEffectType/SpeechToSongType"},
                 "effect_params": {"type": "array", "description": "音效参数数组。参数的具体含义和数量取决于effect_type。格式：List[Optional[float]]。例如：某些效果可能需要[0.5, 1.0]"},
                 "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。用于创建或匹配草稿尺寸，通常保持与视频画布一致"},
@@ -616,6 +616,58 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                 }
 
             # 验证6：end不能超过duration（警告而非错误）
+            if duration is not None and end is not None and end > duration:
+                print(
+                    f"⚠️  警告：end={end}秒超出duration={duration}秒，系统将自动调整为{duration}秒",
+                    file=sys.stderr
+                )
+
+        # ========== add_audio参数预验证 ==========
+        if tool_name == "add_audio":
+            start = arguments.get("start", 0)
+            end = arguments.get("end")
+            duration = arguments.get("duration")
+
+            # 验证1：start不能为负数
+            if start < 0:
+                return {
+                    "success": False,
+                    "error": f"❌ 参数错误：start={start}秒不能为负数"
+                }
+
+            # 验证2：end>0时必须大于start
+            if end is not None and end > 0 and end <= start:
+                return {
+                    "success": False,
+                    "error": format_validation_error(
+                        "当end>0时，必须满足 end > start",
+                        {"start": start, "end": end},
+                        [
+                            f"修改为 end={start + 5}（截取{start}-{start+5}秒）",
+                            "或设置 end=0/None 并提供 duration 参数（截取到末尾）"
+                        ]
+                    )
+                }
+
+            # 验证3：duration必须为正数（如果提供）
+            if duration is not None and duration <= 0:
+                return {
+                    "success": False,
+                    "error": f"❌ 参数错误：duration={duration}秒必须为正数"
+                }
+
+            # 验证4：start不能超过duration
+            if duration is not None and start >= duration:
+                return {
+                    "success": False,
+                    "error": format_validation_error(
+                        f"start={start}秒 >= duration={duration}秒",
+                        {},
+                        [f"start应小于{duration}秒，例如 start={max(0, duration-5)}"]
+                    )
+                }
+
+            # 验证5：end不能超过duration（警告而非错误）
             if duration is not None and end is not None and end > duration:
                 print(
                     f"⚠️  警告：end={end}秒超出duration={duration}秒，系统将自动调整为{duration}秒",
