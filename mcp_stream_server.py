@@ -59,6 +59,7 @@ def tool_add_video(
     draft_id: str,
     start: float = 0,
     end: Optional[float] = None,
+    duration: Optional[float] = None,  # ⚠️ 关键参数:视频总时长(秒)
     target_start: float = 0,
     width: int = 1080,
     height: int = 1920,
@@ -85,6 +86,7 @@ def tool_add_video(
         draft_id=draft_id,
         start=start,
         end=end,
+        duration=duration,  # 传递duration参数
         target_start=target_start,
         width=width,
         height=height,
@@ -114,6 +116,7 @@ def tool_add_audio(
     draft_id: str,
     start: float = 0,
     end: Optional[float] = None,
+    duration: Optional[float] = None,  # ⚠️ 关键参数:音频总时长(秒)
     target_start: float = 0,
     volume: float = 1.0,
     speed: float = 1.0,
@@ -126,6 +129,7 @@ def tool_add_audio(
         "draft_id": draft_id,
         "start": start,
         "end": end,
+        "duration": duration,  # 传递duration参数
         "target_start": target_start,
         "volume": volume,
         "speed": speed,
