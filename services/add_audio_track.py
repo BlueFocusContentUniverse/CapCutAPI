@@ -116,12 +116,17 @@ def add_audio_track(
     # Calculate audio duration (use source_duration to avoid overwriting parameter)
     source_duration = audio_end - start
 
+    # ========== 关键修复：duration必须转换为微秒 ==========
+    # Audio_material.duration的单位是微秒，但add_audio_track接收的duration参数单位是秒
+    # 如果不转换，save_draft_impl会误判时长并错误地调整timerange
+    duration_microseconds = int(audio_duration * 1000000) if audio_duration > 0 else -1
+
     # Create audio segment
     if draft_audio_path:
         print("replace_path:", draft_audio_path)
-        audio_material = draft.Audio_material(replace_path=draft_audio_path, remote_url=audio_url, material_name=material_name, duration=audio_duration)
+        audio_material = draft.Audio_material(replace_path=draft_audio_path, remote_url=audio_url, material_name=material_name, duration=duration_microseconds)
     else:
-        audio_material = draft.Audio_material(remote_url=audio_url, material_name=material_name, duration=audio_duration)
+        audio_material = draft.Audio_material(remote_url=audio_url, material_name=material_name, duration=duration_microseconds)
     audio_segment = draft.Audio_segment(
         audio_material,  # Pass material object
         target_timerange=trange(f"{target_start}s", f"{source_duration}s"),  # Use target_start and source_duration
