@@ -25,8 +25,6 @@ def add_image_impl(
     transform_x: float = 0,
     track_name: str = "main",
     relative_index: int = 0,
-    animation: Optional[str] = None,  # Entrance animation parameter (backward compatibility)
-    animation_duration: float = 0.5,  # Entrance animation duration parameter, default 0.5 seconds
     intro_animation: Optional[str] = None,  # New entrance animation parameter, higher priority than animation
     intro_animation_duration: float = 0.5,  # New entrance animation duration parameter, default 0.5 seconds
     outro_animation: Optional[str] = None,  # Exit animation parameter
@@ -157,17 +155,15 @@ def add_image_impl(
     )
 
     # Add entrance animation (prioritize intro_animation, then use animation)
-    intro_anim = intro_animation if intro_animation is not None else animation
-    intro_animation_duration = intro_animation_duration if intro_animation_duration is not None else animation_duration
-    if intro_anim:
+    if intro_animation:
         try:
             if IS_CAPCUT_ENV:
-                animation_type = getattr(draft.CapCutIntroType, intro_anim)
+                animation_type = getattr(draft.CapCutIntroType, intro_animation)
             else:
-                animation_type = getattr(draft.IntroType, intro_anim)
+                animation_type = getattr(draft.IntroType, intro_animation)
             image_segment.add_animation(animation_type, intro_animation_duration * 1e6)  # Use microsecond unit for animation duration
         except AttributeError:
-            raise ValueError(f"Warning: Unsupported entrance animation type {intro_anim}, this parameter will be ignored")
+            raise ValueError(f"Warning: Unsupported entrance animation type {intro_animation}, this parameter will be ignored")
 
     # Add exit animation
     if outro_animation:

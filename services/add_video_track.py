@@ -68,6 +68,7 @@ def add_video_track(
     :param scale_y: Y-axis scale, default 1
     :param transform_x: X-axis transform, default 0
     :param speed: Video playback speed, default 1.0
+    :param duration: Video duration (seconds), if provided, skip duration detection
     :param track_name: When there is only one video, track name can be omitted
     :param relative_index: Track rendering order index, default 0
     :param intro_animation: New entrance animation parameter, higher priority than animation
@@ -76,7 +77,6 @@ def add_video_track(
     :param outro_animation_duration: Exit animation duration (seconds), default 0.5 seconds
     :param combo_animation: Combo animation parameter
     :param combo_animation_duration: Combo animation duration (seconds), default 0.5 seconds
-    :param duration: Video duration (seconds), if provided, skip duration detection
     :param transition: Transition type, optional parameter
     :param transition_duration: Transition duration (seconds), default uses the default duration of transition type
     :param filter_type: Filter type, optional parameter

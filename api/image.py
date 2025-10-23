@@ -24,8 +24,6 @@ def add_image():
     transform_x = data.get("transform_x", 0)
     track_name = data.get("track_name", "image_main")
     relative_index = data.get("relative_index", 0)
-    animation = data.get("animation")
-    animation_duration = data.get("animation_duration", 0.5)
     intro_animation = data.get("intro_animation")
     intro_animation_duration = data.get("intro_animation_duration", 0.5)
     outro_animation = data.get("outro_animation")
@@ -72,8 +70,6 @@ def add_image():
             transform_x=transform_x,
             track_name=track_name,
             relative_index=relative_index,
-            animation=animation,
-            animation_duration=animation_duration,
             intro_animation=intro_animation,
             intro_animation_duration=intro_animation_duration,
             outro_animation=outro_animation,

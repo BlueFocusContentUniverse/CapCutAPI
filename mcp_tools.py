@@ -47,31 +47,23 @@ TOOLS = [
     },
     {
         "name": "add_video",
-        "description": """添加视频素材到草稿时间线。支持素材裁剪、转场效果、蒙版遮罩、背景模糊等高级视频编辑功能。
+        "description": """添加视频素材到track。支持素材裁剪、转场效果、蒙版遮罩、背景模糊等高级视频编辑功能。
+        1️⃣ 基础用法（截取部分片段）：
+        • start=10, end=20, duration=60 → 从60秒视频中截取第10-20秒
 
-【重要】素材裁剪参数组合说明：
-═══════════════════════════════════════════════════════════════
-1️⃣ 基础用法（截取部分片段）：
-   • start=10, end=20, duration=60 → 从60秒视频中截取第10-20秒
-   • start=5, end=15 → 截取第5-15秒（建议同时提供duration以提升性能）
+        2️⃣ 截取到末尾用法：
+        • start=10, end=0, duration=60 → 截取第10秒到末尾（第60秒）✅ 最常用
+        • start=10, duration=60 → 同上（end可省略，默认为0）
 
-2️⃣ 截取到末尾用法（推荐）：
-   • start=10, end=0, duration=60 → 截取第10秒到末尾（第60秒）✅ 最常用
-   • start=10, duration=60 → 同上（end可省略，默认为0）
+        3️⃣ 完整播放用法：
+        • duration=60 → 播放完整60秒视频（start和end可省略，默认为0）
+        • start=0, end=0, duration=60 → 同上（显式指定）
 
-3️⃣ 完整播放用法：
-   • duration=60 → 播放完整60秒视频（start和end可省略，默认为0）
-   • start=0, end=0, duration=60 → 同上（显式指定）
-
-【关键约束】
-⚠️  当 end=0 或 end=None 时，必须提供 duration 参数，否则会导致黑屏
-⚠️  start 必须 < end（当end>0时）且 < duration（当提供duration时）
-✅  建议：始终提供 duration 参数以提升性能和避免错误
-
-【错误示例及修复】
-❌ 错误：start=25, end=0, duration=None → 黑屏（duration缺失导致时长计算为负数）
-✅ 修复：start=25, end=0, duration=60.5 → 正确截取第25-60.5秒
-""",
+        【关键约束】
+        ⚠️  当 end=0 或 end=None 时，必须提供 duration 参数，否则会导致黑屏
+        ⚠️  start 必须 < end（当end>0时）且 < duration（当提供duration时）
+        ✅  建议：始终提供 duration
+        """,
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -79,73 +71,49 @@ TOOLS = [
                 "start": {
                     "type": "number",
                     "default": 0,
-                    "description": """【素材裁剪-入点】从原始视频素材的第几秒开始截取（>=0）。
-
-示例：
-  • start=0 → 从视频开头开始
-  • start=2.5 → 从2.5秒位置开始
-  • start=10 → 跳过前10秒
-
-⚠️ 约束：必须 < duration（如已提供）且 < end（如end>0）
-"""
+                    "description": """从原始视频素材的第几秒开始截取（>=0）。
+                        示例：
+                        • start=0 → 从视频开头开始
+                        • start=10 → 从第10秒开始
+                        """
                 },
                 "end": {
                     "type": "number",
                     "default": 0,
-                    "description": """【素材裁剪-出点】到原始视频素材的第几秒结束截取。
+                    "description": """到原始视频素材的第几秒结束截取。
 
-语义说明：
-  • end=0（默认） → 截取到视频末尾（⚠️ 需提供duration参数）
-  • end=None → 同end=0
-  • end>0 → 截取到指定秒数（例如end=5.0表示截取到第5秒）
-  • end<0 → 非法值，会被视为end=0处理
+                    语义说明：
+                    • end=0（默认） → 截取到视频末尾（⚠️ 需提供duration参数）
+                    • end>0 → 截取到指定秒数（例如end=5.0表示截取到第5秒）
 
-示例：
-  • start=0, end=5 → 截取前5秒
-  • start=2, end=8 → 截取第2-8秒（共6秒）
-  • start=10, end=0, duration=60 → 截取第10-60秒（共50秒）✅ 推荐用法
+                    示例：
+                    • start=0, end=5 → 截取前5秒
+                    • start=2, end=8 → 截取第2-8秒（共6秒）
+                    • start=10, end=0, duration=60 → 截取第10-60秒（共50秒）✅ 推荐用法
 
-⚠️ 约束：
-  • 当end>0时，必须满足 end > start
-  • 当end=0时，必须提供duration参数，否则会导致黑屏
-"""
+                    ⚠️ 约束：
+                    • 当end>0时，必须满足 end > start
+                    • 当end=0时，必须提供duration参数，否则会导致黑屏
+                """
                 },
                 "duration": {
                     "type": ["number", "null"],
                     "default": None,
-                    "description": """【性能优化+容错保障】原始视频素材的总时长（秒）。
-
-作用：
-  1. 性能优化：提前提供可避免重复解析素材，显著提升处理速度
-  2. 计算依据：当end=0时，作为裁剪终点的计算依据（必需）
-  3. 容错保障：防止参数错误导致黑屏
-
-使用建议：
-  ✅ 推荐：始终提供此参数（即使不裁剪）
-  ⚠️  警告：当end=0或end=None时，此参数为必需，否则会导致黑屏
-  ❌ 错误示例：start=10, end=0, duration=None → 黑屏（duration缺失导致负时长）
-  ✅ 正确示例：start=10, end=0, duration=60.5 → 正确截取第10-60.5秒
-
-示例：
-  • duration=60.5 → 视频总时长60.5秒
-  • start=10, end=0, duration=60.5 → 截取第10-60.5秒（共50.5秒）
-  • start=0, duration=60.5 → 播放完整60.5秒视频
-"""
+                    "description": """原始视频素材的总时长（秒）。
+                    作用：
+                    • 计算依据：当end=0时，作为裁剪终点的计算依据（必需）
+                    示例：
+                    • duration=60.5 → 视频总时长60.5秒
+                """
                 },
                 "target_start": {
                     "type": "number",
                     "default": 0,
-                    "description": """【时间线位置】该视频片段在成片时间线上的起始时间点（秒）。
-
-示例：
-  • target_start=0 → 成片从第0秒开始播放此片段
-  • target_start=10 → 成片从第10秒开始播放此片段
-  • target_start=25 → 成片从第25秒开始播放此片段
-
-⚠️ 注意：此参数与start不同：
-  • start：素材的裁剪入点（从素材的哪一秒开始截取）
-  • target_start：成片的时间线位置（在成片的哪一秒开始播放）
-"""
+                    "description": """该视频片段在track上的起始时间点（秒）。
+                        示例：
+                        • target_start=0 → track从第0秒开始播放此片段
+                        • target_start=10 → track从第10秒开始播放此片段
+                        """
                 },
                 "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
                 "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"},
@@ -163,7 +131,6 @@ TOOLS = [
                 "outro_animation_duration": {"type": "number", "default": 0.5, "description": "出场动画持续时长（秒）。建议范围：0.3-2.0秒"},
                 "combo_animation": {"type": "string", "description": "组合动画效果名称。同时包含入场和出场的预设动画组合"},
                 "combo_animation_duration": {"type": "number", "default": 0.5, "description": "组合动画总持续时长（秒）。会平均分配给入场和出场"},
-                "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始视频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示自动检测。⚠️ 当end=0时必须提供此参数，否则会导致黑屏"},
                 "transition": {"type": "string", "description": "转场效果类型名称。应用于当前素材与前一个素材之间的过渡效果，需与系统支持的转场类型匹配"},
                 "transition_duration": {"type": "number", "default": 0.5, "description": "转场效果持续时长（秒）。建议范围：0.3-2.0秒。转场会占用前后两个素材各一半的时长"},
                 "volume": {"type": "number", "default": 1.0, "description": "视频原声音量增益。范围：0.0-2.0。0.0为静音，1.0为原始音量，2.0为放大两倍"},
@@ -182,7 +149,7 @@ TOOLS = [
                 "mask_round_corner": {"type": ["number", "null"], "default": None, "description": "【矩形蒙版专用】矩形圆角半径。范围：0-100。0为直角，100为最圆润。仅当mask_type为rectangle时有效"},
                 "background_blur": {"type": "integer", "description": "背景模糊强度等级。范围：1-4。1为轻微模糊，4为最强模糊。用于创建素材周围的虚化背景效果"}
             },
-            "required": ["video_url", "draft_id"]
+            "required": ["video_url", "draft_id", "duration", "target_start"]
         }
     },
     {
@@ -205,7 +172,7 @@ TOOLS = [
                 "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。用于创建或匹配草稿尺寸，通常保持与视频画布一致"},
                 "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。用于创建或匹配草稿尺寸，通常保持与视频画布一致"}
             },
-            "required": ["audio_url", "draft_id"]
+            "required": ["audio_url", "draft_id", "start", "end", "target_start"]
         }
     },
     {
@@ -245,7 +212,7 @@ TOOLS = [
                 "mask_round_corner": {"type": ["number", "null"], "default": None, "description": "【矩形蒙版专用】矩形圆角半径。范围：0-100。0为直角，100为最圆润。仅当mask_type为Rectangle时有效"},
                 "background_blur": {"type": "integer", "description": "背景模糊强度等级。范围：1-4。对应模糊值：1=0.0625（轻微），2=0.375（中等），3=0.75（强烈），4=1.0（最大）。用于创建素材周围的虚化背景效果"}
             },
-            "required": ["image_url", "draft_id"]
+            "required": ["image_url", "draft_id", "start", "end"]
         }
     },
     {
