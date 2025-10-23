@@ -63,7 +63,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/jyapi
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -145,9 +145,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            suffix=-mcp,onlatest=true
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/jyapi-mcp
           tags: |
             type=ref,event=branch
             type=ref,event=pr
