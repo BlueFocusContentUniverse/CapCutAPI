@@ -12,7 +12,7 @@ from pyJianYingDraft import (
 )
 from settings import IS_CAPCUT_ENV
 
-from .create_draft import get_or_create_draft
+from .create_draft import get_draft
 
 
 def add_effect_impl(
@@ -23,8 +23,6 @@ def add_effect_impl(
     draft_id: Optional[str] = None,
     track_name: Optional[str] = "effect_01",
     params: Optional[List[Optional[float]]] = None,
-    width: int = 1080,
-    height: int = 1920
 ) -> Dict[str, str]:
     """
     Add an effect to the specified draft
@@ -35,16 +33,10 @@ def add_effect_impl(
     :param draft_id: Draft ID, if None or corresponding zip file not found, a new draft will be created
     :param track_name: Track name, can be omitted when there is only one effect track
     :param params: Effect parameter list, items not provided or None in the parameter list will use default values
-    :param width: Video width, default 1080
-    :param height: Video height, default 1920
     :return: Updated draft information
     """
     # Get or create draft
-    draft_id, script = get_or_create_draft(
-        draft_id=draft_id,
-        width=width,
-        height=height
-    )
+    draft_id, script = get_draft(draft_id=draft_id)
 
     # Calculate time range
     duration = end - start

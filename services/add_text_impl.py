@@ -7,7 +7,7 @@ from pyJianYingDraft.text_segment import TextBubble, TextEffect, TextStyleRange
 from settings.local import IS_CAPCUT_ENV
 from util import hex_to_rgb
 
-from .create_draft import get_or_create_draft
+from .create_draft import get_draft
 
 
 def add_text_impl(
@@ -132,11 +132,7 @@ def add_text_impl(
         raise ValueError("background_alpha value must be between 0.0 and 1.0")
 
     # Get or create draft
-    draft_id, script = get_or_create_draft(
-        draft_id=draft_id,
-        width=width,
-        height=height
-    )
+    draft_id, script = get_draft(draft_id=draft_id)
 
     # Add text track
     if track_name is not None:

@@ -8,7 +8,7 @@ from draft_cache import update_cache
 from pyJianYingDraft.text_segment import TextBubble, TextEffect
 from util import hex_to_rgb
 
-from .create_draft import get_or_create_draft
+from .create_draft import get_draft
 
 
 def add_subtitle_impl(
@@ -66,11 +66,7 @@ def add_subtitle_impl(
     :return: Draft information
     """
     # Get or create draft
-    draft_id, script = get_or_create_draft(
-        draft_id=draft_id,
-        width=width,
-        height=height
-    )
+    draft_id, script = get_draft(draft_id=draft_id)
 
     # Process subtitle content
     srt_content = None

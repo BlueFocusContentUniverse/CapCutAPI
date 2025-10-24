@@ -4,7 +4,7 @@ import pyJianYingDraft as draft
 from draft_cache import update_cache
 from pyJianYingDraft import exceptions
 
-from .create_draft import get_or_create_draft
+from .create_draft import get_draft
 
 
 def add_video_keyframe_impl(
@@ -48,9 +48,7 @@ def add_video_keyframe_impl(
     :return: Updated draft information
     """
     # Get or create draft
-    draft_id, script = get_or_create_draft(
-        draft_id=draft_id
-    )
+    draft_id, script = get_draft(draft_id=draft_id)
 
     try:
         # Get specified track

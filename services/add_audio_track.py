@@ -19,7 +19,7 @@ from pyJianYingDraft import (
 from settings.local import IS_CAPCUT_ENV
 from util import is_windows_path, url_to_hash
 
-from .create_draft import get_or_create_draft
+from .create_draft import get_draft
 
 
 @service_logger
@@ -34,8 +34,6 @@ def add_audio_track(
     track_name: str = "audio_main",
     speed: float = 1.0,
     sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]]=None,
-    width: int = 1080,
-    height: int = 1920,
     duration: Optional[float] = None  # Added duration parameter
 ) -> Dict[str, str]:
     """
@@ -53,11 +51,7 @@ def add_audio_track(
     :return: Updated draft information
     """
     # Get or create draft
-    draft_id, script = get_or_create_draft(
-        draft_id=draft_id,
-        width=width,
-        height=height
-    )
+    draft_id, script = get_draft(draft_id=draft_id)
 
     # Add audio track (only when track doesn't exist)
     if track_name is not None:

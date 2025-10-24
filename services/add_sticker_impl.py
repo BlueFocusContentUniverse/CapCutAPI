@@ -4,7 +4,7 @@ import pyJianYingDraft as draft
 from draft_cache import update_cache
 from pyJianYingDraft import exceptions, trange
 
-from .create_draft import get_or_create_draft
+from .create_draft import get_draft
 
 
 def add_sticker_impl(
@@ -22,8 +22,6 @@ def add_sticker_impl(
     scale_y: float = 1.0,
     track_name: str = "sticker_main",
     relative_index: int = 0,
-    width: int = 1080,
-    height: int = 1920
 ) -> Dict[str, str]:
     """
     Add sticker to specified draft
@@ -41,16 +39,10 @@ def add_sticker_impl(
     :param scale_y: Vertical scale ratio (default 1.0)
     :param track_name: Track name
     :param relative_index: Relative layer position (of the same track type), higher is closer to foreground (default 0)
-    :param width: Video width, default 1080
-    :param height: Video height, default 1920
     :return: Updated draft information
     """
     # Get or create draft
-    draft_id, script = get_or_create_draft(
-        draft_id=draft_id,
-        width=width,
-        height=height
-    )
+    draft_id, script = get_draft(draft_id=draft_id)
 
     # Add sticker track
     if track_name is not None:

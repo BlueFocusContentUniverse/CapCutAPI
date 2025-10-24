@@ -8,14 +8,12 @@ from pyJianYingDraft import Clip_settings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
 from util import is_windows_path, url_to_hash
 
-from .create_draft import get_or_create_draft
+from .create_draft import get_draft
 
 
 def add_image_impl(
     image_url: str,
     draft_folder: Optional[str] = None,
-    width: int = 1080,
-    height: int = 1920,
     start: float = 0,
     end: float = 3.0,  # Default display time: 3 seconds
     draft_id: Optional[str] = None,
@@ -59,8 +57,6 @@ def add_image_impl(
     :param transition_duration: Transition duration (seconds), default 0.5 seconds
     :param draft_folder: Draft folder path, optional parameter
     :param image_url: Image URL
-    :param width: Video width, default 1080
-    :param height: Video height, default 1920
     :param start: Start time (seconds), default 0
     :param end: End time (seconds), default 3 seconds
     :param draft_id: Draft ID, if None or corresponding zip file not found, a new draft will be created
@@ -83,11 +79,7 @@ def add_image_impl(
     :return: Updated draft information, including draft_id and draft_url
     """
     # Get or create draft
-    draft_id, script = get_or_create_draft(
-        draft_id=draft_id,
-        width=width,
-        height=height
-    )
+    draft_id, script = get_draft(draft_id=draft_id)
 
     # Check if video track exists, if not, add a default video track
     try:

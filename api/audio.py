@@ -23,8 +23,6 @@ def add_audio():
     duration = data.get("duration", None)
     effect_type = data.get("effect_type", None)
     effect_params = data.get("effect_params", None)
-    width = data.get("width", 1080)
-    height = data.get("height", 1920)
 
     sound_effects = None
     if effect_type is not None:
@@ -52,8 +50,6 @@ def add_audio():
             track_name=track_name,
             speed=speed,
             sound_effects=sound_effects,
-            width=width,
-            height=height,
             duration=duration
         )
 

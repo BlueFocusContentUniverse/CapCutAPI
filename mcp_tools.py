@@ -115,8 +115,6 @@ TOOLS = [
                         • target_start=10 → track从第10秒开始播放此片段
                         """
                 },
-                "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
-                "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"},
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
                 "transform_x": {"type": "number", "default": 0, "description": "【空间定位-X轴】视频素材在画布上的水平位置偏移。单位：半个画布宽度。0为画布中心，-1为向左偏移半个画布宽（画布最左侧），1为向右偏移半个画布宽（画布最右侧），2为向右偏移整个画布宽"},
                 "transform_y": {"type": "number", "default": 0, "description": "【空间定位-Y轴】视频素材在画布上的垂直位置偏移。单位：半个画布高度。0为画布中心，-1为向上偏移半个画布高（画布顶部），1为向下偏移半个画布高（画布底部）。参考：字幕常用-0.8"},
@@ -169,10 +167,8 @@ TOOLS = [
                 "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始音频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示使用默认值0.0，实际时长在下载时获取"},
                 "effect_type": {"type": "string", "description": "音效处理类型名称。根据IS_CAPCUT_ENV自动选择：CapCut环境支持CapCutVoiceFiltersEffectType/CapCutVoiceCharactersEffectType/CapCutSpeechToSongEffectType；剪映环境支持AudioSceneEffectType/ToneEffectType/SpeechToSongType"},
                 "effect_params": {"type": "array", "description": "音效参数数组。参数的具体含义和数量取决于effect_type。格式：List[Optional[float]]。例如：某些效果可能需要[0.5, 1.0]"},
-                "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。用于创建或匹配草稿尺寸，通常保持与视频画布一致"},
-                "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。用于创建或匹配草稿尺寸，通常保持与视频画布一致"}
             },
-            "required": ["audio_url", "draft_id", "start", "end", "target_start"]
+            "required": ["audio_url", "draft_id", "start", "target_start"]
         }
     },
     {
@@ -185,8 +181,6 @@ TOOLS = [
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
                 "start": {"type": "number", "default": 0, "description": "【时间线位置-起点】图片在成片时间线上的起始时间点（秒）。对应target_timerange的起始位置。例如：0表示从成片开头开始显示"},
                 "end": {"type": "number", "default": 3.0, "description": "【时间线位置-终点】图片在成片时间线上的结束时间点（秒）。对应target_timerange的结束位置。例如：3.0表示显示到成片的第3秒。图片显示时长 = end - start"},
-                "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
-                "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"},
                 "transform_x": {"type": "number", "default": 0, "description": "【空间定位-X轴】图片素材在画布上的水平位置偏移。单位：半个画布宽度。0为画布中心，-1为向左偏移半个画布宽，1为向右偏移半个画布宽"},
                 "transform_y": {"type": "number", "default": 0, "description": "【空间定位-Y轴】图片素材在画布上的垂直位置偏移。单位：半个画布高度。0为画布中心，-1为向上偏移半个画布高，1为向下偏移半个画布高"},
                 "scale_x": {"type": "number", "default": 1, "description": "【缩放-X轴】水平缩放倍数。1.0为原始大小，0.5为缩小一半，2.0为放大两倍"},
@@ -257,8 +251,6 @@ TOOLS = [
                 "intro_duration": {"type": "number", "default": 0.5, "description": "入场动画持续时长（秒）。单位会自动转换为微秒（×1e6）"},
                 "outro_animation": {"type": "string", "description": "出场动画类型名称。文本消失时的动画效果。根据IS_CAPCUT_ENV自动选择CapCutTextOutro或TextOutro"},
                 "outro_duration": {"type": "number", "default": 0.5, "description": "出场动画持续时长（秒）。单位会自动转换为微秒（×1e6）"},
-                "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
-                "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"},
                 "italic": {"type": "boolean", "default": False, "description": "是否斜体。应用于Text_style。注意：与bold/underline可能存在互斥关系（取决于字体）"},
                 "bold": {"type": "boolean", "default": False, "description": "是否加粗。应用于Text_style"},
                 "underline": {"type": "boolean", "default": False, "description": "是否下划线。应用于Text_style"}
@@ -296,8 +288,6 @@ TOOLS = [
     #             "scale_y": {"type": "number", "default": 1.0, "description": "Y轴缩放比例"},
     #             "rotation": {"type": "number", "default": 0.0, "description": "旋转角度（度）"},
     #             "track_name": {"type": "string", "default": "subtitle", "description": "轨道名称"},
-    #             "width": {"type": "integer", "default": 1080, "description": "画布宽度"},
-    #             "height": {"type": "integer", "default": 1920, "description": "画布高度"}
     #         },
     #         "required": ["srt"]
     #     }
@@ -315,8 +305,6 @@ TOOLS = [
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符。未传或不存在时自动创建新草稿"},
                 "track_name": {"type": "string", "default": "effect_01", "description": "特效轨道名称标识。建议命名：effect_01、effect_scene、effect_character。会自动创建不存在的轨道"},
                 "params": {"type": "array", "description": "特效参数数组。格式：List[Optional[float]]。参数的具体含义取决于effect_type。未提供或为None的参数项将使用默认值"},
-                "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
-                "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"}
             },
             "required": ["effect_type"]
         }
@@ -338,8 +326,6 @@ TOOLS = [
                 "alpha": {"type": "number", "default": 1.0, "description": "贴纸透明度。范围：0.0-1.0。0.0为完全透明，1.0为完全不透明"},
                 "rotation": {"type": "number", "default": 0.0, "description": "贴纸旋转角度（度）。顺时针旋转，可以是正值或负值"},
                 "track_name": {"type": "string", "default": "sticker_main", "description": "贴纸轨道名称标识。建议命名：sticker_main、sticker_emoji、sticker_decoration。会自动创建不存在的轨道"},
-                "width": {"type": "integer", "default": 1080, "description": "画布宽度（像素）。标准竖屏：1080，标准横屏：1920"},
-                "height": {"type": "integer", "default": 1920, "description": "画布高度（像素）。标准竖屏：1920，标准横屏：1080"}
             },
             "required": ["resource_id", "start", "end", "draft_id"]
         }
@@ -521,73 +507,6 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """执行具体的工具"""
     try:
         print(f"[DEBUG] Executing tool: {tool_name} with args: {arguments}", file=sys.stderr)
-
-        # ========== add_video参数预验证（在CAPCUT检查之前） ==========
-        if tool_name == "add_video":
-            start = arguments.get("start", 0)
-            end = arguments.get("end", 0)
-            duration = arguments.get("duration")
-
-            # 验证1：start不能为负数
-            if start < 0:
-                return {
-                    "success": False,
-                    "error": f"❌ 参数错误：start={start}秒不能为负数"
-                }
-
-            # 验证2：end>0时必须大于start
-            if end is not None and end > 0 and end <= start:
-                return {
-                    "success": False,
-                    "error": format_validation_error(
-                        "当end>0时，必须满足 end > start",
-                        {"start": start, "end": end},
-                        [
-                            f"修改为 end={start + 5}（截取{start}-{start+5}秒）",
-                            "或设置 end=0 并提供 duration 参数（截取到末尾）"
-                        ]
-                    )
-                }
-
-            # 验证3：end=0时必须提供duration
-            if (end is None or end <= 0) and duration is None:
-                error_msg = (
-                    f"❌ 参数缺失：当 end=0 或 end=None 时，必须提供 duration 参数\n"
-                    f"原因：系统需要知道视频总时长才能计算'截取到末尾'的终点位置\n"
-                    f"当前参数：start={start}, end={end}, duration=None\n"
-                    f"建议：添加 duration 参数，例如：\n"
-                    f"  • duration=60.5（视频总时长60.5秒）\n"
-                    f"  • 完整示例：start={start}, end=0, duration=60.5"
-                )
-                return {
-                    "success": False,
-                    "error": error_msg
-                }
-
-            # 验证4：duration必须为正数
-            if duration is not None and duration <= 0:
-                return {
-                    "success": False,
-                    "error": f"❌ 参数错误：duration={duration}秒必须为正数"
-                }
-
-            # 验证5：start不能超过duration
-            if duration is not None and start >= duration:
-                return {
-                    "success": False,
-                    "error": format_validation_error(
-                        f"start={start}秒 >= duration={duration}秒",
-                        {},
-                        [f"start应小于{duration}秒，例如 start={max(0, duration-5)}"]
-                    )
-                }
-
-            # 验证6：end不能超过duration（警告而非错误）
-            if duration is not None and end is not None and end > duration:
-                print(
-                    f"⚠️  警告：end={end}秒超出duration={duration}秒，系统将自动调整为{duration}秒",
-                    file=sys.stderr
-                )
 
         # ========== 检查CapCut模块可用性 ==========
         if not CAPCUT_AVAILABLE:

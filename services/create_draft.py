@@ -34,32 +34,24 @@ def create_draft(width=1080, height=1920, framerate=DraftFramerate.FR_30.value, 
 
     return script, draft_id
 
-def get_or_create_draft(draft_id=None, width=1080, height=1920, framerate=DraftFramerate.FR_30.value, name="draft", resource: str | None = None):
+def get_draft(draft_id=None):
     """
-    Get or create CapCut draft (now with PostgreSQL persistence)
-    :param draft_id: Draft ID, if None or not found in storage, create new draft
-    :param width: Video width, default 1080
-    :param height: Video height, default 1920
+    Get existing CapCut draft from storage
+    :param draft_id: Draft ID (required), raises ValueError if None or not found
     :return: (draft_id, script)
+    :raises ValueError: If draft_id is None or draft not found
     """
-    if draft_id is not None and cache_exists(draft_id):
-        # Get existing draft from cache (memory or PostgreSQL)
-        print(f"Getting draft from storage: {draft_id}")
-        script = get_from_cache(draft_id)
-        if script is not None:
-            # Update last access time by re-saving
-            # update_cache(draft_id, script)
-            return draft_id, script
-        else:
-            print(f"Failed to retrieve draft {draft_id}, creating new one")
+    if draft_id is None:
+        raise ValueError("draft_id is required. Cannot retrieve draft without a draft_id.")
 
-    # Create new draft logic
-    print(f"Creating new draft with framerate {framerate} and name {name}")
-    script, generate_draft_id = create_draft(
-        width=width,
-        height=height,
-        framerate=framerate,
-        name=name,
-        resource=resource,
-    )
-    return generate_draft_id, script
+    if not cache_exists(draft_id):
+        raise ValueError(f"Draft with ID '{draft_id}' does not exist in storage.")
+
+    # Get existing draft from cache (memory or PostgreSQL)
+    print(f"Getting draft from storage: {draft_id}")
+    script = get_from_cache(draft_id)
+
+    if script is None:
+        raise ValueError(f"Failed to retrieve draft '{draft_id}' from storage. Draft may be corrupted.")
+
+    return draft_id, script

@@ -13,8 +13,6 @@ def add_image():
 
     draft_folder = data.get("draft_folder")
     image_url = data.get("image_url")
-    width = data.get("width", 1080)
-    height = data.get("height", 1920)
     start = data.get("start", 0)
     end = data.get("end", 3.0)
     draft_id = data.get("draft_id")
@@ -59,8 +57,6 @@ def add_image():
         draft_result = add_image_impl(
             draft_folder=draft_folder,
             image_url=image_url,
-            width=width,
-            height=height,
             start=start,
             end=end,
             draft_id=draft_id,

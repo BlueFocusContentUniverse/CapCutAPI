@@ -18,8 +18,6 @@ def add_effect():
     draft_id = data.get("draft_id")
     track_name = data.get("track_name", "effect_01")
     params = data.get("params")
-    width = data.get("width", 1080)
-    height = data.get("height", 1920)
 
     result = {
         "success": False,
@@ -40,8 +38,6 @@ def add_effect():
             draft_id=draft_id,
             track_name=track_name,
             params=params,
-            width=width,
-            height=height
         )
 
         result["success"] = True

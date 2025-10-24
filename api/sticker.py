@@ -26,8 +26,6 @@ def add_sticker():
     scale_y = data.get("scale_y", 1.0)
     track_name = data.get("track_name", "sticker_main")
     relative_index = data.get("relative_index", 0)
-    width = data.get("width", 1080)
-    height = data.get("height", 1920)
 
     result = {
         "success": False,
@@ -55,8 +53,6 @@ def add_sticker():
             scale_y=scale_y,
             track_name=track_name,
             relative_index=relative_index,
-            width=width,
-            height=height
         )
 
         result["success"] = True

@@ -28,7 +28,7 @@ from mcp_tools import TOOLS, execute_tool
 from services.add_effect_impl import add_effect_impl
 from services.add_text_impl import add_text_impl
 from services.add_video_track import add_video_track
-from services.create_draft import get_or_create_draft
+from services.create_draft import create_draft
 from services.generate_video_impl import generate_video_impl
 from services.track_management import delete_track, get_track_details, get_tracks
 
@@ -48,7 +48,7 @@ else:
 # Manual tool handlers with flattened parameters (required first)
 @mcp_tool_logger("create_draft")
 def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 30.0, name: str = "mcp_draft", resource: str = "mcp") -> Dict[str, Any]:
-    draft_id, _ =  get_or_create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
+    draft_id, _ =  create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
     return {
         "draft_id": draft_id,
     }
@@ -61,8 +61,6 @@ def tool_add_video(
     end: Optional[float] = None,
     duration: Optional[float] = None,
     target_start: float = 0,
-    width: int = 1080,
-    height: int = 1920,
     transform_x: float = 0,
     transform_y: float = 0,
     scale_x: float = 1,
@@ -88,8 +86,6 @@ def tool_add_video(
         end=end,
         duration=duration,
         target_start=target_start,
-        width=width,
-        height=height,
         transform_x=transform_x,
         transform_y=transform_y,
         scale_x=scale_x,
@@ -120,8 +116,7 @@ def tool_add_audio(
     volume: float = 1.0,
     speed: float = 1.0,
     track_name: str = "audio_main",
-    width: int = 1080,
-    height: int = 1920,
+    duration: Optional[float] = None,
 ) -> Dict[str, Any]:
     arguments: Dict[str, Any] = {
         "audio_url": audio_url,
@@ -132,8 +127,7 @@ def tool_add_audio(
         "volume": volume,
         "speed": speed,
         "track_name": track_name,
-        "width": width,
-        "height": height,
+        "duration": duration,
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
     return execute_tool("add_audio", arguments)
@@ -145,8 +139,6 @@ def tool_add_image(
     draft_id: str,
     start: float = 0,
     end: float = 3.0,
-    width: int = 1080,
-    height: int = 1920,
     transform_x: float = 0,
     transform_y: float = 0,
     scale_x: float = 1,
@@ -162,8 +154,6 @@ def tool_add_image(
         "draft_id": draft_id,
         "start": start,
         "end": end,
-        "width": width,
-        "height": height,
         "transform_x": transform_x,
         "transform_y": transform_y,
         "scale_x": scale_x,
@@ -269,8 +259,6 @@ def tool_add_subtitle(
     background_alpha: float = 0.0,
     transform_x: float = 0.0,
     transform_y: float = -0.8,
-    width: int = 1080,
-    height: int = 1920,
 ) -> Dict[str, Any]:
     arguments: Dict[str, Any] = {
         "srt_path": srt_path,
@@ -289,8 +277,6 @@ def tool_add_subtitle(
         "background_alpha": background_alpha,
         "transform_x": transform_x,
         "transform_y": transform_y,
-        "width": width,
-        "height": height,
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
     return execute_tool("add_subtitle", arguments)
@@ -305,8 +291,6 @@ def tool_add_effect(
     end: float = 3.0,
     track_name: str = "effect_01",
     params: Optional[List[Any]] = None,
-    width: int = 1080,
-    height: int = 1920,
 ) -> Dict[str, Any]:
     return add_effect_impl(
         effect_type=effect_type,
@@ -316,8 +300,6 @@ def tool_add_effect(
         end=end,
         track_name=track_name,
         params=params,
-        width=width,
-        height=height,
     )
 
 
@@ -334,8 +316,6 @@ def tool_add_sticker(
     alpha: float = 1.0,
     rotation: float = 0.0,
     track_name: str = "sticker_main",
-    width: int = 1080,
-    height: int = 1920,
 ) -> Dict[str, Any]:
     arguments: Dict[str, Any] = {
         "resource_id": resource_id,
@@ -349,8 +329,6 @@ def tool_add_sticker(
         "alpha": alpha,
         "rotation": rotation,
         "track_name": track_name,
-        "width": width,
-        "height": height,
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
     return execute_tool("add_sticker", arguments)
