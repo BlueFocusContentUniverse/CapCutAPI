@@ -5,27 +5,40 @@
 
 import uuid
 from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 
-from typing import Optional, Literal, Union
-from typing import Dict, List, Tuple, Any
-from typing import TYPE_CHECKING
-
-from pyJianYingDraft.metadata.capcut_effect_meta import CapCutVideoCharacterEffectType, CapCutVideoSceneEffectType
+from pyJianYingDraft.metadata.capcut_effect_meta import (
+    CapCutVideoCharacterEffectType,
+    CapCutVideoSceneEffectType,
+)
 from pyJianYingDraft.metadata.capcut_mask_meta import CapCutMaskType
 from settings import IS_CAPCUT_ENV
 
-from .time_util import tim, Timerange
-from .segment import Visual_segment, Clip_settings, AudioFade
-from .local_materials import Video_material
 from .animation import Segment_animations, Video_animation
+from .local_materials import Video_material
+from .segment import AudioFade, Clip_settings, Visual_segment
+from .time_util import Timerange, tim
+
 if TYPE_CHECKING:
     from .script_file import Script_file
 
-from .metadata import EffectMeta, EffectParamInstance
-from .metadata import MaskMeta, MaskType, FilterType, TransitionType, CapCutTransitionType
-from .metadata import IntroType, OutroType, GroupAnimationType
-from .metadata import CapCutIntroType, CapCutOutroType, CapCutGroupAnimationType
-from .metadata import VideoSceneEffectType, VideoCharacterEffectType
+from .metadata import (
+    CapCutGroupAnimationType,
+    CapCutIntroType,
+    CapCutOutroType,
+    CapCutTransitionType,
+    EffectMeta,
+    EffectParamInstance,
+    FilterType,
+    GroupAnimationType,
+    IntroType,
+    MaskMeta,
+    MaskType,
+    OutroType,
+    TransitionType,
+    VideoCharacterEffectType,
+    VideoSceneEffectType,
+)
 
 
 class Mask:
@@ -495,7 +508,7 @@ class Video_segment(Visual_segment):
         # 获取草稿的宽高，而不是使用素材的宽高
         draft_width = draft.width
         draft_height = draft.height
-        
+
         width = rect_width or size * draft_height * mask_type.value.default_aspect_ratio / draft_width
         self.mask = Mask(mask_type.value, center_x / (draft_width / 2), center_y / (draft_height / 2),
                          w=width, h=size, ratio=mask_type.value.default_aspect_ratio,

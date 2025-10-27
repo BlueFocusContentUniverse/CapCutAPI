@@ -1,0 +1,20 @@
+{
+  "is_capcut_env": false,
+  "draft_domain": "http://127.0.0.1:9001",
+  "port": 9001,
+  "preview_router": "/draft/downloader",
+  "is_upload_draft": false,
+  "oss_config": {
+    "bucket_name": "1wpzyo2e-ai-mcn",
+    "access_key_id": "1wpzyo2e",
+    "access_key_secret": "2djs6znwsdmrwqbv",
+    "endpoint": "https://objectstorageapi.bja.sealos.run "
+  },
+  "mp4_oss_config": {
+    "bucket_name": "1wpzyo2e-ai-mcn",
+    "access_key_id": "1wpzyo2e",
+    "access_key_secret": "2djs6znwsdmrwqbv",
+    "region": "bja",
+    "endpoint": "https://objectstorageapi.bja.sealos.run"
+  }
+}
