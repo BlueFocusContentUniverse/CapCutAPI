@@ -16,11 +16,11 @@ from settings import IS_CAPCUT_ENV
 
 from .animation import Segment_animations, Video_animation
 from .local_materials import Video_material
-from .segment import AudioFade, Clip_settings, Visual_segment
+from .segment import AudioFade, ClipSettings, VisualSegment
 from .time_util import Timerange, tim
 
 if TYPE_CHECKING:
-    from .script_file import Script_file
+    from .script_file import ScriptFile
 
 from .metadata import (
     CapCutGroupAnimationType,
@@ -304,7 +304,7 @@ class BackgroundFilling:
             "source_platform": 0,
         }
 
-class Video_segment(Visual_segment):
+class VideoSegment(VisualSegment):
     """安放在轨道上的一个视频/图片片段"""
 
     material_instance: Video_material
@@ -352,7 +352,7 @@ class Video_segment(Visual_segment):
     # TODO: material参数接受path进行便捷构造
     def __init__(self, material: Video_material, target_timerange: Timerange, *,
                  source_timerange: Optional[Timerange] = None, speed: Optional[float] = None, volume: float = 1.0,
-                 clip_settings: Optional[Clip_settings] = None):
+                 clip_settings: Optional[ClipSettings] = None):
         """利用给定的视频/图片素材构建一个轨道片段, 并指定其时间信息及图像调节设置
 
         Args:
@@ -391,7 +391,7 @@ class Video_segment(Visual_segment):
         self.fade = None
 
     def add_animation(self, animation_type: Union[IntroType, OutroType, GroupAnimationType, CapCutIntroType, CapCutOutroType, CapCutGroupAnimationType],
-                      duration: Optional[Union[int, str]] = None) -> "Video_segment":
+                      duration: Optional[Union[int, str]] = None) -> "VideoSegment":
         """将给定的入场/出场/组合动画添加到此片段的动画列表中
 
         Args:
@@ -422,7 +422,7 @@ class Video_segment(Visual_segment):
         return self
 
     def add_effect(self, effect_type: Union[VideoSceneEffectType, VideoCharacterEffectType],
-                   params: Optional[List[Optional[float]]] = None) -> "Video_segment":
+                   params: Optional[List[Optional[float]]] = None) -> "VideoSegment":
         """为视频片段添加一个作用于整个片段的特效
 
         Args:
@@ -442,7 +442,7 @@ class Video_segment(Visual_segment):
 
         return self
 
-    def add_fade(self, in_duration: Union[str, int], out_duration: Union[str, int]) -> "Video_segment":
+    def add_fade(self, in_duration: Union[str, int], out_duration: Union[str, int]) -> "VideoSegment":
         """为视频片段添加音频淡入淡出效果, 仅对有音轨的视频片段有效
 
         Args:
@@ -463,7 +463,7 @@ class Video_segment(Visual_segment):
 
         return self
 
-    def add_filter(self, filter_type: FilterType, intensity: float = 100.0) -> "Video_segment":
+    def add_filter(self, filter_type: FilterType, intensity: float = 100.0) -> "VideoSegment":
         """为视频片段添加一个滤镜
 
         Args:
@@ -476,9 +476,9 @@ class Video_segment(Visual_segment):
 
         return self
 
-    def add_mask(self, draft: "Script_file", mask_type: Union[MaskType, CapCutMaskType], *, center_x: float = 0.0, center_y: float = 0.0, size: float = 0.5,
+    def add_mask(self, draft: "ScriptFile", mask_type: Union[MaskType, CapCutMaskType], *, center_x: float = 0.0, center_y: float = 0.0, size: float = 0.5,
                  rotation: float = 0.0, feather: float = 0.0, invert: bool = False,
-                 rect_width: Optional[float] = None, round_corner: Optional[float] = None) -> "Video_segment":
+                 rect_width: Optional[float] = None, round_corner: Optional[float] = None) -> "VideoSegment":
         """为视频片段添加蒙版
 
         Args:
@@ -516,7 +516,7 @@ class Video_segment(Visual_segment):
         self.extra_material_refs.append(self.mask.global_id)
         return self
 
-    def add_transition(self, transition_type: Union[TransitionType, CapCutTransitionType], *, duration: Optional[Union[int, str]] = None) -> "Video_segment":
+    def add_transition(self, transition_type: Union[TransitionType, CapCutTransitionType], *, duration: Optional[Union[int, str]] = None) -> "VideoSegment":
         """为视频片段添加转场, 注意转场应当添加在**前面的**片段上
 
         Args:
@@ -534,7 +534,7 @@ class Video_segment(Visual_segment):
         self.extra_material_refs.append(self.transition.global_id)
         return self
 
-    def add_background_filling(self, fill_type: Literal["blur", "color"], blur: float = 0.0625, color: str = "#00000000") -> "Video_segment":
+    def add_background_filling(self, fill_type: Literal["blur", "color"], blur: float = 0.0625, color: str = "#00000000") -> "VideoSegment":
         """为视频片段添加背景填充
 
         注意: 背景填充仅对底层视频轨道上的片段生效
@@ -567,13 +567,13 @@ class Video_segment(Visual_segment):
         })
         return json_dict
 
-class Sticker_segment(Visual_segment):
+class StickerSegment(VisualSegment):
     """安放在轨道上的一个贴纸片段"""
 
     resource_id: str
     """贴纸资源id"""
 
-    def __init__(self, resource_id: str, target_timerange: Timerange, *, clip_settings: Optional[Clip_settings] = None):
+    def __init__(self, resource_id: str, target_timerange: Timerange, *, clip_settings: Optional[ClipSettings] = None):
         """根据贴纸resource_id构建一个贴纸片段, 并指定其时间信息及图像调节设置
 
         片段创建完成后, 可通过`Script_file.add_segment`方法将其添加到轨道中

@@ -28,7 +28,7 @@ class PostgresDraftStorage:
             logger.error(f"Failed to initialize database: {e}")
             raise
 
-    def save_draft(self, draft_id: str, script_obj: draft.Script_file) -> bool:
+    def save_draft(self, draft_id: str, script_obj: draft.ScriptFile) -> bool:
         try:
             serialized_data = pickle.dumps(script_obj)
 
@@ -94,7 +94,7 @@ class PostgresDraftStorage:
             logger.error(f"Failed to save draft {draft_id}: {e}")
             return False
 
-    def get_draft(self, draft_id: str) -> Optional[draft.Script_file]:
+    def get_draft(self, draft_id: str) -> Optional[draft.ScriptFile]:
         try:
             with get_session() as session:
                 q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id, DraftModel.is_deleted.is_(False)))
@@ -112,7 +112,7 @@ class PostgresDraftStorage:
             logger.error(f"Failed to retrieve draft {draft_id}: {e}")
             return None
 
-    def get_draft_version(self, draft_id: str, version: int) -> Optional[draft.Script_file]:
+    def get_draft_version(self, draft_id: str, version: int) -> Optional[draft.ScriptFile]:
         try:
             with get_session() as session:
                 # First try to fetch from history table

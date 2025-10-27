@@ -2,10 +2,10 @@
 
 import os
 import shutil
-
 from typing import List
 
-from .script_file import Script_file
+from .script_file import ScriptFile
+
 
 class Draft_folder:
     """管理一个文件夹及其内的一系列草稿"""
@@ -65,7 +65,7 @@ class Draft_folder:
         script_file = self.load_template(draft_name)
         script_file.inspect_material()
 
-    def load_template(self, draft_name: str) -> Script_file:
+    def load_template(self, draft_name: str) -> ScriptFile:
         """在文件夹中打开一个草稿作为模板, 并在其上进行编辑
 
         Args:
@@ -81,9 +81,9 @@ class Draft_folder:
         if not os.path.exists(draft_path):
             raise FileNotFoundError(f"草稿文件夹 {draft_name} 不存在")
 
-        return Script_file.load_template(os.path.join(draft_path, "draft_info.json"))
+        return ScriptFile.load_template(os.path.join(draft_path, "draft_info.json"))
 
-    def duplicate_as_template(self, template_name: str, new_draft_name: str, allow_replace: bool = False) -> Script_file:
+    def duplicate_as_template(self, template_name: str, new_draft_name: str, allow_replace: bool = False) -> ScriptFile:
         """复制一份给定的草稿, 并在复制出的新草稿上进行编辑
 
         Args:

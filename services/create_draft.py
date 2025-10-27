@@ -27,7 +27,7 @@ def create_draft(width=1080, height=1920, framerate=DraftFramerate.FR_30.value, 
     draft_id = f"kox_jy_{unix_time}_{unique_id}"  # Use Unix timestamp and UUID combination
 
     # Create CapCut draft with specified resolution
-    script = draft.Script_file(width, height, fps=framerate, name=name, resource=resource)
+    script = draft.ScriptFile(width, height, fps=framerate, name=name, resource=resource)
 
     # Store in global cache
     update_cache(draft_id, script)

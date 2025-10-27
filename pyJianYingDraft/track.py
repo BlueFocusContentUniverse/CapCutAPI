@@ -11,18 +11,18 @@ import pyJianYingDraft as draft
 from .audio_segment import Audio_segment
 from .effect_segment import Effect_segment, Filter_segment
 from .exceptions import SegmentOverlap
-from .segment import Base_segment
+from .segment import BaseSegment
 from .text_segment import Text_segment
-from .video_segment import Sticker_segment, Video_segment
+from .video_segment import StickerSegment, VideoSegment
 
 
 @dataclass
 class Track_meta:
     """与轨道类型关联的轨道元数据"""
 
-    segment_type: Union[Type[Video_segment], Type[Audio_segment],
+    segment_type: Union[Type[VideoSegment], Type[Audio_segment],
                         Type[Effect_segment], Type[Filter_segment],
-                        Type[Text_segment], Type[Sticker_segment], None]
+                        Type[Text_segment], Type[StickerSegment], None]
     """与轨道关联的片段类型"""
     render_index: int
     """默认渲染顺序, 值越大越接近前景"""
@@ -35,11 +35,11 @@ class Track_type(Enum):
     变量名对应type属性, 值表示相应的轨道元数据
     """
 
-    video = Track_meta(Video_segment, 0, True)
+    video = Track_meta(VideoSegment, 0, True)
     audio = Track_meta(Audio_segment, 0, True)
     effect = Track_meta(Effect_segment, 10000, False)
     filter = Track_meta(Filter_segment, 11000, False)
-    sticker = Track_meta(Sticker_segment, 14000, False)
+    sticker = Track_meta(StickerSegment, 14000, False)
     text = Track_meta(Text_segment, 15000, True)  # 原本是14000, 避免与sticker冲突改为15000
 
     adjust = Track_meta(None, 0, False)
@@ -69,7 +69,7 @@ class Base_track(ABC):
     @abstractmethod
     def export_json(self) -> Dict[str, Any]: ...
 
-Seg_type = TypeVar("Seg_type", bound=Base_segment)
+Seg_type = TypeVar("Seg_type", bound=BaseSegment)
 class Track(Base_track, Generic[Seg_type]):
     """非模板模式下的轨道"""
 

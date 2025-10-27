@@ -12,9 +12,9 @@ from . import exceptions
 from .template_mode import EditableTrack, ImportedMediaTrack, ImportedTextTrack, Shrink_mode, Extend_mode, import_track
 from .time_util import Timerange, tim, srt_tstamp
 from .local_materials import Video_material, Audio_material
-from .segment import Base_segment, Speed, Clip_settings, AudioFade
+from .segment import BaseSegment, Speed, ClipSettings, AudioFade
 from .audio_segment import Audio_segment, Audio_effect
-from .video_segment import Video_segment, Sticker_segment, Segment_animations, Video_effect, Transition, Filter, BackgroundFilling
+from .video_segment import VideoSegment, StickerSegment, Segment_animations, Video_effect, Transition, Filter, BackgroundFilling
 from .effect_segment import Effect_segment, Filter_segment
 from .text_segment import Text_segment, Text_style, TextBubble, Text_border, Text_background, TextEffect
 from .track import Track_type, Base_track, Track
@@ -151,10 +151,10 @@ class Script_material:
             result["common_mask"] = self.masks
         else:
             result["masks"] = self.masks
-            
+
         return result
 
-class Script_file:
+class ScriptFile:
     """剪映草稿文件, 大部分接口定义在此"""
 
     save_path: Optional[str]
@@ -213,7 +213,7 @@ class Script_file:
             self.content = json.load(f)
 
     @staticmethod
-    def load_template(json_path: str) -> "Script_file":
+    def load_template(json_path: str) -> "ScriptFile":
         """从JSON文件加载草稿模板
 
         Args:
@@ -222,7 +222,7 @@ class Script_file:
         Raises:
             `FileNotFoundError`: JSON文件不存在
         """
-        obj = Script_file(**util.provide_ctor_defaults(Script_file))
+        obj = ScriptFile(**util.provide_ctor_defaults(ScriptFile))
         obj.save_path = json_path
         if not os.path.exists(json_path):
             raise FileNotFoundError("JSON文件 '%s' 不存在" % json_path)
@@ -238,7 +238,40 @@ class Script_file:
 
         return obj
 
-    def add_material(self, material: Union[Video_material, Audio_material]) -> "Script_file":
+    @staticmethod
+    def load_template_by_content(draft_content: Union[str, Dict[str, Any]]) -> "ScriptFile":
+        """从草稿内容加载草稿模板
+
+        Args:
+            draft_content (Union[str, Dict[str, Any]]): 草稿内容，可以是JSON字符串或字典
+
+        Raises:
+            `ValueError`: 草稿内容格式不正确
+        """
+        obj = ScriptFile(**util.provide_ctor_defaults(ScriptFile))
+        obj.save_path = None
+
+        # 如果是字符串，解析为字典
+        if isinstance(draft_content, str):
+            try:
+                obj.content = json.loads(draft_content)
+            except json.JSONDecodeError as e:
+                raise ValueError("草稿内容JSON格式不正确: %s" % str(e))
+        elif isinstance(draft_content, dict):
+            obj.content = deepcopy(draft_content)
+        else:
+            raise ValueError("草稿内容必须是字符串或字典类型")
+
+        util.assign_attr_with_json(obj, ["fps", "duration"], obj.content)
+        util.assign_attr_with_json(obj, ["width", "height"], obj.content["canvas_config"])
+        obj.name = obj.content.get("name", "")
+
+        obj.imported_materials = deepcopy(obj.content["materials"])
+        obj.imported_tracks = [import_track(track_data, obj.imported_materials) for track_data in obj.content["tracks"]]
+
+        return obj
+
+    def add_material(self, material: Union[Video_material, Audio_material]) -> "ScriptFile":
         """向草稿文件中添加一个素材"""
         if material in self.materials:  # 素材已存在
             return self
@@ -252,7 +285,7 @@ class Script_file:
 
     def add_track(self, track_type: Track_type, track_name: Optional[str] = None, *,
                   mute: bool = False,
-                  relative_index: int = 0, absolute_index: Optional[int] = None) -> "Script_file":
+                  relative_index: int = 0, absolute_index: Optional[int] = None) -> "ScriptFile":
         """向草稿文件中添加一个指定类型、指定名称的轨道, 可以自定义轨道层级
 
         注意: 主视频轨道(最底层的视频轨道)上的视频片段必须从0s开始, 否则会被剪映强制对齐至0s.
@@ -285,7 +318,7 @@ class Script_file:
         self.tracks[track_name] = Track(track_type, track_name, render_index, mute)
         return self
 
-    def delete_track(self, track_name: str) -> "Script_file":
+    def delete_track(self, track_name: str) -> "ScriptFile":
         """Delete a track by name from the Script_file
 
         Args:
@@ -329,7 +362,7 @@ class Script_file:
 
         self.duration = max_duration
 
-    def get_track(self, segment_type: Type[Base_segment], track_name: Optional[str]) -> Track:
+    def get_track(self, segment_type: Type[BaseSegment], track_name: Optional[str]) -> Track:
         # 指定轨道名称
         if track_name is not None:
             if track_name not in self.tracks:
@@ -342,21 +375,21 @@ class Script_file:
 
         return next(track for track in self.tracks.values() if track.accept_segment_type == segment_type)
 
-    def _get_track_and_imported_track(self, segment_type: Type[Base_segment], track_name: Optional[str]) -> List[Track]:
+    def _get_track_and_imported_track(self, segment_type: Type[BaseSegment], track_name: Optional[str]) -> List[Track]:
         """获取指定类型的所有轨道（包括普通轨道和导入的轨道）
-        
+
         Args:
             segment_type (Type[Base_segment]): 片段类型
             track_name (Optional[str]): 轨道名称，如果指定则只返回该名称的轨道
-            
+
         Returns:
             List[Track]: 符合条件的轨道列表
-            
+
         Raises:
             NameError: 指定了轨道名称但未找到对应轨道
         """
         result_tracks = []
-        
+
         # 如果指定了轨道名称
         if track_name is not None:
             # 在普通轨道中查找
@@ -381,11 +414,11 @@ class Script_file:
                 raise NameError("不存在接受 '%s' 的轨道" % segment_type)
             if len(result_tracks) > 1:
                 raise NameError("存在多个接受 '%s' 的轨道, 请指定轨道名称" % segment_type)
-        
+
         return result_tracks
 
-    def add_segment(self, segment: Union[Video_segment, Sticker_segment, Audio_segment, Text_segment],
-                    track_name: Optional[str] = None) -> "Script_file":
+    def add_segment(self, segment: Union[VideoSegment, StickerSegment, Audio_segment, Text_segment],
+                    track_name: Optional[str] = None) -> "ScriptFile":
         """向指定轨道中添加一个片段
 
         Args:
@@ -398,14 +431,14 @@ class Script_file:
             `SegmentOverlap`: 新片段与已有片段重叠
         """
         tracks = self._get_track_and_imported_track(type(segment), track_name)
-        target = tracks[0] 
+        target = tracks[0]
 
         # 加入轨道并更新时长
         target.add_segment(segment)
         self.duration = max(self.duration, segment.end)
 
         # 自动添加相关素材
-        if isinstance(segment, Video_segment):
+        if isinstance(segment, VideoSegment):
             # 出入场等动画
             if (segment.animations_instance is not None) and (segment.animations_instance not in self.materials):
                 self.materials.animations.append(segment.animations_instance)
@@ -431,7 +464,7 @@ class Script_file:
                 self.materials.canvases.append(segment.background_filling)
 
             self.materials.speeds.append(segment.speed)
-        elif isinstance(segment, Sticker_segment):
+        elif isinstance(segment, StickerSegment):
             self.materials.stickers.append(segment.export_material())
         elif isinstance(segment, Audio_segment):
             # 淡入淡出
@@ -456,14 +489,70 @@ class Script_file:
             self.materials.texts.append(segment.export_material())
 
         # 添加片段素材
-        if isinstance(segment, (Video_segment, Audio_segment)):
+        if isinstance(segment, (VideoSegment, Audio_segment)):
             self.add_material(segment.material_instance)
+
+        return self
+
+    def delete_segment(self, track_name: str, segment_index: Optional[int] = None,
+                       segment_id: Optional[str] = None) -> "ScriptFile":
+        """从指定轨道中删除一个片段
+
+        Args:
+            track_name (`str`): 要删除片段的轨道名称
+            segment_index (`int`, optional): 要删除的片段索引(从0开始). 与`segment_id`二选一.
+            segment_id (`str`, optional): 要删除的片段ID. 与`segment_index`二选一.
+
+        Returns:
+            Script_file: Self for method chaining
+
+        Raises:
+            `NameError`: 未找到指定名称的轨道
+            `ValueError`: 未提供`segment_index`或`segment_id`, 或同时提供了两者
+            `IndexError`: `segment_index`越界
+            `exceptions.SegmentNotFound`: 根据`segment_id`未找到对应片段
+        """
+        if (segment_index is None and segment_id is None) or \
+           (segment_index is not None and segment_id is not None):
+            raise ValueError("必须提供且仅提供 'segment_index' 或 'segment_id' 其中之一")
+
+        # 查找轨道
+        target_track = None
+        if track_name in self.tracks:
+            target_track = self.tracks[track_name]
+        else:
+            for track in self.imported_tracks:
+                if track.name == track_name:
+                    target_track = track
+                    break
+
+        if target_track is None:
+            raise NameError("不存在名为 '%s' 的轨道" % track_name)
+
+        # 根据索引删除
+        if segment_index is not None:
+            if not 0 <= segment_index < len(target_track.segments):
+                raise IndexError("片段索引 %d 超出范围 [0, %d)" % (segment_index, len(target_track.segments)))
+            del target_track.segments[segment_index]
+        # 根据ID删除
+        else:
+            found = False
+            for i, segment in enumerate(target_track.segments):
+                if segment.segment_id == segment_id:
+                    del target_track.segments[i]
+                    found = True
+                    break
+            if not found:
+                raise exceptions.SegmentNotFound("在轨道 '%s' 中未找到ID为 '%s' 的片段" % (track_name, segment_id))
+
+        # 重新计算总时长
+        self._update_duration()
 
         return self
 
     def add_effect(self, effect: Union[VideoSceneEffectType, VideoCharacterEffectType],
                    t_range: Timerange, track_name: Optional[str] = None, *,
-                   params: Optional[List[Optional[float]]] = None) -> "Script_file":
+                   params: Optional[List[Optional[float]]] = None) -> "ScriptFile":
         """向指定的特效轨道中添加一个特效片段
 
         Args:
@@ -491,7 +580,7 @@ class Script_file:
         return self
 
     def add_filter(self, filter_meta: FilterType, t_range: Timerange,
-                   track_name: Optional[str] = None, intensity: float = 100.0) -> "Script_file":
+                   track_name: Optional[str] = None, intensity: float = 100.0) -> "ScriptFile":
         """向指定的滤镜轨道中添加一个滤镜片段
 
         Args:
@@ -521,11 +610,11 @@ class Script_file:
                    style_reference: Optional[Text_segment] = None,
                    font: Optional[str] = None,
                    text_style: Text_style = Text_style(size=5, align=1),
-                   clip_settings: Optional[Clip_settings] = Clip_settings(transform_y=-0.8),
+                   clip_settings: Optional[ClipSettings] = ClipSettings(transform_y=-0.8),
                    border: Optional[Text_border] = None,
                    background: Optional[Text_background] = None,
                    bubble: Optional[TextBubble] = None,
-                   effect: Optional[TextEffect] = None) -> "Script_file":
+                   effect: Optional[TextEffect] = None) -> "ScriptFile":
         """从SRT文件中导入字幕, 支持传入一个`Text_segment`作为样式参考
 
         注意: 默认不会使用参考片段的`clip_settings`属性, 若需要请显式为此函数传入`clip_settings=None`
@@ -688,9 +777,9 @@ class Script_file:
 
         return ret[0]
 
-    def import_track(self, source_file: "Script_file", track: EditableTrack, *,
+    def import_track(self, source_file: "ScriptFile", track: EditableTrack, *,
                      offset: Union[str, int] = 0,
-                     new_name: Optional[str] = None, relative_index: Optional[int] = None) -> "Script_file":
+                     new_name: Optional[str] = None, relative_index: Optional[int] = None) -> "ScriptFile":
         """将一个`Editable_track`导入到当前`Script_file`中, 如从模板草稿中导入特定的文本或视频轨道到当前正在编辑的草稿文件中
 
         注意: 本方法会保留各片段及其素材的id, 因而不支持向同一草稿多次导入同一轨道
@@ -744,7 +833,7 @@ class Script_file:
         return self
 
     def replace_material_by_name(self, material_name: str, material: Union[Video_material, Audio_material],
-                                 replace_crop: bool = False) -> "Script_file":
+                                 replace_crop: bool = False) -> "ScriptFile":
         """替换指定名称的素材, 并影响所有引用它的片段
 
         这种方法不会改变相应片段的时长和引用范围(`source_timerange`), 尤其适合于图片素材
@@ -784,7 +873,7 @@ class Script_file:
     def replace_material_by_seg(self, track: EditableTrack, segment_index: int, material: Union[Video_material, Audio_material],
                                 source_timerange: Optional[Timerange] = None, *,
                                 handle_shrink: Shrink_mode = Shrink_mode.cut_tail,
-                                handle_extend: Union[Extend_mode, List[Extend_mode]] = Extend_mode.cut_material_tail) -> "Script_file":
+                                handle_extend: Union[Extend_mode, List[Extend_mode]] = Extend_mode.cut_material_tail) -> "ScriptFile":
         """替换指定音视频轨道上指定片段的素材, 暂不支持变速片段的素材替换
 
         Args:
@@ -828,7 +917,7 @@ class Script_file:
         return self
 
     def replace_text(self, track: EditableTrack, segment_index: int, text: Union[str, List[str]],
-                     recalc_style: bool = True) -> "Script_file":
+                     recalc_style: bool = True) -> "ScriptFile":
         """替换指定文本轨道上指定片段的文字内容, 支持普通文本片段或文本模板片段
 
         Args:

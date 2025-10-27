@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 import pyJianYingDraft as draft
 from draft_cache import update_cache
-from pyJianYingDraft import Clip_settings, exceptions, trange
+from pyJianYingDraft import ClipSettings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
 from util import is_windows_path, url_to_hash
 
@@ -134,11 +134,11 @@ def add_image_impl(
     source_timerange = trange(f"{0}s", f"{duration}s")
 
     # Create image segment
-    image_segment = draft.Video_segment(
+    image_segment = draft.VideoSegment(
         image_material,
         target_timerange=target_timerange,
         source_timerange=source_timerange,
-        clip_settings=Clip_settings(
+        clip_settings=ClipSettings(
             transform_y=transform_y,
             scale_x=scale_x,
             scale_y=scale_y,

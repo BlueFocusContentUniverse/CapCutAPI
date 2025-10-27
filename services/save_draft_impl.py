@@ -430,7 +430,7 @@ def update_media_metadata(script, task_id=None):
                             for track_name, track in script.tracks.items():
                                 if track.track_type == draft.Track_type.video:
                                     for segment in track.segments:
-                                        if isinstance(segment, draft.Video_segment) and segment.material_id == video.material_id:
+                                        if isinstance(segment, draft.VideoSegment) and segment.material_id == video.material_id:
                                             # Get current settings
                                             current_target = segment.target_timerange
                                             current_source = segment.source_timerange

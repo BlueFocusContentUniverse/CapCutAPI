@@ -1,20 +1,19 @@
 """与模板模式相关的类及函数等"""
 
-from enum import Enum
 from copy import deepcopy
+from enum import Enum
+from typing import Any, Dict, List
 
-from . import util
-from . import exceptions
-from .time_util import Timerange
-from .segment import Base_segment
-from .track import Base_track, Track_type, Track
-from .local_materials import Video_material, Audio_material
-from .video_segment import Video_segment, Clip_settings
+from . import exceptions, util
 from .audio_segment import Audio_segment
-from .keyframe import Keyframe_list, Keyframe_property, Keyframe
+from .keyframe import Keyframe, Keyframe_list, Keyframe_property
+from .local_materials import Audio_material, Video_material
 from .metadata import AudioSceneEffectType
+from .segment import BaseSegment
+from .time_util import Timerange
+from .track import Base_track, Track, Track_type
+from .video_segment import ClipSettings, VideoSegment
 
-from typing import List, Dict, Any
 
 class Shrink_mode(Enum):
     """处理替换素材时素材变短情况的方法"""
@@ -44,7 +43,7 @@ class Extend_mode(Enum):
     push_tail = "push_tail"
     """延伸尾部, 若有必要则依次后移后续片段, 此方法总是成功"""
 
-class ImportedSegment(Base_segment):
+class ImportedSegment(BaseSegment):
     """导入的片段"""
 
     raw_data: Dict[str, Any]
@@ -183,7 +182,7 @@ class ImportedMediaTrack(EditableTrack):
         # 时长变长
         elif new_duration > seg.duration:
             success_flag = False
-            prev_seg_end = int(0) if seg_index == 0 else self.segments[seg_index-1].target_timerange.end
+            prev_seg_end = 0 if seg_index == 0 else self.segments[seg_index-1].target_timerange.end
             next_seg_start = int(1e15) if seg_index == len(self.segments)-1 else self.segments[seg_index+1].start
             for mode in extend:
                 if mode == Extend_mode.extend_head:
@@ -228,32 +227,32 @@ def import_track(json_data: Dict[str, Any], imported_materials: Dict[str, Any] =
         render_index=max([int(seg.get("render_index", 0)) for seg in json_data.get("segments", [])], default=0),
         mute=bool(json_data.get("attribute", 0))
     )
-    
+
     # 设置track_id，使用原始ID
     track.track_id = json_data.get("id")
-    
+
     # 如果轨道类型允许修改，导入所有片段
     if track_type.value.allow_modify and imported_materials:
         for segment_data in json_data.get("segments", []):
             material_id = segment_data.get("material_id")
             material = None
-            
+
             # 处理关键帧信息
             common_keyframes = []
             for kf_list_data in segment_data.get("common_keyframes", []):
                 # 创建关键帧列表
                 kf_list = Keyframe_list(Keyframe_property(kf_list_data["property_type"]))
                 kf_list.list_id = kf_list_data["id"]
-                
+
                 # 添加关键帧
                 for kf_data in kf_list_data["keyframe_list"]:
                     keyframe = Keyframe(kf_data["time_offset"], kf_data["values"][0])
                     keyframe.kf_id = kf_data["id"]
                     keyframe.values = kf_data["values"]
                     kf_list.keyframes.append(keyframe)
-                
+
                 common_keyframes.append(kf_list)
-            
+
             # 根据轨道类型查找对应的素材
             if track_type == Track_type.video:
                 # 从imported_materials中查找视频素材
@@ -261,10 +260,10 @@ def import_track(json_data: Dict[str, Any], imported_materials: Dict[str, Any] =
                     if video_material["id"] == material_id:
                         material = Video_material.from_dict(video_material)
                         break
-                
+
                 if material:
                     # 创建视频片段
-                    segment = Video_segment(
+                    segment = VideoSegment(
                         material=material,
                         target_timerange=Timerange(
                             start=segment_data["target_timerange"]["start"],
@@ -275,7 +274,7 @@ def import_track(json_data: Dict[str, Any], imported_materials: Dict[str, Any] =
                             duration=segment_data["source_timerange"]["duration"]
                         ),
                         speed=segment_data.get("speed", 1.0),
-                        clip_settings=Clip_settings(
+                        clip_settings=ClipSettings(
                             transform_x=segment_data["clip"]["transform"]["x"],
                             transform_y=segment_data["clip"]["transform"]["y"],
                             scale_x=segment_data["clip"]["scale"]["x"],
@@ -286,14 +285,14 @@ def import_track(json_data: Dict[str, Any], imported_materials: Dict[str, Any] =
                     segment.visible = segment_data.get("visible", True)
                     segment.common_keyframes = common_keyframes
                     track.segments.append(segment)
-                
+
             elif track_type == Track_type.audio:
                 # 从imported_materials中查找音频素材
                 for audio_material in imported_materials.get("audios", []):
                     if audio_material["id"] == material_id:
                         material = Audio_material.from_dict(audio_material)
                         break
-                
+
                 if material:
                     # 创建音频片段
                     segment = Audio_segment(
@@ -305,7 +304,7 @@ def import_track(json_data: Dict[str, Any], imported_materials: Dict[str, Any] =
                         volume=segment_data.get("volume", 1.0)
                     )
                     # 添加音频效果
-                    if "audio_effects" in imported_materials and imported_materials["audio_effects"]:
+                    if imported_materials.get("audio_effects"):
                         effect_data = imported_materials["audio_effects"][0]
                         # 根据资源ID查找对应的效果类型
                         for effect_type in AudioSceneEffectType:
@@ -323,5 +322,5 @@ def import_track(json_data: Dict[str, Any], imported_materials: Dict[str, Any] =
                 segment = ImportedSegment(segment_data)
                 segment.common_keyframes = common_keyframes
                 track.segments.append(segment)
-    
+
     return track

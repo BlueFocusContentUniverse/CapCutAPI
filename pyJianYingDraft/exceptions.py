@@ -6,6 +6,8 @@ class AmbiguousTrack(ValueError):
     """找到多个满足条件的轨道"""
 class SegmentOverlap(ValueError):
     """新片段与已有的轨道片段重叠"""
+class SegmentNotFound(NameError):
+    """未找到满足条件的片段"""
 
 class MaterialNotFound(NameError):
     """未找到满足条件的素材"""

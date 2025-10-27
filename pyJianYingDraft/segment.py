@@ -1,13 +1,14 @@
 """定义片段基类及部分比较通用的属性类"""
 
 import uuid
-from typing import Optional, Dict, List, Any, Union
+from typing import Any, Dict, List, Optional, Union
 
 from .animation import Segment_animations
-from .time_util import Timerange, tim
 from .keyframe import Keyframe_list, Keyframe_property
+from .time_util import Timerange, tim
 
-class Base_segment:
+
+class BaseSegment:
     """片段基类"""
 
     segment_id: str
@@ -48,7 +49,7 @@ class Base_segment:
         """片段结束时间, 单位为微秒"""
         return self.target_timerange.end
 
-    def overlaps(self, other: "Base_segment") -> bool:
+    def overlaps(self, other: "BaseSegment") -> bool:
         """判断是否与另一个片段有重叠"""
         return self.target_timerange.overlaps(other.target_timerange)
 
@@ -125,7 +126,7 @@ class AudioFade:
         }
 
 
-class Clip_settings:
+class ClipSettings:
     """素材片段的图像调节设置"""
 
     alpha: float
@@ -179,7 +180,7 @@ class Clip_settings:
         }
         return clip_settings_json
 
-class Media_segment(Base_segment):
+class MediaSegment(BaseSegment):
     """媒体片段基类"""
 
     source_timerange: Optional[Timerange]
@@ -212,10 +213,10 @@ class Media_segment(Base_segment):
         })
         return ret
 
-class Visual_segment(Media_segment):
+class VisualSegment(MediaSegment):
     """视觉片段基类，用于处理所有可见片段（视频、贴纸、文本）的共同属性和行为"""
 
-    clip_settings: Clip_settings
+    clip_settings: ClipSettings
     """图像调节设置, 其效果可被关键帧覆盖"""
 
     uniform_scale: bool
@@ -228,7 +229,7 @@ class Visual_segment(Media_segment):
     """
 
     def __init__(self, material_id: str, source_timerange: Optional[Timerange], target_timerange: Timerange,
-                 speed: float, volume: float, *, clip_settings: Optional[Clip_settings]):
+                 speed: float, volume: float, *, clip_settings: Optional[ClipSettings]):
         """初始化视觉片段基类
 
         Args:
@@ -241,11 +242,11 @@ class Visual_segment(Media_segment):
         """
         super().__init__(material_id, source_timerange, target_timerange, speed, volume)
 
-        self.clip_settings = clip_settings if clip_settings is not None else Clip_settings()
+        self.clip_settings = clip_settings if clip_settings is not None else ClipSettings()
         self.uniform_scale = True
         self.animations_instance = None
 
-    def add_keyframe(self, _property: Keyframe_property, time_offset: Union[int, str], value: float) -> "Visual_segment":
+    def add_keyframe(self, _property: Keyframe_property, time_offset: Union[int, str], value: float) -> "VisualSegment":
         """为给定属性创建一个关键帧, 并自动加入到关键帧列表中
 
         Args:

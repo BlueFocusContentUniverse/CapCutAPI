@@ -8,10 +8,10 @@ from postgres_draft_storage import get_postgres_storage
 logger = logging.getLogger(__name__)
 
 # Keep in-memory cache for active drafts (faster access)
-DRAFT_CACHE: Dict[str, "draft.Script_file"] = OrderedDict()  # Use Dict for type hinting
+DRAFT_CACHE: Dict[str, "draft.ScriptFile"] = OrderedDict()  # Use Dict for type hinting
 MAX_CACHE_SIZE = 100  # Reduced size since PostgreSQL is primary storage
 
-def update_cache(key: str, value: draft.Script_file) -> None:
+def update_cache(key: str, value: draft.ScriptFile) -> None:
     """Update cache in both memory and PostgreSQL"""
     try:
         # Update PostgreSQL storage (persistent)
@@ -40,7 +40,7 @@ def update_cache(key: str, value: draft.Script_file) -> None:
             DRAFT_CACHE.popitem(last=False)
         DRAFT_CACHE[key] = value
 
-def get_from_cache(key: str) -> Optional[draft.Script_file]:
+def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
     """Get draft from cache (memory first, then PostgreSQL)"""
     try:
         # Try memory cache first (fastest)

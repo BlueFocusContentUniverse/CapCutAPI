@@ -412,6 +412,33 @@ TOOLS = [
             },
             "required": ["draft_id", "track_name"]
         }
+    },
+    {
+        "name": "get_segment_details",
+        "description": "获取指定片段的详细信息。返回片段的完整属性，包括时间范围、素材信息、视觉效果、动画、滤镜、蒙版、特效等。支持视频、音频、文本、贴纸、特效等各类片段。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "track_name": {"type": "string", "description": "包含该片段的轨道名称"},
+                "segment_id": {"type": "string", "description": "要查询的片段的唯一标识符"}
+            },
+            "required": ["draft_id", "track_name", "segment_id"]
+        }
+    },
+    {
+        "name": "delete_segment",
+        "description": "从轨道中删除指定的片段。可以通过片段索引（segment_index）或片段ID（segment_id）来删除。删除后会自动更新草稿状态并返回剩余片段数量。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "track_name": {"type": "string", "description": "包含该片段的轨道名称"},
+                "segment_index": {"type": ["integer", "null"], "default": None, "description": "要删除的片段在轨道中的索引位置（从0开始）。与segment_id互斥，二者必须且只能提供一个"},
+                "segment_id": {"type": ["string", "null"], "default": None, "description": "要删除的片段的唯一标识符。与segment_index互斥，二者必须且只能提供一个"}
+            },
+            "required": ["draft_id", "track_name"]
+        }
     }
 ]
 

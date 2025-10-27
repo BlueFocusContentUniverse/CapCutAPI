@@ -1,26 +1,27 @@
 """剪映自动化控制，主要与自动导出有关"""
 
-import time
-import shutil
-from process_controller import ProcessController
-import uiautomation as uia
-import re
+import logging  # 引入 logging 模块
 import os
-from logging.handlers import RotatingFileHandler
-import logging # 引入 logging 模块
-
+import re
+import shutil
+import time
 from enum import Enum
-from typing import Optional, Literal, Callable
+from logging.handlers import RotatingFileHandler
+from typing import Callable, Literal, Optional
+
+import uiautomation as uia
+
+from process_controller import ProcessController
 
 from . import exceptions
 from .exceptions import AutomationError
 
 # --- 配置日志记录器 ---
-logger = logging.getLogger('flask_video_generator') # 为您的Flask应用定义一个特定的logger名称
+logger = logging.getLogger("flask_video_generator") # 为您的Flask应用定义一个特定的logger名称
 logger.setLevel(logging.INFO) # 设置最低记录级别
 
 # 创建一个格式化器
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 # 创建一个控制台处理器
 console_handler = logging.StreamHandler()
@@ -29,12 +30,12 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 # 创建一个文件处理器，并设置文件轮换
-log_dir = 'logs' # 定义日志文件存放的目录
+log_dir = "logs" # 定义日志文件存放的目录
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
-log_file_path = os.path.join(log_dir, 'flask_video_generator.log') # 日志文件名
+log_file_path = os.path.join(log_dir, "flask_video_generator.log") # 日志文件名
 
-file_handler = RotatingFileHandler(log_file_path, backupCount=5, encoding='utf-8') # 5MB per file, keep 5 backups
+file_handler = RotatingFileHandler(log_file_path, backupCount=5, encoding="utf-8") # 5MB per file, keep 5 backups
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
@@ -172,7 +173,7 @@ class Jianying_controller:
             self.export_progress["message"] = f"自动化操作失败，无法点击草稿'{draft_name}'"
             self.export_progress["elapsed"] = time.time() - self.export_progress["start_time"]
             raise AutomationError(error_msg)
-        
+
         draft_btn.Click(simulateMove=False)
         logger.info(f"Clicked on draft: '{draft_name}'.")
 
@@ -180,7 +181,7 @@ class Jianying_controller:
         self.export_progress["percent"] = 10.0
         self.export_progress["message"] = "正在导出"
         self.export_progress["elapsed"] = time.time() - self.export_progress["start_time"]
-        
+
         logger.info(f"Waiting for edit window for draft: '{draft_name}' (timeout: 180s)")
         # 等待编辑窗口加载，最多等待180秒
         wait_start_time = time.time()
@@ -191,7 +192,7 @@ class Jianying_controller:
                 logger.debug(f"Failed to get window during edit window wait: {e}. Retrying...")
                 time.sleep(1)
                 continue
-            
+
             # 检查是否出现显卡运行环境提示框，如果出现则点击"暂不启用"
             try:
                 disable_btn = self.app.TextControl(searchDepth=3, Compare=ControlFinder.desc_matcher("暂不启用"))
@@ -201,7 +202,7 @@ class Jianying_controller:
                     time.sleep(1)
             except Exception as e:
                 logger.debug(f"No '暂不启用' button found or error during click: {e}")
-            
+
             # 检查是否已进入编辑窗口
             time.sleep(1)
             export_btn = self.app.TextControl(searchDepth=2, Compare=ControlFinder.desc_matcher("MainWindowTitleBarExportBtn"))
@@ -221,10 +222,10 @@ class Jianying_controller:
         self.export_progress["percent"] = 15.0
         self.export_progress["message"] = "正在导出"
         self.export_progress["elapsed"] = time.time() - self.export_progress["start_time"]
-        
+
         # 点击导出按钮
         export_btn.Click(simulateMove=False)
-        
+
         logger.info(f"Waiting for export settings window (timeout: 180s) for draft: '{draft_name}'")
         # 等待导出窗口加载，最多等待180秒
         wait_start_time = time.time()
@@ -250,7 +251,7 @@ class Jianying_controller:
         self.export_progress["percent"] = 20.0
         self.export_progress["message"] = "正在导出"
         self.export_progress["elapsed"] = time.time() - self.export_progress["start_time"]
-        
+
         # 获取原始导出路径（带后缀名）
         export_path_text = export_path_sib.GetSiblingControl(lambda ctrl: True)
         assert export_path_text is not None
@@ -280,7 +281,7 @@ class Jianying_controller:
                     resolution_item.Click(simulateMove=False)
                     time.sleep(0.5)
                     break  # 设置成功，跳出循环
-                except AutomationError as e:
+                except AutomationError:
                     retry_count += 1
                     if retry_count >= max_retries:
                         raise  # 重试次数用完，抛出异常
@@ -309,7 +310,7 @@ class Jianying_controller:
                     framerate_item.Click(simulateMove=False)
                     time.sleep(0.5)
                     break  # 设置成功，跳出循环
-                except AutomationError as e:
+                except AutomationError:
                     retry_count += 1
                     if retry_count >= max_retries:
                         raise  # 重试次数用完，抛出异常
@@ -353,10 +354,10 @@ class Jianying_controller:
                         desc = control.GetPropertyValue(30159) if hasattr(control, "GetPropertyValue") else ""
                         if desc and isinstance(desc, str) and "%" in desc:
                             progress_text = desc
-                    
+
                     if progress_text:
                         # 提取百分比数字，支持小数点
-                        percent_match = re.search(r'(\d+\.?\d*)%', progress_text)
+                        percent_match = re.search(r"(\d+\.?\d*)%", progress_text)
                         print("progress_text is " + progress_text)
                         print("percent_match is ", percent_match)
                         if percent_match:
@@ -391,13 +392,13 @@ class Jianying_controller:
             self.get_window()
             self.switch_to_home()
         except Exception as e:
-            logger.warning(f"back to home 失败: {str(e)}, 杀进程重启")
+            logger.warning(f"back to home 失败: {e!s}, 杀进程重启")
             ProcessController.kill_jianying()
 
             if not ProcessController.restart_jianying():
                 logger.critical("Failed to restart JianYing application. Aborting.")
                 raise Exception("无法重启剪映程序")
-            
+
             time.sleep(2)  # 等待进程启动
             ProcessController.kill_jianying_detector()
 

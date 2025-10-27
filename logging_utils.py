@@ -139,13 +139,13 @@ def api_endpoint_logger(func: Callable[P, T]) -> Callable[P, T]:
 def service_logger(func: Callable[P, T]) -> Callable[P, T]:
     """
     Decorator for service functions to add comprehensive logging.
-    
+
     Logs:
     - Function entry with parameters
     - Function exit with return value
     - Execution time
     - Errors with stack traces
-    
+
     Usage:
         @service_logger
         def add_video_track(video_url: str, draft_id: str, ...):

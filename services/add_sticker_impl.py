@@ -56,10 +56,10 @@ def add_sticker_impl(
         script.add_track(draft.Track_type.sticker, relative_index=relative_index)
 
     # Create sticker segment
-    sticker_segment = draft.Sticker_segment(
+    sticker_segment = draft.StickerSegment(
         resource_id,
         trange(f"{start}s", f"{end-start}s"),
-        clip_settings=draft.Clip_settings(
+        clip_settings=draft.ClipSettings(
             transform_y=transform_y,
             transform_x=transform_x,
             alpha=alpha,

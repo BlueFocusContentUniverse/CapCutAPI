@@ -10,7 +10,7 @@ from typing import Union, Optional, Literal
 from pyJianYingDraft.metadata.capcut_text_animation_meta import CapCutTextIntro, CapCutTextOutro, CapCutTextLoopAnim
 
 from .time_util import Timerange, tim
-from .segment import Clip_settings, Visual_segment
+from .segment import ClipSettings, VisualSegment
 from .animation import Segment_animations, Text_animation
 
 from .metadata import FontType, EffectMeta
@@ -291,7 +291,7 @@ class TextStyleRange:
         """
         return [self.start, self.end]
 
-class Text_segment(Visual_segment):
+class Text_segment(VisualSegment):
     """文本片段类, 目前仅支持设置基本的字体样式"""
 
     text: str
@@ -324,7 +324,7 @@ class Text_segment(Visual_segment):
 
     def __init__(self, text: str, timerange: Timerange, *,
                  font: Optional[FontType] = None,
-                 style: Optional[Text_style] = None, clip_settings: Optional[Clip_settings] = None,
+                 style: Optional[Text_style] = None, clip_settings: Optional[ClipSettings] = None,
                  border: Optional[Text_border] = None, background: Optional[Text_background] = None,
                  shadow: Optional[Text_shadow] = None,
                  fixed_width: int = -1, fixed_height: int = -1):

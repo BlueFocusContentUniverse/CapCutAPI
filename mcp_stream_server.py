@@ -30,6 +30,7 @@ from services.add_text_impl import add_text_impl
 from services.add_video_track import add_video_track
 from services.create_draft import create_draft
 from services.generate_video_impl import generate_video_impl
+from services.segment_management import delete_segment, get_segment_details
 from services.track_management import delete_track, get_track_details, get_tracks
 
 # Load environment variables from .env file
@@ -418,6 +419,28 @@ def tool_get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     return get_track_details(draft_id=draft_id, track_name=track_name)
 
 
+@mcp_tool_logger("get_segment_details")
+def tool_get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict[str, Any]:
+    """Get detailed information about a specific segment."""
+    return get_segment_details(draft_id=draft_id, track_name=track_name, segment_id=segment_id)
+
+
+@mcp_tool_logger("delete_segment")
+def tool_delete_segment(
+    draft_id: str,
+    track_name: str,
+    segment_index: Optional[int] = None,
+    segment_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Delete a segment from a track by index or ID."""
+    return delete_segment(
+        draft_id=draft_id,
+        track_name=track_name,
+        segment_index=segment_index,
+        segment_id=segment_id
+    )
+
+
 def _register_tools(app: FastMCP) -> None:
     """Register tools with explicit flat-parameter handlers."""
     app.add_tool(
@@ -476,6 +499,16 @@ def _register_tools(app: FastMCP) -> None:
         tool_get_track_details,
         name="get_track_details",
         description="获取指定轨道的详细信息",
+    )
+    app.add_tool(
+        tool_get_segment_details,
+        name="get_segment_details",
+        description="获取指定片段的详细信息",
+    )
+    app.add_tool(
+        tool_delete_segment,
+        name="delete_segment",
+        description="从轨道中删除指定的片段",
     )
 
 

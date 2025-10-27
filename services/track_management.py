@@ -134,11 +134,11 @@ def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
 def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific track
-    
+
     Args:
         draft_id: The draft ID to query
         track_name: Name of the track to get details for
-        
+
     Returns:
         Dictionary containing detailed track information:
         {
@@ -150,6 +150,8 @@ def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
             "end_time": int (microseconds),
             "segments": [
                 {
+                    "id": str,
+                    "material_id": str,
                     "start": int,
                     "end": int,
                     "duration": int,
@@ -158,7 +160,7 @@ def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
                 ...
             ]
         }
-        
+
     Raises:
         ValueError: If draft_id or track_name is not found
     """
@@ -189,6 +191,8 @@ def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     segments_info = []
     for segment in track.segments:
         segment_info = {
+            "id": segment.segment_id,
+            "material_id": segment.material_id,
             "start": segment.target_timerange.start,
             "end": segment.target_timerange.end,
             "duration": segment.target_timerange.duration,

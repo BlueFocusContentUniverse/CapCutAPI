@@ -1,89 +1,107 @@
-from .local_materials import Crop_settings, Video_material, Audio_material
-from .keyframe import Keyframe_property
-
-from .time_util import Timerange
 from .audio_segment import Audio_segment
-from .video_segment import Video_segment, Sticker_segment, Clip_settings
-from .effect_segment import Effect_segment, Filter_segment
-from .text_segment import Text_segment, Text_style, Text_border, Text_background, Text_shadow
-
-from .metadata import FontType
-from .metadata import MaskType
-from .metadata import CapCutMaskType
-from .metadata import TransitionType, FilterType
-from .metadata import CapCutTransitionType
-from .metadata import IntroType, OutroType, GroupAnimationType
-from .metadata import CapCutIntroType, CapCutOutroType, CapCutGroupAnimationType
-from .metadata import TextIntro, TextOutro, TextLoopAnim
-from .metadata import CapCutTextIntro, CapCutTextOutro, CapCutTextLoopAnim
-from .metadata import AudioSceneEffectType, ToneEffectType, SpeechToSongType
-from .metadata import CapCutVoiceFiltersEffectType, CapCutVoiceCharactersEffectType, CapCutSpeechToSongEffectType
-from .metadata import VideoSceneEffectType, VideoCharacterEffectType
-from .metadata import CapCutVideoSceneEffectType, CapCutVideoCharacterEffectType
-
-from .track import Track_type
-from .template_mode import Shrink_mode, Extend_mode
-from .script_file import Script_file
 from .draft_folder import Draft_folder
+from .effect_segment import Effect_segment, Filter_segment
+from .keyframe import Keyframe_property
+from .local_materials import Audio_material, Crop_settings, Video_material
+from .metadata import (
+    AudioSceneEffectType,
+    CapCutGroupAnimationType,
+    CapCutIntroType,
+    CapCutMaskType,
+    CapCutOutroType,
+    CapCutSpeechToSongEffectType,
+    CapCutTextIntro,
+    CapCutTextLoopAnim,
+    CapCutTextOutro,
+    CapCutTransitionType,
+    CapCutVideoCharacterEffectType,
+    CapCutVideoSceneEffectType,
+    CapCutVoiceCharactersEffectType,
+    CapCutVoiceFiltersEffectType,
+    FilterType,
+    FontType,
+    GroupAnimationType,
+    IntroType,
+    MaskType,
+    OutroType,
+    SpeechToSongType,
+    TextIntro,
+    TextLoopAnim,
+    TextOutro,
+    ToneEffectType,
+    TransitionType,
+    VideoCharacterEffectType,
+    VideoSceneEffectType,
+)
+from .script_file import ScriptFile
+from .template_mode import Extend_mode, Shrink_mode
+from .text_segment import (
+    Text_background,
+    Text_border,
+    Text_segment,
+    Text_shadow,
+    Text_style,
+)
 
 # 仅在Windows系统下导入jianying_controller
 # ISWIN = (sys.platform == 'win32')
 # if ISWIN:
 #     from .jianying_controller import Jianying_controller, Export_resolution, Export_framerate
-
-from .time_util import SEC, tim, trange
+from .time_util import SEC, Timerange, tim, trange
+from .track import Track_type
+from .video_segment import ClipSettings, StickerSegment, VideoSegment
 
 __all__ = [
-    "FontType",
-    "MaskType",
-    "CapCutMaskType",
-    "FilterType",
-    "TransitionType",
-    "CapCutTransitionType",
-    "IntroType",
-    "OutroType",
-    "GroupAnimationType",
-    "CapCutIntroType",
-    "CapCutOutroType",
-    "CapCutGroupAnimationType",
-    "TextIntro",
-    "TextOutro",
-    "TextLoopAnim",
-    "CapCutTextIntro",
-    "CapCutTextOutro",
-    "CapCutTextLoopAnim",
-    "AudioSceneEffectType",
-    "ToneEffectType",
-    "SpeechToSongType",
-    "VideoSceneEffectType",
-    "VideoCharacterEffectType",
-    "CapCutVoiceFiltersEffectType",
-    "CapCutVoiceCharactersEffectType",
-    "CapCutSpeechToSongEffectType",
-    "CapCutVideoSceneEffectType",
-    "CapCutVideoCharacterEffectType",
-    "Crop_settings",
-    "Video_material",
-    "Audio_material",
-    "Keyframe_property",
-    "Timerange",
-    "Audio_segment",
-    "Video_segment",
-    "Sticker_segment",
-    "Clip_settings",
-    "Effect_segment",
-    "Filter_segment",
-    "Text_segment",
-    "Text_style",
-    "Text_border",
-    "Text_background",
-    "Text_shadow",
-    "Track_type",
-    "Shrink_mode",
-    "Extend_mode",
-    "Script_file",
-    "Draft_folder",
     "SEC",
+    "AudioSceneEffectType",
+    "Audio_material",
+    "Audio_segment",
+    "CapCutGroupAnimationType",
+    "CapCutIntroType",
+    "CapCutMaskType",
+    "CapCutOutroType",
+    "CapCutSpeechToSongEffectType",
+    "CapCutTextIntro",
+    "CapCutTextLoopAnim",
+    "CapCutTextOutro",
+    "CapCutTransitionType",
+    "CapCutVideoCharacterEffectType",
+    "CapCutVideoSceneEffectType",
+    "CapCutVoiceCharactersEffectType",
+    "CapCutVoiceFiltersEffectType",
+    "ClipSettings",
+    "Crop_settings",
+    "Draft_folder",
+    "Effect_segment",
+    "Extend_mode",
+    "FilterType",
+    "Filter_segment",
+    "FontType",
+    "GroupAnimationType",
+    "IntroType",
+    "Keyframe_property",
+    "MaskType",
+    "OutroType",
+    "ScriptFile",
+    "Shrink_mode",
+    "SpeechToSongType",
+    "StickerSegment",
+    "TextIntro",
+    "TextLoopAnim",
+    "TextOutro",
+    "Text_background",
+    "Text_border",
+    "Text_segment",
+    "Text_shadow",
+    "Text_style",
+    "Timerange",
+    "ToneEffectType",
+    "Track_type",
+    "TransitionType",
+    "VideoCharacterEffectType",
+    "VideoSceneEffectType",
+    "VideoSegment",
+    "Video_material",
     "tim",
     "trange"
 ]

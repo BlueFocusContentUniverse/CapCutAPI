@@ -52,7 +52,7 @@ def add_video_keyframe_impl(
 
     try:
         # Get specified track
-        track = script.get_track(draft.Video_segment, track_name=track_name)
+        track = script.get_track(draft.VideoSegment, track_name=track_name)
 
         # Get segments in the track
         segments = track.segments

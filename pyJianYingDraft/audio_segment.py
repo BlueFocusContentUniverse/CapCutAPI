@@ -5,19 +5,25 @@
 
 import uuid
 from copy import deepcopy
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from typing import Optional, Literal, Union
-from typing import Dict, List, Any
+from pyJianYingDraft.metadata.capcut_audio_effect_meta import (
+    CapCutSpeechToSongEffectType,
+    CapCutVoiceCharactersEffectType,
+    CapCutVoiceFiltersEffectType,
+)
 
-from pyJianYingDraft.metadata.capcut_audio_effect_meta import CapCutSpeechToSongEffectType, CapCutVoiceCharactersEffectType, CapCutVoiceFiltersEffectType
-
-from .time_util import tim, Timerange
-from .segment import Media_segment, AudioFade
+from .keyframe import Keyframe_list, Keyframe_property
 from .local_materials import Audio_material
-from .keyframe import Keyframe_property, Keyframe_list
+from .metadata import (
+    AudioSceneEffectType,
+    EffectParamInstance,
+    SpeechToSongType,
+    ToneEffectType,
+)
+from .segment import AudioFade, MediaSegment
+from .time_util import Timerange, tim
 
-from .metadata import EffectParamInstance
-from .metadata import AudioSceneEffectType, ToneEffectType, SpeechToSongType
 
 class Audio_effect:
     """音频特效对象"""
@@ -83,7 +89,7 @@ class Audio_effect:
             # 不导出path和constant_material_id
         }
 
-class Audio_segment(Media_segment):
+class Audio_segment(MediaSegment):
     """安放在轨道上的一个音频片段"""
 
     material_instance: Audio_material

@@ -1,14 +1,14 @@
 """定义特效/滤镜片段类"""
 
-from typing import Union, Optional, List
+from typing import List, Optional, Union
 
+from .metadata import FilterType, VideoCharacterEffectType, VideoSceneEffectType
+from .segment import BaseSegment
 from .time_util import Timerange
-from .segment import Base_segment
-from .video_segment import Video_effect, Filter
+from .video_segment import Filter, Video_effect
 
-from .metadata import VideoSceneEffectType, VideoCharacterEffectType, FilterType
 
-class Effect_segment(Base_segment):
+class Effect_segment(BaseSegment):
     """放置在独立特效轨道上的特效片段"""
 
     effect_inst: Video_effect
@@ -22,7 +22,7 @@ class Effect_segment(Base_segment):
         self.effect_inst = Video_effect(effect_type, params, apply_target_type=2)  # 作用域为全局
         super().__init__(self.effect_inst.global_id, target_timerange)
 
-class Filter_segment(Base_segment):
+class Filter_segment(BaseSegment):
     """放置在独立滤镜轨道上的滤镜片段"""
 
     material: Filter

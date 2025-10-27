@@ -144,7 +144,7 @@ def add_subtitle_impl(
         )
 
     # Create clip_settings
-    clip_settings = draft.Clip_settings(
+    clip_settings = draft.ClipSettings(
         transform_x=transform_x,
         transform_y=transform_y,
         scale_x=scale_x,

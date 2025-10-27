@@ -11,6 +11,7 @@ def register_blueprints(app: Flask) -> None:
     from .health import bp as health_bp
     from .image import bp as image_bp
     from .metadata import bp as metadata_bp
+    from .segments import bp as segments_bp
     from .sticker import bp as sticker_bp
     from .subtitle import bp as subtitle_bp
     from .tasks import bp as tasks_bp
@@ -33,4 +34,5 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(tasks_bp)
     app.register_blueprint(draft_management_bp)
     app.register_blueprint(tracks_bp)
+    app.register_blueprint(segments_bp)
 

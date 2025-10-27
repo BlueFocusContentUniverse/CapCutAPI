@@ -225,7 +225,7 @@ def add_text_impl(
             vertical=vertical,  # Set whether to display vertically
             alpha=font_alpha  # Set transparency
         ),
-        clip_settings=draft.Clip_settings(transform_y=transform_y, transform_x=transform_x),
+        clip_settings=draft.ClipSettings(transform_y=transform_y, transform_x=transform_x),
         border=text_border,
         background=text_background,
         shadow=text_shadow,
