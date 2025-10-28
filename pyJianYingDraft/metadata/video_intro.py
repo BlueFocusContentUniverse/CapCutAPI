@@ -1,6 +1,7 @@
 """视频片段入场动画元数据"""
 
-from .effect_meta import EffectEnum, AnimationMeta
+from .effect_meta import AnimationMeta, EffectEnum
+
 
 class IntroType(EffectEnum):
     """视频/图片入场动画类型"""

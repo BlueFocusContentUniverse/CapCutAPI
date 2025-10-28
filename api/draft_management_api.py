@@ -105,16 +105,37 @@ def _require_authentication():
 @draft_bp.route("/list", methods=["GET"])
 @api_endpoint_logger
 def list_drafts():
-    """List all stored drafts with metadata"""
+    """
+    List all stored drafts with pagination support
+
+    Query Parameters:
+        page (int): Page number (1-indexed, default: 1)
+        page_size (int): Number of items per page (default: 100, max: 1000)
+        limit (int): Deprecated - use page_size instead
+
+    Returns:
+        JSON response with drafts array and pagination metadata
+    """
     try:
-        limit = request.args.get("limit", 100, type=int)
+        # Get pagination parameters
+        page = request.args.get("page", 1, type=int)
+        page_size = request.args.get("page_size", 100, type=int)
+
+        # Backward compatibility: support old 'limit' parameter
+        limit = request.args.get("limit", type=int)
+        if limit is not None:
+            page_size = limit
+            page = 1  # Reset to first page when using limit
+
         pg_storage = get_postgres_storage()
-        drafts = pg_storage.list_drafts(limit=limit)
+        result = pg_storage.list_drafts(page=page, page_size=page_size)
+
+        logger.info(f"List drafts request: page={page}, page_size={page_size}, returned {len(result['drafts'])} drafts")
 
         return jsonify({
             "success": True,
-            "drafts": drafts,
-            "count": len(drafts)
+            "drafts": result["drafts"],
+            "pagination": result["pagination"],
         })
     except Exception as e:
         logger.error(f"Failed to list drafts: {e}")
@@ -261,46 +282,6 @@ def cleanup_expired():
         })
     except Exception as e:
         logger.error(f"Failed to cleanup expired drafts: {e}")
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-@draft_bp.route("/search", methods=["GET"])
-@api_endpoint_logger
-def search_drafts():
-    """Search drafts by criteria"""
-    try:
-        # Get search parameters
-        width = request.args.get("width", type=int)
-        height = request.args.get("height", type=int)
-        min_duration = request.args.get("min_duration", type=float)
-        max_duration = request.args.get("max_duration", type=float)
-
-        pg_storage = get_postgres_storage()
-        all_drafts = pg_storage.list_drafts()
-
-        # Filter drafts based on criteria
-        filtered_drafts = []
-        for draft in all_drafts:
-            if width and draft.get("width") != width:
-                continue
-            if height and draft.get("height") != height:
-                continue
-            if min_duration and draft.get("duration", 0) < min_duration:
-                continue
-            if max_duration and draft.get("duration", 0) > max_duration:
-                continue
-            filtered_drafts.append(draft)
-
-        return jsonify({
-            "success": True,
-            "drafts": filtered_drafts,
-            "count": len(filtered_drafts),
-            "total_drafts": len(all_drafts)
-        })
-    except Exception as e:
-        logger.error(f"Failed to search drafts: {e}")
         return jsonify({
             "success": False,
             "error": str(e)

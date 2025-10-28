@@ -46,6 +46,80 @@ TOOLS = [
         }
     },
     {
+        "name": "batch_add_videos",
+        "description": """批量添加多个视频素材到track。适用于需要连续添加多个视频的场景。每个视频可以独立设置video_url、start、end、target_start、speed参数，其他参数（如转场、蒙版、缩放等）在所有视频间共享。
+        
+        【使用场景】
+        • 视频拼接：将多个视频片段按顺序拼接成完整视频
+        • 批量导入：一次性导入多个视频素材
+        • 幻灯片：制作图片或视频幻灯片效果
+        
+        【videos数组说明】
+        每个视频对象包含：
+        • video_url（必需）：视频素材URL或本地路径
+        • start（可选，默认0）：从视频第几秒开始截取
+        • end（可选，默认0）：到视频第几秒结束截取（0表示到末尾）
+        • target_start（可选，默认0）：该片段在时间线上的起始位置
+        • speed（可选，默认1.0）：播放速度
+        
+        【共享参数】
+        其他参数（transform_x/y、scale_x/y、transition、mask_type等）在根级别设置，应用于所有视频
+        """,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "videos": {
+                    "type": "array",
+                    "description": "视频列表数组。每个元素包含video_url、start、end、target_start、speed",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "video_url": {"type": "string", "description": "视频素材URL或本地路径"},
+                            "start": {"type": "number", "default": 0, "description": "从视频第几秒开始截取"},
+                            "end": {"type": "number", "default": 0, "description": "到视频第几秒结束截取（0=到末尾）"},
+                            "target_start": {"type": "number", "default": 0, "description": "该片段在时间线上的起始位置"},
+                            "speed": {"type": "number", "default": 1.0, "description": "播放速度"}
+                        },
+                        "required": ["video_url"]
+                    }
+                },
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "draft_folder": {"type": "string", "description": "草稿文件夹路径（可选）"},
+                "transform_x": {"type": "number", "default": 0, "description": "【共享】水平位置偏移（应用于所有视频）"},
+                "transform_y": {"type": "number", "default": 0, "description": "【共享】垂直位置偏移（应用于所有视频）"},
+                "scale_x": {"type": "number", "default": 1, "description": "【共享】水平缩放倍数（应用于所有视频）"},
+                "scale_y": {"type": "number", "default": 1, "description": "【共享】垂直缩放倍数（应用于所有视频）"},
+                "track_name": {"type": "string", "default": "video_main", "description": "【共享】轨道名称"},
+                "relative_index": {"type": "integer", "default": 0, "description": "【共享】相对排序索引"},
+                "duration": {"type": ["number", "null"], "default": None, "description": "【共享】视频总时长（秒）"},
+                "transition": {"type": "string", "description": "【共享】转场效果类型"},
+                "transition_duration": {"type": "number", "default": 0.5, "description": "【共享】转场时长（秒）"},
+                "volume": {"type": "number", "default": 1.0, "description": "【共享】音量增益"},
+                "intro_animation": {"type": "string", "description": "【共享】入场动画效果"},
+                "intro_animation_duration": {"type": "number", "default": 0.5, "description": "【共享】入场动画时长"},
+                "outro_animation": {"type": "string", "description": "【共享】出场动画效果"},
+                "outro_animation_duration": {"type": "number", "default": 0.5, "description": "【共享】出场动画时长"},
+                "combo_animation": {"type": "string", "description": "【共享】组合动画效果"},
+                "combo_animation_duration": {"type": "number", "default": 0.5, "description": "【共享】组合动画时长"},
+                "mask_type": {"type": "string", "description": "【共享】蒙版形状类型"},
+                "mask_center_x": {"type": "number", "default": 0.5, "description": "【共享】蒙版中心X坐标"},
+                "mask_center_y": {"type": "number", "default": 0.5, "description": "【共享】蒙版中心Y坐标"},
+                "mask_size": {"type": "number", "default": 1.0, "description": "【共享】蒙版大小"},
+                "mask_rotation": {"type": "number", "default": 0.0, "description": "【共享】蒙版旋转角度"},
+                "mask_feather": {"type": "number", "default": 0.0, "description": "【共享】蒙版羽化程度"},
+                "mask_invert": {"type": "boolean", "default": False, "description": "【共享】是否反转蒙版"},
+                "mask_rect_width": {"type": ["number", "null"], "default": None, "description": "【共享】矩形蒙版宽度"},
+                "mask_round_corner": {"type": ["number", "null"], "default": None, "description": "【共享】矩形圆角半径"},
+                "filter_type": {"type": "string", "description": "【共享】滤镜效果类型"},
+                "filter_intensity": {"type": "number", "default": 100.0, "description": "【共享】滤镜强度"},
+                "fade_in_duration": {"type": "number", "default": 0.0, "description": "【共享】音频淡入时长"},
+                "fade_out_duration": {"type": "number", "default": 0.0, "description": "【共享】音频淡出时长"},
+                "background_blur": {"type": "integer", "description": "【共享】背景模糊强度（1-4）"}
+            },
+            "required": ["videos"]
+        }
+    },
+    {
         "name": "add_video",
         "description": """添加视频素材到track。支持素材裁剪、转场效果、蒙版遮罩、背景模糊等高级视频编辑功能。
         1️⃣ 基础用法（截取部分片段）：

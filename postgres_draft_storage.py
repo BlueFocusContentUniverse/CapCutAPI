@@ -203,13 +203,46 @@ class PostgresDraftStorage:
             logger.error(f"Failed to get metadata for draft {draft_id}: {e}")
             return None
 
-    def list_drafts(self, limit: int = 100) -> list:
+    def list_drafts(self, page: int = 1, page_size: int = 100, limit: Optional[int] = None) -> Dict[str, Any]:
+        """
+        List drafts with pagination support
+
+        Args:
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            limit: Deprecated - kept for backward compatibility
+
+        Returns:
+            Dict containing drafts, pagination info, and total count
+        """
         try:
+            # Backward compatibility: if limit is provided, use old behavior
+            if limit is not None:
+                page_size = limit
+
+            # Ensure valid pagination parameters
+            page = max(1, page)
+            page_size = min(max(1, page_size), 1000)  # Cap at 1000 items per page
+            offset = (page - 1) * page_size
+
             with get_session() as session:
+                # Get total count
+                from sqlalchemy import func
+                count_q = session.execute(
+                    select(func.count(DraftModel.id)).where(DraftModel.is_deleted.is_(False))
+                )
+                total_count = count_q.scalar() or 0
+
+                # Get paginated results
                 q = session.execute(
-                    select(DraftModel).where(DraftModel.is_deleted.is_(False)).order_by(DraftModel.updated_at.desc()).limit(limit)
+                    select(DraftModel)
+                    .where(DraftModel.is_deleted.is_(False))
+                    .order_by(DraftModel.updated_at.desc())
+                    .limit(page_size)
+                    .offset(offset)
                 )
                 rows = q.scalars().all()
+
                 results = []
                 for row in rows:
                     results.append({
@@ -226,10 +259,35 @@ class PostgresDraftStorage:
                         "current_version": row.current_version,
                         "size_bytes": row.size_bytes,
                     })
-                return results
+
+                total_pages = (total_count + page_size - 1) // page_size if page_size > 0 else 0
+
+                logger.info(f"Listed drafts: page={page}, page_size={page_size}, total={total_count}")
+
+                return {
+                    "drafts": results,
+                    "pagination": {
+                        "page": page,
+                        "page_size": page_size,
+                        "total_count": total_count,
+                        "total_pages": total_pages,
+                        "has_next": page < total_pages,
+                        "has_prev": page > 1
+                    }
+                }
         except Exception as e:
             logger.error(f"Failed to list drafts: {e}")
-            return []
+            return {
+                "drafts": [],
+                "pagination": {
+                    "page": 1,
+                    "page_size": page_size,
+                    "total_count": 0,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_prev": False
+                }
+            }
 
     def cleanup_expired(self) -> int:
         # TTL semantics are not supported here; return 0 for compatibility
@@ -282,6 +340,7 @@ class PostgresDraftStorage:
                         "version": row.version,
                         "is_current": False,
                         "created_at": int(row.created_at.timestamp()),
+                        "updated_at": int(row.created_at.timestamp()),
                         "draft_name": row.draft_name,
                         "width": row.width,
                         "height": row.height,

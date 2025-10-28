@@ -54,6 +54,115 @@ def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 3
         "draft_id": draft_id,
     }
 
+@mcp_tool_logger("batch_add_videos")
+def tool_batch_add_videos(
+    videos: List[Dict[str, Any]],
+    draft_id: Optional[str] = None,
+    draft_folder: Optional[str] = None,
+    transform_x: float = 0,
+    transform_y: float = 0,
+    scale_x: float = 1,
+    scale_y: float = 1,
+    track_name: str = "main",
+    relative_index: int = 0,
+    duration: Optional[float] = None,
+    transition: Optional[str] = None,
+    transition_duration: float = 0.5,
+    volume: float = 1.0,
+    intro_animation: Optional[str] = None,
+    intro_animation_duration: float = 0.5,
+    outro_animation: Optional[str] = None,
+    outro_animation_duration: float = 0.5,
+    combo_animation: Optional[str] = None,
+    combo_animation_duration: float = 0.5,
+    mask_type: Optional[str] = None,
+    mask_center_x: float = 0.5,
+    mask_center_y: float = 0.5,
+    mask_size: float = 1.0,
+    mask_rotation: float = 0.0,
+    mask_feather: float = 0.0,
+    mask_invert: bool = False,
+    mask_rect_width: Optional[float] = None,
+    mask_round_corner: Optional[float] = None,
+    filter_type: Optional[str] = None,
+    filter_intensity: float = 100.0,
+    fade_in_duration: float = 0.0,
+    fade_out_duration: float = 0.0,
+    background_blur: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Batch add multiple videos to the track."""
+    if not videos:
+        return {"success": False, "error": "videos array is empty"}
+    
+    outputs = []
+    current_draft_id = draft_id
+    
+    for idx, video in enumerate(videos):
+        video_url = video.get("video_url")
+        if not video_url:
+            logger.warning(f"Video at index {idx} is missing 'video_url', skipping.")
+            continue
+        
+        video_start = video.get("start", 0)
+        video_end = video.get("end", 0)
+        video_target_start = video.get("target_start", 0)
+        video_speed = video.get("speed", 1.0)
+        
+        result = add_video_track(
+            video_url=video_url,
+            draft_folder=draft_folder,
+            start=video_start,
+            end=video_end,
+            target_start=video_target_start,
+            draft_id=current_draft_id,
+            transform_y=transform_y,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            transform_x=transform_x,
+            speed=video_speed,
+            track_name=track_name,
+            relative_index=relative_index,
+            duration=duration,
+            intro_animation=intro_animation,
+            intro_animation_duration=intro_animation_duration,
+            outro_animation=outro_animation,
+            outro_animation_duration=outro_animation_duration,
+            combo_animation=combo_animation,
+            combo_animation_duration=combo_animation_duration,
+            transition=transition,
+            transition_duration=transition_duration,
+            volume=volume,
+            mask_type=mask_type,
+            mask_center_x=mask_center_x,
+            mask_center_y=mask_center_y,
+            mask_size=mask_size,
+            mask_rotation=mask_rotation,
+            mask_feather=mask_feather,
+            mask_invert=mask_invert,
+            mask_rect_width=mask_rect_width,
+            mask_round_corner=mask_round_corner,
+            filter_type=filter_type,
+            filter_intensity=filter_intensity,
+            fade_in_duration=fade_in_duration,
+            fade_out_duration=fade_out_duration,
+            background_blur=background_blur,
+        )
+
+        outputs.append({
+            "video_url": video_url,
+            "result": result
+        })
+
+        # Update draft_id for subsequent videos
+        current_draft_id = result
+
+    return {
+        "success": True,
+        "output": outputs,
+        "final_draft_id": current_draft_id
+    }
+
+
 @mcp_tool_logger("add_video")
 def tool_add_video(
     video_url: str,
@@ -445,6 +554,11 @@ def _register_tools(app: FastMCP) -> None:
     """Register tools with explicit flat-parameter handlers."""
     app.add_tool(
         tool_create_draft, name="create_draft", description="创建新的CapCut草稿"
+    )
+    app.add_tool(
+        tool_batch_add_videos,
+        name="batch_add_videos",
+        description="批量添加多个视频到草稿，每个视频可独立设置video_url、start、end、target_start、speed，其他参数共享",
     )
     app.add_tool(
         tool_add_video,
