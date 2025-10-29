@@ -19,6 +19,8 @@ def add_video():
     video_url = data.get("video_url")
     start = data.get("start", 0)
     end = data.get("end", 0)
+    mode = data.get("mode", "cover")
+    target_duration = data.get("target_duration")
     draft_id = data.get("draft_id")
     transform_y = data.get("transform_y", 0)
     scale_x = data.get("scale_x", 1)
@@ -70,6 +72,8 @@ def add_video():
             video_url=video_url,
             start=start,
             end=end,
+            mode=mode,
+            target_duration=target_duration,
             target_start=target_start,
             draft_id=draft_id,
             transform_y=transform_y,
@@ -124,6 +128,8 @@ def batch_add_videos():
     videos = data.get("videos", [])
 
     # Common parameters that apply to all videos
+    mode = data.get("mode", "cover")
+    target_duration = data.get("target_duration")
     transform_y = data.get("transform_y", 0)
     scale_x = data.get("scale_x", 1)
     scale_y = data.get("scale_y", 1)
@@ -183,6 +189,8 @@ def batch_add_videos():
                 video_url=video_url,
                 start=start,
                 end=end,
+                mode=mode,
+                target_duration=target_duration,
                 target_start=target_start,
                 draft_id=draft_id,
                 transform_y=transform_y,

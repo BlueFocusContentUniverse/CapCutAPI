@@ -78,9 +78,11 @@ TOOLS = [
                             "start": {"type": "number", "default": 0, "description": "从视频第几秒开始截取"},
                             "end": {"type": "number", "default": 0, "description": "到视频第几秒结束截取（0=到末尾）"},
                             "target_start": {"type": "number", "default": 0, "description": "该片段在时间线上的起始位置"},
-                            "speed": {"type": "number", "default": 1.0, "description": "播放速度"}
+                            "speed": {"type": "number", "default": 1.0, "description": "播放速度"},
+                            "mode": {"type": "string", "enum": ["cover", "fill"], "default": "cover", "description": "速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed"},
+                            "target_duration": {"type": ["number", "null"], "default": None, "description": "fill模式专用，成片目标时长（秒）"},
                         },
-                        "required": ["video_url"]
+                        "required": ["video_url", "start", "end", "target_start"]
                     }
                 },
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
@@ -168,6 +170,32 @@ TOOLS = [
                     ⚠️ 约束：
                     • 当end>0时，必须满足 end > start
                     • 当end=0时，必须提供duration参数，否则会导致黑屏
+                """
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["cover", "fill"],
+                    "default": "cover",
+                    "description": """速度计算模式。
+                    • "cover"（默认）：使用speed参数控制播放速度
+                    • "fill"：根据target_duration自动计算speed，使视频片段正好填充指定时长
+                    
+                    示例：
+                    • mode="cover", speed=2.0 → 视频以2倍速播放
+                    • mode="fill", target_duration=10 → 自动调整速度使片段时长为10秒
+                """
+                },
+                "target_duration": {
+                    "type": ["number", "null"],
+                    "default": None,
+                    "description": """【fill模式专用】成片目标时长（秒）。
+                    
+                    当mode="fill"时必需：
+                    • 系统会自动计算speed = source_duration / target_duration
+                    • 例如：5秒素材，target_duration=10 → speed=0.5x（慢放）
+                    • 例如：20秒素材，target_duration=10 → speed=2.0x（快放）
+                    
+                    当mode="cover"时忽略此参数
                 """
                 },
                 "duration": {

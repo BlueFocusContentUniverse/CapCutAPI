@@ -16,6 +16,8 @@ def add_video_track(
     draft_folder: Optional[str] = None,
     start: float = 0,
     end: Optional[float] = None,
+    mode: str = "cover",  # Mode: "cover" (use speed parameter) or "fill" (calculate speed from target_duration)
+    target_duration: Optional[float] = None,  # Target duration for fill mode (required when mode="fill")
     target_start: float = 0,
     draft_id: Optional[str] = None,
     transform_y: float = 0,
@@ -57,6 +59,8 @@ def add_video_track(
     :param video_url: Video URL
     :param start: Source video start time (seconds), default 0
     :param end: Source video end time (seconds), default None (use total video duration)
+    :param mode: Mode for speed calculation, "cover" (default, use speed parameter) or "fill" (calculate speed from target_duration)
+    :param target_duration: Target duration for fill mode (seconds), required when mode="fill", used to calculate speed automatically
     :param target_start: Target video start time (seconds), default 0
     :param draft_id: Draft ID, if None or corresponding zip file not found, create new draft
     :param transform_y: Y-axis transform, default 0
@@ -94,6 +98,18 @@ def add_video_track(
     """
     # Get or create draft
     draft_id, script = get_draft(draft_id=draft_id)
+
+    # ========== Mode validation and speed calculation ==========
+    # Validate mode parameter
+    if mode not in ["cover", "fill"]:
+        raise ValueError(f"❌ 参数错误：mode={mode} 无效，只支持 'cover' 或 'fill'")
+    # Validate fill mode requirements
+    if mode == "fill":
+        if target_duration is None or target_duration <= 0:
+            raise ValueError(f"❌ 参数错误：mode='fill' 时必须提供有效的 target_duration 参数（当前值：{target_duration}）")
+        print(f"✅ 使用 fill 模式：将根据 target_duration={target_duration}秒 自动计算播放速度")
+    else:
+        print(f"✅ 使用 cover 模式：使用提供的 speed={speed} 参数")
 
     # Check if video track exists, if not, add a default video track
     try:
@@ -196,23 +212,38 @@ def add_video_track(
             video_end = video_duration
             source_duration = video_end - start
 
-    # 6. 计算目标时长（考虑speed）
-    target_duration = source_duration / speed if source_duration > 0 else 0
+    # 6. 根据模式计算speed和target_duration
+    if mode == "fill":
+        # Fill模式：根据source_duration和target_duration计算speed
+        if source_duration > 0:
+            # speed = source_duration / target_duration (播放source_duration秒的内容需要target_duration秒)
+            calculated_speed = source_duration / target_duration
+            speed = calculated_speed
+            final_target_duration = target_duration
+            print(f"📊 Fill模式计算结果：source_duration={source_duration}秒 / target_duration={target_duration}秒 = speed={speed:.3f}x")
+        else:
+            # 时长未知时，无法计算speed，保留占位符
+            final_target_duration = target_duration
+            print(f"⚠️  警告：视频时长未知，speed将在下载后自动计算")
+    else:
+        # Cover模式：使用提供的speed计算target_duration
+        final_target_duration = source_duration / speed if source_duration > 0 else 0
 
     # 7. 输出处理信息
     if video_duration > 0:
         # 智能截断URL：保留开头和结尾，避免截断重要信息
         url_display = video_url if len(video_url) <= 80 else f"{video_url[:40]}...{video_url[-37:]}"
         print(f"""
-📹 视频素材处理信息：
-  - 素材URL: {url_display}
-  - 视频总时长: {video_duration}秒
-  - 裁剪参数: start={start}秒, end={video_end}秒
-  - 裁剪时长: {source_duration}秒
-  - 播放速度: {speed}x
-  - 成片时长: {target_duration}秒
-  - 时间线位置: target_start={target_start}秒
-""")
+            📹 视频素材处理信息：
+            - 素材URL: {url_display}
+            - 视频总时长: {video_duration}秒
+            - 裁剪参数: start={start}秒, end={video_end}秒
+            - 裁剪时长: {source_duration}秒
+            - 播放速度: {speed}x
+            - 成片时长: {final_target_duration}秒
+            - 时间线位置: target_start={target_start}秒
+            - 模式: {mode}
+            """)
 
     # Create video clip
     if draft_video_path:
@@ -222,7 +253,7 @@ def add_video_track(
 
     # Create source_timerange and target_timerange
     source_timerange = trange(f"{start}s", f"{source_duration}s")
-    target_timerange = trange(f"{target_start}s", f"{target_duration}s")
+    target_timerange = trange(f"{target_start}s", f"{final_target_duration}s")
 
     video_segment = draft.VideoSegment(
         video_material,

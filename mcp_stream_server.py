@@ -106,12 +106,16 @@ def tool_batch_add_videos(
         video_end = video.get("end", 0)
         video_target_start = video.get("target_start", 0)
         video_speed = video.get("speed", 1.0)
+        mode = video.get("mode", "cover")
+        target_duration = video.get("target_duration", None)
 
         result = add_video_track(
             video_url=video_url,
             draft_folder=draft_folder,
             start=video_start,
             end=video_end,
+            mode=mode,
+            target_duration=target_duration,
             target_start=video_target_start,
             draft_id=current_draft_id,
             transform_y=transform_y,
@@ -168,6 +172,8 @@ def tool_add_video(
     draft_id: str,
     start: float = 0,
     end: Optional[float] = None,
+    mode: str = "cover",
+    target_duration: Optional[float] = None,
     duration: Optional[float] = None,
     target_start: float = 0,
     transform_x: float = 0,
@@ -193,6 +199,8 @@ def tool_add_video(
         draft_id=draft_id,
         start=start,
         end=end,
+        mode=mode,
+        target_duration=target_duration,
         duration=duration,
         target_start=target_start,
         transform_x=transform_x,
