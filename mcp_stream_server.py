@@ -15,10 +15,9 @@ from typing import Any, Dict, List, Optional
 
 import mcp.types as types
 from dotenv import load_dotenv
-from flask import Flask
 from mcp.server.fastmcp import FastMCP
 
-from api.metadata import get_audio_effect_types, get_font_types
+from api.metadata import get_audio_effect_types_logic, get_font_types_logic
 from db import init_db
 from logging_utils import mcp_tool_logger
 
@@ -93,21 +92,21 @@ def tool_batch_add_videos(
     """Batch add multiple videos to the track."""
     if not videos:
         return {"success": False, "error": "videos array is empty"}
-    
+
     outputs = []
     current_draft_id = draft_id
-    
+
     for idx, video in enumerate(videos):
         video_url = video.get("video_url")
         if not video_url:
             logger.warning(f"Video at index {idx} is missing 'video_url', skipping.")
             continue
-        
+
         video_start = video.get("start", 0)
         video_end = video.get("end", 0)
         video_target_start = video.get("target_start", 0)
         video_speed = video.get("speed", 1.0)
-        
+
         result = add_video_track(
             video_url=video_url,
             draft_folder=draft_folder,
@@ -488,26 +487,14 @@ def tool_generate_video(
 
 @mcp_tool_logger("get_font_types")
 def tool_get_font_types() -> Dict[str, Any]:
-    """Fetch available font types using the Flask view function."""
-    app = Flask(__name__)
-    with app.app_context():
-        resp = get_font_types()
-        try:
-            return resp.get_json()
-        except Exception as e:
-            return {"success": False, "error": f"Failed to get font types: {e}"}
+    """Fetch available font types."""
+    return get_font_types_logic()
 
 
 @mcp_tool_logger("get_audio_effect_types")
 def tool_get_audio_effect_types() -> Dict[str, Any]:
-    """Fetch available audio effect types using the Flask view function."""
-    app = Flask(__name__)
-    with app.app_context():
-        resp = get_audio_effect_types()
-        try:
-            return resp.get_json()
-        except Exception as e:
-            return {"success": False, "error": f"Failed to get audio effect types: {e}"}
+    """Fetch available audio effect types."""
+    return get_audio_effect_types_logic()
 
 
 @mcp_tool_logger("get_tracks")

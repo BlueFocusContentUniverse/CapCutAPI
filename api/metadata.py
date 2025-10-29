@@ -160,9 +160,8 @@ def get_filter_types():
         return jsonify(result)
 
 
-@bp.route("/get_audio_effect_types", methods=["GET"])
-@api_endpoint_logger
-def get_audio_effect_types():
+def get_audio_effect_types_logic():
+    """Core logic for getting audio effect types (without Flask dependency)."""
     result = {"success": True, "output": "", "error": ""}
     try:
         audio_effect_types = []
@@ -233,31 +232,42 @@ def get_audio_effect_types():
                     })
                 audio_effect_types.append({"name": name, "type": "Speech_to_song", "params": params_info})
         result["output"] = audio_effect_types
-        return jsonify(result)
+        return result
     except Exception as e:
         result["success"] = False
         result["error"] = f"Error occurred while getting audio effect types: {e!s}"
-        return jsonify(result)
+        return result
 
 
-@bp.route("/get_font_types", methods=["GET"])
+@bp.route("/get_audio_effect_types", methods=["GET"])
 @api_endpoint_logger
-def get_font_types():
+def get_audio_effect_types():
+    return jsonify(get_audio_effect_types_logic())
+
+
+def get_font_types_logic():
+    """Core logic for getting font types (without Flask dependency)."""
     result = {"success": True, "output": "", "error": ""}
     try:
         font_types = []
         for name, member in FontType.__members__.items():
             font_types.append({"name": name})
         result["output"] = font_types
-        return jsonify(result)
+        return result
     except Exception as e:
         result["success"] = False
         result["error"] = f"Error occurred while getting font types: {e!s}"
-        return jsonify(result)
+        return result
 
 
-@bp.route("/get_text_intro_types", methods=["GET"])
 @api_endpoint_logger
+@bp.route("/get_font_types", methods=["GET"])
+def get_font_types():
+    return jsonify(get_font_types_logic())
+
+
+@api_endpoint_logger
+@bp.route("/get_text_intro_types", methods=["GET"])
 def get_text_intro_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -276,8 +286,8 @@ def get_text_intro_types():
         return jsonify(result)
 
 
-@bp.route("/get_text_outro_types", methods=["GET"])
 @api_endpoint_logger
+@bp.route("/get_text_outro_types", methods=["GET"])
 def get_text_outro_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -296,8 +306,8 @@ def get_text_outro_types():
         return jsonify(result)
 
 
-@bp.route("/get_text_loop_anim_types", methods=["GET"])
 @api_endpoint_logger
+@bp.route("/get_text_loop_anim_types", methods=["GET"])
 def get_text_loop_anim_types():
     result = {"success": True, "output": "", "error": ""}
     try:
