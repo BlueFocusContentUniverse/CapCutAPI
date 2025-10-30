@@ -1,11 +1,11 @@
 # 导入必要的模块
+import logging
 import os
 import re
 from typing import Dict, List, Optional, Tuple
 
 import pyJianYingDraft as draft
-from draft_cache import update_cache
-from logging_utils import service_logger
+from draft_cache import update_draft_with_retry
 from pyJianYingDraft import (
     AudioSceneEffectType,
     CapCutSpeechToSongEffectType,
@@ -21,8 +21,9 @@ from util import is_windows_path, url_to_hash
 
 from .create_draft import get_draft
 
+logger = logging.getLogger(__name__)
 
-@service_logger
+
 def add_audio_track(
     audio_url: str,
     draft_folder: Optional[str] = None,
@@ -48,43 +49,25 @@ def add_audio_track(
     :param track_name: Track name, default "audio_main"
     :param speed: Playback speed, default 1.0
     :param sound_effects: Scene sound effect list, each element is a tuple containing effect type name and parameter list, default None
+    :param duration: Audio duration (seconds), if provided, skip duration detection
     :return: Updated draft information
     """
-    # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
-
-    # Add audio track (only when track doesn't exist)
-    if track_name is not None:
-        try:
-            script.get_imported_track(draft.Track_type.audio, name=track_name)
-            # If no exception is thrown, the track already exists
-        except exceptions.TrackNotFound:
-            # Track doesn't exist, create a new track
-            script.add_track(draft.Track_type.audio, track_name=track_name)
-    else:
-       script.add_track(draft.Track_type.audio)
+    # Get or create draft (initial fetch for validation only)
+    draft_id, _ = get_draft(draft_id=draft_id)
+    logger.info(f"Starting audio track addition to draft {draft_id}")
 
     # If duration parameter is provided, prioritize it; otherwise use default audio duration of 0 seconds, real duration will be obtained during download
     if duration is not None:
         # Use the provided duration, skip duration retrieval and checking
         audio_duration = duration
+        logger.debug(f"Using provided audio duration: {audio_duration}s")
     else:
         # Use default audio duration of 0 seconds, real duration will be obtained when downloading the draft
         audio_duration = 0.0  # Default audio duration is 0 seconds
-        # duration_result = get_video_duration(audio_url)  # Reuse video duration retrieval function
-        # if not duration_result["success"]:
-        #     print(f"Failed to get audio duration: {duration_result['error']}")
+        logger.warning("No duration provided, audio duration will be detected during download")
 
-        # # Check if audio duration exceeds 10 minutes
-        # if duration_result["output"] > 600:  # 600 seconds = 10 minutes
-        #     raise Exception(f"Audio duration exceeds 10-minute limit, current duration: {duration_result['output']} seconds")
-
-        # audio_duration = duration_result["output"]
-
-    # Download audio to local
-    # local_audio_path = download_audio(audio_url, draft_dir)
-
-    material_name = f"audio_{url_to_hash(audio_url)}.mp3"  # Use original filename + timestamp + fixed mp3 extension
+    # Generate material name
+    material_name = f"audio_{url_to_hash(audio_url)}.mp3"
 
     # Build draft_audio_path
     draft_audio_path = None
@@ -100,6 +83,8 @@ def add_audio_track(
             # macOS/Linux path processing
             draft_audio_path = os.path.join(draft_folder, draft_id, "assets", "audio", material_name)
 
+        logger.debug(f"Audio replace path: {draft_audio_path}")
+
     # Set default value for audio end time
     # If end is None or <= 0, use full audio duration
     if end is None or end <= 0:
@@ -107,21 +92,32 @@ def add_audio_track(
     else:
         audio_end = end
 
-    # Calculate audio duration
-    duration = audio_end - start
+    # Calculate audio segment duration
+    segment_duration = audio_end - start
+    logger.debug(f"Audio segment: start={start}s, end={audio_end}s, duration={segment_duration}s")
+
+    # Create audio material
+    if draft_audio_path:
+        audio_material = draft.Audio_material(
+            replace_path=draft_audio_path,
+            remote_url=audio_url,
+            material_name=material_name,
+            duration=audio_duration
+        )
+    else:
+        audio_material = draft.Audio_material(
+            remote_url=audio_url,
+            material_name=material_name,
+            duration=audio_duration
+        )
 
     # Create audio segment
-    if draft_audio_path:
-        print("replace_path:", draft_audio_path)
-        audio_material = draft.Audio_material(replace_path=draft_audio_path, remote_url=audio_url, material_name=material_name, duration=audio_duration)
-    else:
-        audio_material = draft.Audio_material(remote_url=audio_url, material_name=material_name, duration=audio_duration)
     audio_segment = draft.Audio_segment(
-        audio_material,  # Pass material object
-        target_timerange=trange(f"{target_start}s", f"{duration}s"),  # Use target_start and duration
-        source_timerange=trange(f"{start}s", f"{duration}s"),
-        speed=speed,  # Set playback speed
-        volume=volume  # Set volume
+        audio_material,
+        target_timerange=trange(f"{target_start}s", f"{segment_duration}s"),
+        source_timerange=trange(f"{start}s", f"{segment_duration}s"),
+        speed=speed,
+        volume=volume
     )
 
     # Add scene sound effects
@@ -162,14 +158,42 @@ def add_audio_track(
             # If corresponding effect type is found, add it to the audio segment
             if effect_type:
                 audio_segment.add_effect(effect_type, params)
+                logger.debug(f"Added audio effect: {effect_name}")
             else:
-                print(f"Warning: Audio effect named {effect_name} not found")
+                logger.warning(f"Audio effect named {effect_name} not found")
 
-    # Add audio segment to track
-    script.add_segment(audio_segment, track_name=track_name)
+    # Define modifier function that will be called with retry logic
+    def modify_draft(script):
+        """Modifier function that adds audio track to the draft"""
+        logger.debug(f"Applying audio track modifications to draft {draft_id}")
 
-    # Persist updated script
-    update_cache(draft_id, script)
+        # Add audio track (only when track doesn't exist)
+        if track_name is not None:
+            try:
+                script.get_imported_track(draft.Track_type.audio, name=track_name)
+                # If no exception is thrown, the track already exists
+                logger.debug(f"Audio track '{track_name}' already exists")
+            except exceptions.TrackNotFound:
+                # Track doesn't exist, create a new track
+                script.add_track(draft.Track_type.audio, track_name=track_name)
+                logger.debug(f"Created new audio track '{track_name}'")
+        else:
+            script.add_track(draft.Track_type.audio)
+            logger.debug("Added audio track with default name")
+
+        # Add audio segment to track
+        script.add_segment(audio_segment, track_name=track_name)
+        logger.debug("Added audio segment to track")
+
+    # Use retry mechanism to handle concurrent updates
+    success = update_draft_with_retry(draft_id, modify_draft)
+
+    if not success:
+        error_msg = f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+    logger.info(f"Successfully added audio track to draft {draft_id}")
 
     return {
         "draft_id": draft_id,
