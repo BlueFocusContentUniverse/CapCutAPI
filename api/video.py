@@ -128,15 +128,12 @@ def batch_add_videos():
     videos = data.get("videos", [])
 
     # Common parameters that apply to all videos
-    mode = data.get("mode", "cover")
-    target_duration = data.get("target_duration")
     transform_y = data.get("transform_y", 0)
     scale_x = data.get("scale_x", 1)
     scale_y = data.get("scale_y", 1)
     transform_x = data.get("transform_x", 0)
     track_name = data.get("track_name", "video_main")
     relative_index = data.get("relative_index", 0)
-    duration = data.get("duration")
     transition = data.get("transition")
     transition_duration = data.get("transition_duration", 0.5)
     volume = data.get("volume", 1.0)
@@ -178,6 +175,9 @@ def batch_add_videos():
             start = video.get("start", 0)
             end = video.get("end", 0)
             target_start = video.get("target_start", 0)
+            mode=video.get("mode", "cover")
+            target_duration = video.get("target_duration", None)
+            duration = video.get("duration", None)
             speed = video.get("speed", 1.0)
 
             if not video_url:

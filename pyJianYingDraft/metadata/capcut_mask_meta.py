@@ -1,6 +1,7 @@
 from .effect_meta import EffectEnum
 from .mask_meta import MaskMeta
 
+
 class CapCutMaskType(EffectEnum):
     """CapCut自带的蒙版类型"""
 

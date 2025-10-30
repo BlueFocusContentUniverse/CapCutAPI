@@ -1,9 +1,12 @@
+import logging
 import time
 import uuid
 from enum import Enum
 
 import pyJianYingDraft as draft
-from draft_cache import cache_exists, get_from_cache, update_cache
+from draft_cache import cache_exists, get_from_cache, normalize_draft_id, update_cache
+
+logger = logging.getLogger(__name__)
 
 
 class DraftFramerate(Enum):
@@ -44,14 +47,20 @@ def get_draft(draft_id=None):
     if draft_id is None:
         raise ValueError("draft_id is required. Cannot retrieve draft without a draft_id.")
 
-    if not cache_exists(draft_id):
-        raise ValueError(f"Draft with ID '{draft_id}' does not exist in storage.")
+    normalized_id = normalize_draft_id(draft_id)
+    if not normalized_id:
+        logger.error("Invalid draft_id provided: %s", draft_id)
+        raise ValueError("draft_id is required and must be a non-empty string.")
+
+    if not cache_exists(normalized_id):
+        raise ValueError(f"Draft with ID '{normalized_id}' does not exist in storage.")
 
     # Get existing draft from cache (memory or PostgreSQL)
-    print(f"Getting draft from storage: {draft_id}")
-    script = get_from_cache(draft_id)
+    logger.info("Retrieving draft %s from storage", normalized_id)
+    print(f"Getting draft from storage: {normalized_id}")
+    script = get_from_cache(normalized_id)
 
     if script is None:
-        raise ValueError(f"Failed to retrieve draft '{draft_id}' from storage. Draft may be corrupted.")
+        raise ValueError(f"Failed to retrieve draft '{normalized_id}' from storage. Draft may be corrupted.")
 
-    return draft_id, script
+    return normalized_id, script

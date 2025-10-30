@@ -70,30 +70,29 @@ TOOLS = [
             "properties": {
                 "videos": {
                     "type": "array",
-                    "description": "视频列表数组。每个元素包含video_url、start、end、target_start、speed",
+                    "description": "视频素材列表数组",
                     "items": {
                         "type": "object",
                         "properties": {
                             "video_url": {"type": "string", "description": "视频素材URL或本地路径"},
-                            "start": {"type": "number", "default": 0, "description": "从视频第几秒开始截取"},
-                            "end": {"type": "number", "default": 0, "description": "到视频第几秒结束截取（0=到末尾）"},
+                            "start": {"type": "number", "default": 0, "description": "从视频素材第几秒开始截取"},
+                            "end": {"type": "number", "default": 0, "description": "到视频素材第几秒结束截取（0=到末尾）"},
                             "target_start": {"type": "number", "default": 0, "description": "该片段在时间线上的起始位置"},
                             "speed": {"type": "number", "default": 1.0, "description": "播放速度"},
                             "mode": {"type": "string", "enum": ["cover", "fill"], "default": "cover", "description": "速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed"},
-                            "target_duration": {"type": ["number", "null"], "default": None, "description": "fill模式专用，成片目标时长（秒）"},
+                            "target_duration": {"type": ["number", "null"], "default": None, "description": "fill模式专用，素材在轨道上的目标时长（秒）"},
+                            "duration": {"type": ["number", "null"], "default": None, "description": "视频素材总时长（秒）"}
                         },
                         "required": ["video_url", "start", "end", "target_start"]
                     }
                 },
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
-                "draft_folder": {"type": "string", "description": "草稿文件夹路径（可选）"},
                 "transform_x": {"type": "number", "default": 0, "description": "【共享】水平位置偏移（应用于所有视频）"},
                 "transform_y": {"type": "number", "default": 0, "description": "【共享】垂直位置偏移（应用于所有视频）"},
                 "scale_x": {"type": "number", "default": 1, "description": "【共享】水平缩放倍数（应用于所有视频）"},
                 "scale_y": {"type": "number", "default": 1, "description": "【共享】垂直缩放倍数（应用于所有视频）"},
                 "track_name": {"type": "string", "default": "video_main", "description": "【共享】轨道名称"},
                 "relative_index": {"type": "integer", "default": 0, "description": "【共享】相对排序索引"},
-                "duration": {"type": ["number", "null"], "default": None, "description": "【共享】视频总时长（秒）"},
                 "transition": {"type": "string", "description": "【共享】转场效果类型"},
                 "transition_duration": {"type": "number", "default": 0.5, "description": "【共享】转场时长（秒）"},
                 "volume": {"type": "number", "default": 1.0, "description": "【共享】音量增益"},
@@ -271,6 +270,55 @@ TOOLS = [
                 "effect_params": {"type": "array", "description": "音效参数数组。参数的具体含义和数量取决于effect_type。格式：List[Optional[float]]。例如：某些效果可能需要[0.5, 1.0]"},
             },
             "required": ["audio_url", "draft_id", "start", "target_start"]
+        }
+    },
+    {
+        "name": "batch_add_audios",
+        "description": """批量添加多个音频素材到track。适用于需要连续添加多个音频的场景。每个音频可以独立设置audio_url、start、end、target_start、speed、duration参数，其他参数（如音量、音效等）在所有音频间共享。
+        
+        【使用场景】
+        • 音频拼接：将多个音频片段按顺序拼接成完整音轨
+        • 批量导入：一次性导入多个音频素材
+        • 配乐组合：制作多段配乐混合效果
+        
+        【audios数组说明】
+        每个音频对象包含：
+        • audio_url（必需）：音频素材URL或本地路径
+        • start（可选，默认0）：从音频第几秒开始截取
+        • end（可选，默认None）：到音频第几秒结束截取（None表示到末尾）
+        • target_start（可选，默认0）：该片段在时间线上的起始位置
+        • speed（可选，默认1.0）：播放速度
+        • duration（可选，默认None）：音频素材总时长
+        
+        【共享参数】
+        其他参数（volume、track_name、effect_type、effect_params等）在根级别设置，应用于所有音频
+        """,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "audios": {
+                    "type": "array",
+                    "description": "音频素材列表数组",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "audio_url": {"type": "string", "description": "音频素材URL或本地路径"},
+                            "start": {"type": "number", "default": 0, "description": "从音频素材第几秒开始截取"},
+                            "end": {"type": ["number", "null"], "default": None, "description": "到音频素材第几秒结束截取（None=到末尾）"},
+                            "target_start": {"type": "number", "default": 0, "description": "该片段在时间线上的起始位置"},
+                            "speed": {"type": "number", "default": 1.0, "description": "播放速度"},
+                            "duration": {"type": ["number", "null"], "default": None, "description": "音频素材总时长（秒）"}
+                        },
+                        "required": ["audio_url", "start", "target_start", "end", "speed", "duration"]
+                    }
+                },
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "volume": {"type": "number", "default": 1.0, "description": "【共享】音量增益（应用于所有音频）"},
+                "track_name": {"type": "string", "default": "audio_main", "description": "【共享】轨道名称"},
+                "effect_type": {"type": "string", "description": "【共享】音效处理类型"},
+                "effect_params": {"type": "array", "description": "【共享】音效参数数组"}
+            },
+            "required": ["audios", "draft_id"]
         }
     },
     {
@@ -462,6 +510,17 @@ TOOLS = [
                 "name": {"type": "string", "description": "导出视频的文件名称（不含扩展名）"}
             },
             "required": ["draft_id"]
+        }
+    },
+    {
+        "name": "get_video_task_status",
+        "description": "查询视频渲染任务的状态。返回任务的详细信息，包括渲染状态、进度、错误信息等。用于跟踪generate_video生成的任务进度。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "视频任务的唯一标识符。由generate_video返回的final_task_id"}
+            },
+            "required": ["task_id"]
         }
     },
     {
@@ -673,6 +732,11 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
 
             elif tool_name == "add_video_keyframe":
                 result = add_video_keyframe_impl(**arguments)
+
+            elif tool_name == "get_video_task_status":
+                from services.get_video_task_status_impl import get_video_task_status_impl
+                result = get_video_task_status_impl(**arguments)
+                return result
 
             else:
                 return {"success": False, "error": f"Unknown tool: {tool_name}"}

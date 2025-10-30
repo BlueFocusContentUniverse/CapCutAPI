@@ -1,14 +1,17 @@
+import logging
 import os
 import re
 from typing import Dict, Optional
 
 import pyJianYingDraft as draft
-from draft_cache import update_cache
+from draft_cache import update_draft_with_retry
 from pyJianYingDraft import ClipSettings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
 from util import is_windows_path, url_to_hash
 
 from .create_draft import get_draft
+
+logger = logging.getLogger(__name__)
 
 
 def add_video_track(
@@ -96,8 +99,9 @@ def add_video_track(
     :param background_blur: Background blur level, optional values: 1 (light), 2 (medium), 3 (strong), 4 (maximum), default None (no background blur)
     :return: Updated draft information, including draft_id and draft_url
     """
-    # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
+    # Get or create draft (initial fetch for validation only)
+    draft_id, _ = get_draft(draft_id=draft_id)
+    logger.info(f"Starting video track addition to draft {draft_id}")
 
     # ========== Mode validation and speed calculation ==========
     # Validate mode parameter
@@ -111,25 +115,8 @@ def add_video_track(
     else:
         print(f"✅ 使用 cover 模式：使用提供的 speed={speed} 参数")
 
-    # Check if video track exists, if not, add a default video track
-    try:
-        script.get_track(draft.Track_type.video, track_name=None)
-    except exceptions.TrackNotFound:
-        script.add_track(draft.Track_type.video, relative_index=0)
-    except NameError:
-        # If multiple video tracks exist (NameError), do nothing
-        pass
-
-    # Add video track (only when track doesn't exist)
-    if track_name is not None:
-        try:
-            script.get_imported_track(draft.Track_type.video, name=track_name)
-            # If no exception is thrown, the track already exists
-        except exceptions.TrackNotFound:
-            # Track doesn't exist, create new track
-            script.add_track(draft.Track_type.video, track_name=track_name, relative_index=relative_index)
-    else:
-        script.add_track(draft.Track_type.video, relative_index=relative_index)
+    # Prepare parameters for the modifier function
+    # We'll capture all the parameters needed for modification in the closure
 
     # ========== 参数验证与时长处理 ==========
 
@@ -324,61 +311,98 @@ def add_video_track(
     if fade_in_duration > 0 or fade_out_duration > 0:
         video_segment.add_fade(fade_in_duration, fade_out_duration)
 
-    # Add mask effect
-    if mask_type:
+    # Define modifier function that will be called with retry logic
+    def modify_draft(script):
+        """Modifier function that adds video track to the draft"""
+        logger.debug(f"Applying video track modifications to draft {draft_id}")
+
+        # Check if video track exists, if not, add a default video track
         try:
-            if IS_CAPCUT_ENV:
-                mask_type_enum = getattr(draft.CapCutMaskType, mask_type)
-            else:
-                mask_type_enum = getattr(draft.MaskType, mask_type)
-            video_segment.add_mask(
-                script,
-                mask_type_enum,
-                center_x=mask_center_x,
-                center_y=mask_center_y,
-                size=mask_size,
-                rotation=mask_rotation,
-                feather=mask_feather,
-                invert=mask_invert,
-                rect_width=mask_rect_width,
-                round_corner=mask_round_corner
-            )
-        except Exception:
-            raise ValueError(f"Unsupported mask type {mask_type}, supported types include: linear, mirror, circle, rectangle, heart, star")
+            script.get_track(draft.Track_type.video, track_name=None)
+        except exceptions.TrackNotFound:
+            script.add_track(draft.Track_type.video, relative_index=0)
+            logger.debug("Added default video track")
+        except NameError:
+            # If multiple video tracks exist (NameError), do nothing
+            pass
 
-    # Add filter effect
-    if filter_type:
-        try:
-            filter_type_enum = getattr(draft.FilterType, filter_type)
-            video_segment.add_filter(filter_type_enum, filter_intensity)
-        except Exception:
-            raise ValueError(f"Unsupported filter type {filter_type}, supported types include: linear, mirror, circle, rectangle, heart, star")
+        # Add video track (only when track doesn't exist)
+        if track_name is not None:
+            try:
+                script.get_imported_track(draft.Track_type.video, name=track_name)
+                # If no exception is thrown, the track already exists
+                logger.debug(f"Video track '{track_name}' already exists")
+            except exceptions.TrackNotFound:
+                # Track doesn't exist, create new track
+                script.add_track(draft.Track_type.video, track_name=track_name, relative_index=relative_index)
+                logger.debug(f"Created new video track '{track_name}'")
+        else:
+            script.add_track(draft.Track_type.video, relative_index=relative_index)
+            logger.debug("Added video track with default name")
 
-    # Add background blur effect
-    if background_blur is not None:
-        # Validate if background blur level is valid
-        if background_blur not in [1, 2, 3, 4]:
-            raise ValueError(f"Invalid background blur level: {background_blur}, valid values are: 1, 2, 3, 4")
+        # Add mask effect (requires script object)
+        if mask_type:
+            try:
+                if IS_CAPCUT_ENV:
+                    mask_type_enum = getattr(draft.CapCutMaskType, mask_type)
+                else:
+                    mask_type_enum = getattr(draft.MaskType, mask_type)
+                video_segment.add_mask(
+                    script,
+                    mask_type_enum,
+                    center_x=mask_center_x,
+                    center_y=mask_center_y,
+                    size=mask_size,
+                    rotation=mask_rotation,
+                    feather=mask_feather,
+                    invert=mask_invert,
+                    rect_width=mask_rect_width,
+                    round_corner=mask_round_corner
+                )
+                logger.debug(f"Added mask effect: {mask_type}")
+            except Exception as e:
+                raise ValueError(f"{e}, Unsupported mask type {mask_type}, supported types include: {', '.join([mask.name for mask in draft.MaskType])}") from e
 
-        # Map blur level to specific blur values
-        blur_values = {
-            1: 0.0625,  # Light blur
-            2: 0.375,   # Medium blur
-            3: 0.75,    # Strong blur
-            4: 1.0      # Maximum blur
-        }
+        # Add filter effect
+        if filter_type:
+            try:
+                filter_type_enum = getattr(draft.FilterType, filter_type)
+                video_segment.add_filter(filter_type_enum, filter_intensity)
+                logger.debug(f"Added filter effect: {filter_type}")
+            except Exception as e:
+                raise ValueError(f"Unsupported filter type {filter_type}, supported types include: linear, mirror, circle, rectangle, heart, star") from e
 
-        # Add background blur
-        video_segment.add_background_filling("blur", blur=blur_values[background_blur])
+        # Add background blur effect
+        if background_blur is not None:
+            # Validate if background blur level is valid
+            if background_blur not in [1, 2, 3, 4]:
+                raise ValueError(f"Invalid background blur level: {background_blur}, valid values are: 1, 2, 3, 4")
 
-    # Add video segment to track
-    # if imported_track is not None:
-    #     imported_track.add_segment(video_segment)
-    # else:
-    script.add_segment(video_segment, track_name=track_name)
+            # Map blur level to specific blur values
+            blur_values = {
+                1: 0.0625,  # Light blur
+                2: 0.375,   # Medium blur
+                3: 0.75,    # Strong blur
+                4: 1.0      # Maximum blur
+            }
 
-    # Persist updated script
-    update_cache(draft_id, script)
+            # Add background blur
+            video_segment.add_background_filling("blur", blur=blur_values[background_blur])
+            logger.debug(f"Added background blur: level {background_blur}")
+
+        # Add video segment to track
+        script.add_segment(video_segment, track_name=track_name)
+        logger.debug("Added video segment to track")
+
+    # Use retry mechanism to handle concurrent updates
+    success = update_draft_with_retry(draft_id, modify_draft)
+
+    if not success:
+        error_msg = f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+    logger.info(f"Successfully added video track to draft {draft_id}")
 
     return {
         "draft_id": draft_id,

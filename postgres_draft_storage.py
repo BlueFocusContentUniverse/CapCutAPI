@@ -28,16 +28,38 @@ class PostgresDraftStorage:
             logger.error(f"Failed to initialize database: {e}")
             raise
 
-    def save_draft(self, draft_id: str, script_obj: draft.ScriptFile) -> bool:
+    def save_draft(self, draft_id: str, script_obj: draft.ScriptFile, expected_version: Optional[int] = None) -> bool:
+        """
+        Save draft with optimistic locking support.
+
+        Args:
+            draft_id: The draft identifier
+            script_obj: The script object to save
+            expected_version: Expected current version for optimistic locking. If provided and doesn't match,
+                             save will fail and return False
+
+        Returns:
+            True if save succeeded, False if version mismatch or other error occurred
+        """
         try:
             serialized_data = pickle.dumps(script_obj)
 
             with get_session() as session:
                 # Find any existing row regardless of deletion status
-                q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id))
+                # Use SELECT FOR UPDATE to acquire row-level lock
+                q = session.execute(
+                    select(DraftModel)
+                    .where(DraftModel.draft_id == draft_id)
+                    .with_for_update()
+                )
                 existing = q.scalar_one_or_none()
 
                 if existing is None:
+                    # New draft
+                    if expected_version is not None and expected_version != 0:
+                        logger.warning(f"Cannot create new draft {draft_id} with expected_version={expected_version}")
+                        return False
+
                     row = DraftModel(
                         draft_id=draft_id,
                         data=serialized_data,
@@ -53,9 +75,20 @@ class PostgresDraftStorage:
                         accessed_at=datetime.now(timezone.utc),
                     )
                     session.add(row)
+                    logger.info(f"Created new draft {draft_id} with version 1")
                 else:
+                    # Existing draft - check version if expected_version provided
+                    current_version = existing.current_version or 1
+
+                    if expected_version is not None and expected_version != current_version:
+                        logger.warning(
+                            f"Version mismatch for draft {draft_id}: expected {expected_version}, "
+                            f"but current is {current_version}. Save aborted."
+                        )
+                        return False
+
                     # Persist previous version into history table before updating
-                    previous_version = existing.current_version or 1
+                    previous_version = current_version
                     history = DraftVersionModel(
                         draft_id=existing.draft_id,
                         version=previous_version,
@@ -72,6 +105,7 @@ class PostgresDraftStorage:
                     session.add(history)
 
                     # Update in place; if previously soft-deleted, resurrect it
+                    new_version = previous_version + 1
                     existing.data = serialized_data
                     existing.width = getattr(script_obj, "width", None)
                     existing.height = getattr(script_obj, "height", None)
@@ -82,8 +116,10 @@ class PostgresDraftStorage:
                     existing.draft_name = getattr(script_obj, "name", None)
                     existing.resource = getattr(script_obj, "resource", None)
                     existing.is_deleted = False
-                    existing.current_version = previous_version + 1
+                    existing.current_version = new_version
                     existing.accessed_at = datetime.now(timezone.utc)
+
+                    logger.info(f"Updated draft {draft_id} from version {previous_version} to {new_version}")
 
             logger.info(f"Successfully saved draft {draft_id} to Postgres (size: {len(serialized_data)} bytes)")
             return True
@@ -95,6 +131,7 @@ class PostgresDraftStorage:
             return False
 
     def get_draft(self, draft_id: str) -> Optional[draft.ScriptFile]:
+        """Get draft without version information"""
         try:
             with get_session() as session:
                 q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id, DraftModel.is_deleted.is_(False)))
@@ -105,6 +142,32 @@ class PostgresDraftStorage:
                 script_obj = pickle.loads(row.data)
                 row.accessed_at = datetime.now(timezone.utc)
                 return script_obj
+        except SQLAlchemyError as e:
+            logger.error(f"Database error retrieving draft {draft_id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to retrieve draft {draft_id}: {e}")
+            return None
+
+    def get_draft_with_version(self, draft_id: str) -> Optional[tuple[draft.ScriptFile, int]]:
+        """
+        Get draft along with its current version number.
+
+        Returns:
+            Tuple of (script_obj, version) or None if not found
+        """
+        try:
+            with get_session() as session:
+                q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id, DraftModel.is_deleted.is_(False)))
+                row = q.scalar_one_or_none()
+                if row is None:
+                    logger.warning(f"Draft {draft_id} not found in Postgres")
+                    return None
+                script_obj = pickle.loads(row.data)
+                current_version = row.current_version or 1
+                row.accessed_at = datetime.now(timezone.utc)
+                logger.debug(f"Retrieved draft {draft_id} with version {current_version}")
+                return (script_obj, current_version)
         except SQLAlchemyError as e:
             logger.error(f"Database error retrieving draft {draft_id}: {e}")
             return None

@@ -57,14 +57,12 @@ def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 3
 def tool_batch_add_videos(
     videos: List[Dict[str, Any]],
     draft_id: Optional[str] = None,
-    draft_folder: Optional[str] = None,
     transform_x: float = 0,
     transform_y: float = 0,
     scale_x: float = 1,
     scale_y: float = 1,
     track_name: str = "main",
     relative_index: int = 0,
-    duration: Optional[float] = None,
     transition: Optional[str] = None,
     transition_duration: float = 0.5,
     volume: float = 1.0,
@@ -107,11 +105,11 @@ def tool_batch_add_videos(
         video_target_start = video.get("target_start", 0)
         video_speed = video.get("speed", 1.0)
         mode = video.get("mode", "cover")
+        duration = video.get("duration", None)
         target_duration = video.get("target_duration", None)
 
         result = add_video_track(
             video_url=video_url,
-            draft_folder=draft_folder,
             start=video_start,
             end=video_end,
             mode=mode,
@@ -248,6 +246,68 @@ def tool_add_audio(
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
     return execute_tool("add_audio", arguments)
+
+
+@mcp_tool_logger("batch_add_audios")
+def tool_batch_add_audios(
+    audios: List[Dict[str, Any]],
+    draft_id: Optional[str] = None,
+    volume: float = 1.0,
+    track_name: str = "audio_main",
+    effect_type: Optional[str] = None,
+    effect_params: Optional[List[Any]] = None,
+) -> Dict[str, Any]:
+    """Batch add multiple audios to the track."""
+    from services.add_audio_track import add_audio_track
+    
+    if not audios:
+        return {"success": False, "error": "audios array is empty"}
+
+    sound_effects = None
+    if effect_type is not None:
+        sound_effects = [(effect_type, effect_params)]
+
+    outputs = []
+    current_draft_id = draft_id
+
+    for idx, audio in enumerate(audios):
+        audio_url = audio.get("audio_url")
+        if not audio_url:
+            logger.warning(f"Audio at index {idx} is missing 'audio_url', skipping.")
+            continue
+
+        audio_start = audio.get("start", 0)
+        audio_end = audio.get("end", None)
+        audio_target_start = audio.get("target_start", 0)
+        audio_speed = audio.get("speed", 1.0)
+        audio_duration = audio.get("duration", None)
+
+        result = add_audio_track(
+            audio_url=audio_url,
+            start=audio_start,
+            end=audio_end,
+            target_start=audio_target_start,
+            draft_id=current_draft_id,
+            volume=volume,
+            track_name=track_name,
+            speed=audio_speed,
+            sound_effects=sound_effects,
+            duration=audio_duration
+        )
+
+        outputs.append({
+            "audio_url": audio_url,
+            "result": result
+        })
+
+        # Update draft_id for subsequent audios
+        current_draft_id = result
+
+    return {
+        "success": True,
+        "output": outputs,
+        "final_draft_id": current_draft_id
+    }
 
 
 @mcp_tool_logger("add_image")
@@ -493,6 +553,13 @@ def tool_generate_video(
     return generate_video_impl(**arguments)
 
 
+@mcp_tool_logger("get_video_task_status")
+def tool_get_video_task_status(task_id: str) -> Dict[str, Any]:
+    """Get the status of a video generation task."""
+    from services.get_video_task_status_impl import get_video_task_status_impl
+    return get_video_task_status_impl(task_id=task_id)
+
+
 @mcp_tool_logger("get_font_types")
 def tool_get_font_types() -> Dict[str, Any]:
     """Fetch available font types."""
@@ -564,6 +631,11 @@ def _register_tools(app: FastMCP) -> None:
         tool_add_audio, name="add_audio", description="添加音频到草稿，支持音效处理"
     )
     app.add_tool(
+        tool_batch_add_audios,
+        name="batch_add_audios",
+        description="批量添加多个音频到草稿，每个音频可独立设置audio_url、start、end、target_start、speed、duration，其他参数共享",
+    )
+    app.add_tool(
         tool_add_image,
         name="add_image",
         description="添加图片到草稿，支持动画、转场、蒙版等效果",
@@ -586,6 +658,11 @@ def _register_tools(app: FastMCP) -> None:
         description="添加视频关键帧，支持属性动画",
     )
     app.add_tool(tool_generate_video, name="generate_video", description="生成渲染视频")
+    app.add_tool(
+        tool_get_video_task_status,
+        name="get_video_task_status",
+        description="查询视频渲染任务状态"
+    )
     app.add_tool(
         tool_get_font_types, name="get_font_types", description="获取字体类型列表"
     )
