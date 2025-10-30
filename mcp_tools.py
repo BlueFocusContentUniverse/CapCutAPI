@@ -61,6 +61,9 @@ TOOLS = [
         • end（可选，默认0）：到视频第几秒结束截取（0表示到末尾）
         • target_start（可选，默认0）：该片段在时间线上的起始位置
         • speed（可选，默认1.0）：播放速度
+        • mode（可选，默认cover）：速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed
+        • target_duration（默认None）：fill模式专用，素材在轨道上的目标时长（秒）
+        • duration（默认None）：视频素材总时长（秒）
         
         【共享参数】
         其他参数（transform_x/y、scale_x/y、transition、mask_type等）在根级别设置，应用于所有视频
@@ -83,7 +86,7 @@ TOOLS = [
                             "target_duration": {"type": ["number", "null"], "default": None, "description": "fill模式专用，素材在轨道上的目标时长（秒）"},
                             "duration": {"type": ["number", "null"], "default": None, "description": "视频素材总时长（秒）"}
                         },
-                        "required": ["video_url", "start", "end", "target_start"]
+                        "required": ["video_url", "start", "end", "target_start", "mode", "target_duration", "duration"]
                     }
                 },
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
@@ -371,7 +374,7 @@ TOOLS = [
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
                 "track_name": {"type": "string", "default": "text_main", "description": "文本轨道名称标识。建议命名：text_main（主字幕轨）、text_title（标题轨）、text_caption（说明轨）。会自动创建不存在的轨道。必需参数"},
                 "font": {"type": "string", "description": "字体名称。必须是FontType中支持的字体。不设置则使用null（系统默认字体）。必需参数"},
-                "font_size": {"type": "number", "default": 8.0, "description": "字体大小。建议范围：4.0-20.0。数值越大字体越大"},
+                "font_size": {"type": "integer", "default": 8, "description": "字体大小。建议范围：4.0-20.0。数值越大字体越大"},
                 "font_color": {"type": "string", "default": "#ffffff", "description": "字体颜色。十六进制格式：#RRGGBB。例如：#ffffff为白色，#000000为黑色。会自动转换为RGB元组"},
                 "font_alpha": {"type": "number", "default": 1.0, "description": "字体透明度。范围：0.0-1.0。0.0为完全透明，1.0为完全不透明。有效性会被验证"},
                 "transform_x": {"type": "number", "default": 0, "description": "【空间定位-X轴】文本在画布上的水平位置偏移。单位：半个画布宽度。0为画布中心，-1为向左偏移半个画布宽，1为向右偏移半个画布宽"},
