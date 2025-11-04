@@ -1,14 +1,12 @@
 import logging
 import os
-import threading
-import time
 import uuid
 from typing import Any, Dict, Optional
 
 from sqlalchemy import select
 
 from db import get_session
-from models import VideoTask
+from models import VideoTask, VideoTaskStatus
 from services.save_draft_impl import query_script_impl
 
 logger = logging.getLogger(__name__)
@@ -31,7 +29,7 @@ def generate_video_impl(
     Returns:
         A dict with keys:
         - success: Whether the dispatch was successful.
-        - output: {"final_task_id": str, "unique_dir_name": Optional[str]} when successful.
+        - output: {"task_id": str} when successful.
         - error: Error message string when unsuccessful.
     """
     result: Dict[str, Any] = {"success": False, "output": "", "error": ""}
@@ -62,104 +60,56 @@ def generate_video_impl(
             return result
 
         celery_client = Celery(broker=broker_url, backend=backend_url)
-        try:
-            insp = celery_client.control.inspect(timeout=1)
-            ping_result = insp.ping() if insp else None
-        except Exception:
-            ping_result = None
-        if not ping_result:
-            logger.warning(
-                "No Celery workers responded to ping. Verify worker is running and connected to the same broker/result backend."
-            )
 
-        process_sig = celery_client.signature(
-            "s3_asset_downloader.tasks.process_draft_content",
-            kwargs={"draft_content": draft_content},
-            queue="default",
-        )
-
-        # Pre-generate final task id so we can create a DB record before task starts
+        # Pre-generate task id so we can create a DB record before task starts
         final_task_id = uuid.uuid4().hex
 
-        generate_sig = celery_client.signature(
-            "s3_asset_downloader.tasks.generate_video",
-            kwargs={"output_path": None, "resolution": resolution, "framerate": framerate},
-            queue="default",
-        ).set(task_id=final_task_id)
-
-        chain_result = (process_sig | generate_sig).apply_async()
-        logger.info(f"Dispatched Celery chain. Final task id: {chain_result.id}")
-
-        first_result = chain_result
-        while getattr(first_result, "parent", None) is not None:
-            first_result = first_result.parent
-
-        unique_dir_name = None
-        try:
-            process_task_id = getattr(first_result, "id", None)
-            if process_task_id:
-                process_async = celery_client.AsyncResult(process_task_id)
-                if process_async.ready() and isinstance(process_async.result, dict):
-                    unique_dir_name = process_async.result.get("unique_dir_name")
-        except Exception:
-            unique_dir_name = None
-
-        # Create task record BEFORE generate task starts
+        # Create task record BEFORE task starts
         try:
             with get_session() as session:
-                existing = session.execute(select(VideoTask).where(VideoTask.task_id == final_task_id)).scalar_one_or_none()
+                existing = session.execute(
+                    select(VideoTask).where(VideoTask.task_id == final_task_id)
+                ).scalar_one_or_none()
+                video_name = draft_content.get("name") if isinstance(draft_content, dict) else None
                 if not existing:
                     session.add(
                         VideoTask(
                             task_id=final_task_id,
                             draft_id=draft_id,
                             status="initialized",
+                            render_status=VideoTaskStatus.INITIALIZED,
+                            video_name=video_name,
                         )
                     )
+                else:
+                    if video_name:
+                        existing.video_name = video_name
+                logger.info(f"Created VideoTask {final_task_id} for draft {draft_id}")
         except Exception as e:
+            # swallow key errors or other issues caused by draft_content structure
             logger.error(f"Failed to pre-insert video task {final_task_id}: {e}")
 
-        # Update task record with any early metadata (e.g., unique_dir_name) after dispatch
-        try:
-            with get_session() as session:
-                existing = session.execute(select(VideoTask).where(VideoTask.task_id == final_task_id)).scalar_one_or_none()
-                if existing:
-                    extra = dict(existing.extra or {})
-                    if unique_dir_name:
-                        extra["unique_dir_name"] = unique_dir_name
-                    existing.extra = extra
-        except Exception as e:
-            logger.error(f"Failed to update video task {final_task_id} metadata: {e}")
+        # Use the new combined task
+        task_sig = celery_client.signature(
+            "jianying_runner.tasks.process_content_and_generate_video",
+            kwargs={
+                "draft_content": draft_content,
+                "basePath": None,
+                "resolution": resolution,
+                "framerate": framerate,
+            },
+            queue="default",
+        ).set(task_id=final_task_id)
 
-        # Start a background watcher to mark status on completion
-        def _watch_and_update_status(task_id: str):
-            try:
-                async_res = celery_client.AsyncResult(task_id)
-                while not async_res.ready():
-                    time.sleep(1.0)
-                state = async_res.state
-                with get_session() as session:
-                    row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
-                    if not row:
-                        return
-                    if state == "SUCCESS":
-                        row.status = "completed"
-                    elif state in ("FAILURE", "REVOKED"):
-                        row.status = "failed"
-                        try:
-                            row.message = str(async_res.result)
-                        except Exception:
-                            pass
-            except Exception as e:
-                logger.error(f"Task status watcher error for {task_id}: {e}")
-
-        threading.Thread(target=_watch_and_update_status, args=(final_task_id,), daemon=True).start()
+        task_result = task_sig.apply_async()
+        logger.info(f"Dispatched Celery task. Task id: {task_result.id}")
 
         result["success"] = True
-        result["output"] = {"final_task_id": final_task_id, "unique_dir_name": unique_dir_name}
+        result["output"] = {"task_id": final_task_id}
         return result
 
     except Exception as e:
+        logger.error(f"Error occurred while generating video: {e}")
         result["error"] = f"Error occurred while generating video: {e!s}"
         return result
 
