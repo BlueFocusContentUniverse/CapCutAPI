@@ -139,7 +139,7 @@ def save_draft_background(draft_id, draft_folder, task_id):
         update_task_field(task_id, "progress", 5)
         logger.info(f"Task {task_id} progress 5%: Updating media file metadata.")
 
-        update_media_metadata(script, task_id)
+        # update_media_metadata(script, task_id)
 
         download_tasks = []
 
@@ -354,7 +354,7 @@ def save_draft_impl(draft_id: str, draft_folder: str = None) -> Dict[str, str]:
 def update_media_metadata(script, task_id=None):
     """
     Update metadata for all media files in the script (duration, width/height, etc.)
-    
+
     :param script: Draft script object
     :param task_id: Optional task ID for updating task status
     :return: None
@@ -605,10 +605,10 @@ def update_media_metadata(script, task_id=None):
             track.process_pending_keyframes()
             logger.info(f"Pending keyframes in track {track_name} have been processed.")
 
-def query_script_impl(draft_id: str, force_update: bool = True):
+def query_script_impl(draft_id: str, force_update: bool = False):
     """
     Query draft script object, with option to force refresh media metadata
-    
+
     :param draft_id: Draft ID
     :param force_update: Whether to force refresh media metadata, default is True
     :return: Script object
