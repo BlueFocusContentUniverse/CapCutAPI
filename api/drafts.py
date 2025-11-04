@@ -12,7 +12,7 @@ from services.save_draft_impl import (
     save_draft_impl,
 )
 
-# from util import generate_draft_url as utilgenerate_draft_url
+# from util.helpers import generate_draft_url as utilgenerate_draft_url
 
 
 bp = Blueprint("drafts", __name__)
@@ -159,7 +159,7 @@ def archive_draft():
         draft_content = json.loads(script.dumps())
 
         archive_sig = celery_client.signature(
-            "s3_asset_downloader.tasks.archive_draft_directory",
+            "jianying_runner.tasks.archive_draft_directory",
             kwargs={"draft_content": draft_content, "assets_path": draft_folder},
             queue="default"
         )

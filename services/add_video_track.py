@@ -7,7 +7,7 @@ import pyJianYingDraft as draft
 from draft_cache import update_draft_with_retry
 from pyJianYingDraft import ClipSettings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
-from util import is_windows_path, url_to_hash
+from util.helpers import is_windows_path, url_to_hash
 
 from .create_draft import get_draft
 

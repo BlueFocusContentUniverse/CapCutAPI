@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from typing import Any, Dict, Optional, Tuple
 
 import pyJianYingDraft as draft
-from postgres_draft_storage import get_postgres_storage
+from repositories.draft_repository import get_postgres_storage
 
 logger = logging.getLogger(__name__)
 

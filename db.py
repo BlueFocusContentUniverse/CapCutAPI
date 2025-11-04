@@ -64,11 +64,11 @@ def _database_url() -> str:
 def _get_pool_config() -> dict:
     """Get connection pool configuration from environment variables."""
     return {
-        'pool_size': int(os.getenv('DB_POOL_SIZE', '10')),  # Number of persistent connections
-        'max_overflow': int(os.getenv('DB_MAX_OVERFLOW', '20')),  # Additional connections beyond pool_size
-        'pool_recycle': int(os.getenv('DB_POOL_RECYCLE', '3600')),  # Recycle connections after 1 hour (in seconds)
-        'pool_timeout': int(os.getenv('DB_POOL_TIMEOUT', '30')),  # Timeout for getting connection from pool
-        'pool_pre_ping': True,  # Verify connections before use
+        "pool_size": int(os.getenv("DB_POOL_SIZE", "10")),  # Number of persistent connections
+        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "20")),  # Additional connections beyond pool_size
+        "pool_recycle": int(os.getenv("DB_POOL_RECYCLE", "3600")),  # Recycle connections after 1 hour (in seconds)
+        "pool_timeout": int(os.getenv("DB_POOL_TIMEOUT", "30")),  # Timeout for getting connection from pool
+        "pool_pre_ping": True,  # Verify connections before use
     }
 
 
@@ -119,7 +119,7 @@ def init_db(engine: Engine | None = None) -> None:
     eng = engine or get_engine()
     logger.info(f"Initializing database with engine: {eng}")
     # Import models to ensure metadata is populated
-    from models import Draft, DraftVersion, VideoTask  # noqa: F401
+    from models import Draft, DraftVersion, Video, VideoTask  # noqa: F401
     Base.metadata.create_all(bind=eng)
     # Simple connectivity check
     with eng.connect() as conn:
@@ -135,11 +135,11 @@ def get_pool_status() -> dict:
 
     # Get pool statistics (these are internal SQLAlchemy attributes)
     status = {
-        'pool_size': getattr(pool, '_pool_size', 'N/A'),
-        'checked_in': len(getattr(pool, '_checked_in', [])),
-        'checked_out': len(getattr(pool, '_checked_out', [])),
-        'overflow': getattr(pool, '_overflow', 0),
-        'invalid': len(getattr(pool, '_invalid', [])),
+        "pool_size": getattr(pool, "_pool_size", "N/A"),
+        "checked_in": len(getattr(pool, "_checked_in", [])),
+        "checked_out": len(getattr(pool, "_checked_out", [])),
+        "overflow": getattr(pool, "_overflow", 0),
+        "invalid": len(getattr(pool, "_invalid", [])),
     }
 
     logger.info(f"Pool status: {status}")

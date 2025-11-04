@@ -1,3 +1,8 @@
+"""
+Helper utility functions for CapCut API.
+Includes color conversion, path handling, hashing, timing, and draft URL generation.
+"""
+
 import functools
 import hashlib
 import os
@@ -29,7 +34,7 @@ def is_windows_path(path):
 
 
 def zip_draft(draft_id):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # Compress folder
     zip_dir = os.path.join(current_dir, "tmp/zip")
     os.makedirs(zip_dir, exist_ok=True)
@@ -40,11 +45,11 @@ def zip_draft(draft_id):
 def url_to_hash(url, length=16):
     """
     Convert URL to a fixed-length hash string (without extension)
-    
+
     Parameters:
     - url: Original URL string
     - length: Length of the hash string (maximum 64, default 16)
-    
+
     Returns:
     - Hash string (e.g.: 3a7f9e7d9a1b4e2d)
     """
@@ -81,3 +86,4 @@ def timing_decorator(func_name):
 
 def generate_draft_url(draft_id):
     return f"{DRAFT_DOMAIN}{PREVIEW_ROUTER}?draft_id={draft_id}&is_capcut={1 if IS_CAPCUT_ENV else 0}"
+

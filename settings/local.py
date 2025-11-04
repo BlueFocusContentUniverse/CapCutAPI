@@ -10,7 +10,7 @@ import json5  # 替换原来的json模块
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
 
 # 默认配置
-IS_CAPCUT_ENV = True
+IS_CAPCUT_ENV = False
 
 # 默认域名配置
 DRAFT_DOMAIN = "https://ketchup.studio"

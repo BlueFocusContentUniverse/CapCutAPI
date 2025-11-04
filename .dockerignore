@@ -27,6 +27,7 @@ wheels/
 # Virtual environments
 .venv/
 venv/
+.env
 .env.local
 .env.development
 
@@ -56,9 +57,6 @@ test_*
 
 # Windows specific
 Thumbs.db
-
-# Ignore specific draft folders (if any)
-dfd_*
 
 # Backup files
 *.bak

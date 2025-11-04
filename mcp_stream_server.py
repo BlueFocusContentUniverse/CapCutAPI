@@ -259,7 +259,7 @@ def tool_batch_add_audios(
 ) -> Dict[str, Any]:
     """Batch add multiple audios to the track."""
     from services.add_audio_track import add_audio_track
-    
+
     if not audios:
         return {"success": False, "error": "audios array is empty"}
 

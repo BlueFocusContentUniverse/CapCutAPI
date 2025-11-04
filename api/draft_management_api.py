@@ -3,71 +3,20 @@ API endpoints for managing drafts stored in PostgreSQL.
 Add these endpoints to your Flask application.
 """
 
-import hmac
 import json
 import logging
-import os
 
 from flask import Blueprint, jsonify, request
 
 from draft_cache import get_cache_stats, remove_from_cache
 from logging_utils import api_endpoint_logger
-from postgres_draft_storage import get_postgres_storage
+from repositories.draft_repository import get_postgres_storage
+from util.auth import require_authentication
 
 logger = logging.getLogger(__name__)
 
 # Create a blueprint for draft management
 draft_bp = Blueprint("draft_management", __name__, url_prefix="/api/drafts")
-
-
-def _get_configured_tokens():
-    """Read expected API tokens from environment variables.
-
-    Supports a single token (DRAFT_API_TOKEN/API_TOKEN/AUTH_TOKEN) or
-    a comma-separated list in DRAFT_API_TOKENS.
-    """
-    tokens_env = os.getenv("DRAFT_API_TOKENS")
-    single_token = (
-        os.getenv("DRAFT_API_TOKEN")
-        or os.getenv("API_TOKEN")
-        or os.getenv("AUTH_TOKEN")
-    )
-
-    tokens = []
-    if tokens_env:
-        tokens.extend([t.strip() for t in tokens_env.split(",") if t.strip()])
-    if single_token:
-        tokens.append(single_token.strip())
-
-    # Dedupe while preserving order
-    unique: list[str] = []
-    seen: set[str] = set()
-    for token in tokens:
-        if token and token not in seen:
-            unique.append(token)
-            seen.add(token)
-    return unique
-
-
-def _extract_token_from_request(req):
-    """Extract bearer/API token from request headers or query params."""
-    auth_header = req.headers.get("Authorization", "")
-    if auth_header:
-        parts = auth_header.split(None, 1)
-        if len(parts) == 2 and parts[0].lower() in ("bearer", "token"):
-            return parts[1].strip()
-
-    for header_name in ("X-API-Token", "X-Auth-Token", "X-Token"):
-        header_val = req.headers.get(header_name)
-        if header_val:
-            return header_val.strip()
-
-    # Optional fallback to query params for convenience
-    token_param = req.args.get("api_token") or req.args.get("token")
-    if token_param:
-        return token_param.strip()
-
-    return None
 
 
 @draft_bp.before_request
@@ -84,23 +33,7 @@ def _require_authentication():
       - X-API-Token: <token> (or X-Auth-Token / X-Token)
       - ?api_token=<token> (query param, not recommended)
     """
-    expected_tokens = _get_configured_tokens()
-    if not expected_tokens:
-        logger.error("Draft management API token not configured. Set DRAFT_API_TOKEN or DRAFT_API_TOKENS.")
-        return jsonify({
-            "success": False,
-            "error": "Unauthorized: server missing token configuration"
-        }), 401
-
-    provided_token = _extract_token_from_request(request)
-    if not provided_token:
-        return jsonify({"success": False, "error": "Unauthorized: missing token"}), 401
-
-    for expected in expected_tokens:
-        if hmac.compare_digest(provided_token, expected):
-            return None  # Authorized
-
-    return jsonify({"success": False, "error": "Unauthorized: invalid token"}), 401
+    return require_authentication(request, "Draft management API")
 
 @draft_bp.route("/list", methods=["GET"])
 @api_endpoint_logger

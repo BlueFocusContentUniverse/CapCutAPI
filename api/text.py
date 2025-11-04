@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request
 from logging_utils import api_endpoint_logger
 from pyJianYingDraft.text_segment import Text_border, Text_style, TextStyleRange
 from services.add_text_impl import add_text_impl
-from util import hex_to_rgb
+from util.helpers import hex_to_rgb
 
 bp = Blueprint("text", __name__)
 

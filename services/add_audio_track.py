@@ -17,7 +17,7 @@ from pyJianYingDraft import (
     trange,
 )
 from settings.local import IS_CAPCUT_ENV
-from util import is_windows_path, url_to_hash
+from util.helpers import is_windows_path, url_to_hash
 
 from .create_draft import get_draft
 

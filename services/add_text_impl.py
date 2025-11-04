@@ -5,7 +5,7 @@ from draft_cache import update_cache
 from pyJianYingDraft import FontType, exceptions, trange
 from pyJianYingDraft.text_segment import TextBubble, TextEffect, TextStyleRange
 from settings.local import IS_CAPCUT_ENV
-from util import hex_to_rgb
+from util.helpers import hex_to_rgb
 
 from .create_draft import get_draft
 

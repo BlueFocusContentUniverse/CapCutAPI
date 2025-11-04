@@ -24,7 +24,7 @@ from services.save_task_cache import (
 
 # Import configuration
 from settings import IS_CAPCUT_ENV
-from util import is_windows_path
+from util.helpers import is_windows_path
 
 # --- Get your Logger instance ---
 # The name here must match the logger name you configured in app.py

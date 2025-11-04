@@ -6,15 +6,15 @@
   "is_upload_draft": false,
   "oss_config": {
     "bucket_name": "1wpzyo2e-ai-mcn",
-    "access_key_id": "1wpzyo2e",
-    "access_key_secret": "2djs6znwsdmrwqbv",
-    "endpoint": "https://objectstorageapi.bja.sealos.run "
+    "access_key_id": "",
+    "access_key_secret": "",
+    "endpoint": "cdnv.ketchup.studio"
   },
   "mp4_oss_config": {
-    "bucket_name": "1wpzyo2e-ai-mcn",
-    "access_key_id": "1wpzyo2e",
-    "access_key_secret": "2djs6znwsdmrwqbv",
-    "region": "bja",
-    "endpoint": "https://objectstorageapi.bja.sealos.run"
+    "bucket_name": "ketchup-1251775298",
+    "access_key_id": "",
+    "access_key_secret": "",
+    "region": "ap-shanghai",
+    "endpoint": "cdnv.ketchup.studio"
   }
 }

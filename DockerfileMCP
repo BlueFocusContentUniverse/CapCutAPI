@@ -1,11 +1,16 @@
 # Use a slim Python base image
 FROM python:3.14-slim-trixie
 
+# Accept build arguments for COS credentials
+ARG COS_SECRET_ID
+ARG COS_SECRET_KEY
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PYTHONIOENCODING=UTF-8
+    PYTHONIOENCODING=UTF-8 \
+    COS_SECRET_ID=${COS_SECRET_ID} \
+    COS_SECRET_KEY=${COS_SECRET_KEY}
 
 WORKDIR /app
 

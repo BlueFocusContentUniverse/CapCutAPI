@@ -23,7 +23,7 @@ try:
     from services.add_sticker_impl import add_sticker_impl
     from services.add_subtitle_impl import add_subtitle_impl
     from services.add_video_keyframe_impl import add_video_keyframe_impl
-    from util import hex_to_rgb
+    from util.helpers import hex_to_rgb
     CAPCUT_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import CapCut modules: {e}", file=sys.stderr)
@@ -262,9 +262,9 @@ TOOLS = [
             "properties": {
                 "audio_url": {"type": "string", "description": "音频素材文件的URL地址或本地文件路径。支持常见音频格式：mp3、wav、aac、m4a等"},
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
-                "start": {"type": "number", "default": 0, "description": "【素材裁剪-入点】从原始音频素材的第几秒开始截取。对应source_timerange的起始位置。例如：2.5表示从素材的2.5秒位置开始裁剪"},
-                "end": {"type": ["number", "null"], "default": None, "description": "【素材裁剪-出点】到原始音频素材的第几秒结束截取。None、0或负数表示截取到素材末尾。例如：5.0表示裁剪到素材的5秒位置。注意：如果end<=start会导致空片段"},
-                "target_start": {"type": "number", "default": 0, "description": "【时间线位置】该音频片段在成片时间线上的起始时间点（秒）。对应target_timerange的起始位置。例如：10.0表示这段音频从成片的第10秒开始播放"},
+                "start": {"type": "number", "default": 0, "description": "音频素材的截取起点。例：2.5表示从素材的2.5秒位置开始裁剪"},
+                "end": {"type": ["number", "null"], "default": None, "description": "原始音频素材截取终点。0表示截取到素材末尾。例：5.0表示裁剪到素材的5秒位置"},
+                "target_start": {"type": "number", "default": 0, "description": "音频片段在轨道上的起始时间点。例：10.0表示音频从轨道第10秒开始播放"},
                 "volume": {"type": "number", "default": 1.0, "description": "音量增益倍数。范围：0.0-2.0（实现中为0.0-1.0，但支持>1.0）。0.0为静音，1.0为原始音量，>1.0为放大"},
                 "speed": {"type": "number", "default": 1.0, "description": "音频播放速率。范围：0.1-100（理论值）。1.0为正常速度，2.0为2倍速（加速），0.5为0.5倍速（减速）。影响最终片段时长：target_duration = source_duration / speed"},
                 "track_name": {"type": "string", "default": "audio_main", "description": "音频轨道名称标识。建议命名：audio_main（主背景音乐）、audio_voice（人声配音）、audio_sfx（音效轨）。会自动创建不存在的轨道"},
@@ -282,13 +282,12 @@ TOOLS = [
         【使用场景】
         • 音频拼接：将多个音频片段按顺序拼接成完整音轨
         • 批量导入：一次性导入多个音频素材
-        • 配乐组合：制作多段配乐混合效果
         
         【audios数组说明】
         每个音频对象包含：
         • audio_url（必需）：音频素材URL或本地路径
         • start（可选，默认0）：从音频第几秒开始截取
-        • end（可选，默认None）：到音频第几秒结束截取（None表示到末尾）
+        • end（可选，默认None）：到音频第几秒结束截取（0表示到末尾）
         • target_start（可选，默认0）：该片段在时间线上的起始位置
         • speed（可选，默认1.0）：播放速度
         • duration（可选，默认None）：音频素材总时长
@@ -321,7 +320,7 @@ TOOLS = [
                 "effect_type": {"type": "string", "description": "【共享】音效处理类型"},
                 "effect_params": {"type": "array", "description": "【共享】音效参数数组"}
             },
-            "required": ["audios", "draft_id"]
+            "required": ["audios", "draft_id", "track_name"]
         }
     },
     {
@@ -359,7 +358,7 @@ TOOLS = [
                 "mask_round_corner": {"type": ["number", "null"], "default": None, "description": "【矩形蒙版专用】矩形圆角半径。范围：0-100。0为直角，100为最圆润。仅当mask_type为Rectangle时有效"},
                 "background_blur": {"type": "integer", "description": "背景模糊强度等级。范围：1-4。对应模糊值：1=0.0625（轻微），2=0.375（中等），3=0.75（强烈），4=1.0（最大）。用于创建素材周围的虚化背景效果"}
             },
-            "required": ["image_url", "draft_id", "start", "end"]
+            "required": ["image_url", "draft_id", "start", "end", "track_name"]
         }
     },
     {
@@ -408,7 +407,7 @@ TOOLS = [
                 "bold": {"type": "boolean", "default": False, "description": "是否加粗。应用于Text_style"},
                 "underline": {"type": "boolean", "default": False, "description": "是否下划线。应用于Text_style"}
             },
-            "required": ["text", "font", "start", "end", "track_name"]
+            "required": ["draft_id", "text", "font", "start", "end", "track_name"]
         }
     },
     # {
@@ -453,13 +452,13 @@ TOOLS = [
             "properties": {
                 "effect_type": {"type": "string", "description": "特效类型名称。根据effect_category和IS_CAPCUT_ENV自动选择：scene分类使用VideoSceneEffectType或CapCutVideoSceneEffectType；character分类使用VideoCharacterEffectType或CapCutVideoCharacterEffectType"},
                 "effect_category": {"type": "string", "default": "scene", "enum": ["scene", "character"], "description": "特效分类。scene=场景特效（如光效、粒子），character=人物特效（如美颜、变形）"},
-                "start": {"type": "number", "default": 0, "description": "【时间线位置-起点】特效在成片时间线上的起始时间点（秒）。对应trange的起始位置"},
-                "end": {"type": "number", "default": 3.0, "description": "【时间线位置-终点】特效在成片时间线上的结束时间点（秒）。对应trange的结束位置。特效显示时长 = end - start"},
+                "start": {"type": "number", "default": 0, "description": "特效在成片时间线上的起始时间点（秒）"},
+                "end": {"type": "number", "default": 3.0, "description": "特效在成片时间线上的结束时间点（秒）"},
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符。未传或不存在时自动创建新草稿"},
                 "track_name": {"type": "string", "default": "effect_01", "description": "特效轨道名称标识。建议命名：effect_01、effect_scene、effect_character。会自动创建不存在的轨道"},
                 "params": {"type": "array", "description": "特效参数数组。格式：List[Optional[float]]。参数的具体含义取决于effect_type。未提供或为None的参数项将使用默认值"},
             },
-            "required": ["effect_type"]
+            "required": ["draft_id", "effect_type", "track_name", "start", "end"]
         }
     },
     {
@@ -512,7 +511,7 @@ TOOLS = [
                 "framerate": {"type": "string", "enum": ["30fps", "50fps", "60fps"], "description": "导出视频帧率。30fps适合常规视频，50/60fps适合高动态画面", "default": "30fps"},
                 "name": {"type": "string", "description": "导出视频的文件名称（不含扩展名）"}
             },
-            "required": ["draft_id"]
+            "required": ["draft_id", "name"]
         }
     },
     {

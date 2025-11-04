@@ -6,11 +6,11 @@
 from .local import *
 
 __all__ = [
-    "IS_CAPCUT_ENV",
     "API_KEYS",
+    "IS_CAPCUT_ENV",
+    "LICENSE_CONFIG",
     "MODEL_CONFIG",
-    "PURCHASE_LINKS",
-    "LICENSE_CONFIG"
+    "PURCHASE_LINKS"
 ]
 
 # 提供一个获取平台信息的辅助函数
@@ -23,7 +23,7 @@ def get_platform_info():
     """
     if not IS_CAPCUT_ENV:
         return None
-        
+
     return {
         "app_id": 359289,
         "app_source": "cc",

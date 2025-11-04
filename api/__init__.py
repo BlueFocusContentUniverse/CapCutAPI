@@ -18,6 +18,8 @@ def register_blueprints(app: Flask) -> None:
     from .text import bp as text_bp
     from .tracks import bp as tracks_bp
     from .video import bp as video_bp
+    from .video_task_status import bp as video_task_status_bp
+    from .videos import bp as videos_bp
 
     # No url_prefix to preserve existing routes
     app.register_blueprint(video_bp)
@@ -35,4 +37,6 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(draft_management_bp)
     app.register_blueprint(tracks_bp)
     app.register_blueprint(segments_bp)
+    app.register_blueprint(videos_bp)
+    app.register_blueprint(video_task_status_bp)
 
