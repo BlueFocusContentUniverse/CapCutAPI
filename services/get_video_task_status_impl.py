@@ -1,10 +1,10 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from sqlalchemy import select
 
 from db import get_session
-from models import VideoTask
+from models import Video, VideoTask
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
             - render_status: Current render status
             - progress: Progress percentage (0-100)
             - message: Status message or error details
-            - draft_url: URL to the draft (if available)
+            - oss_url: URL to the draft (if available)
             - extra: Additional metadata
             - created_at: Task creation timestamp
             - updated_at: Task last update timestamp
@@ -50,6 +50,16 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
                 logger.warning(f"VideoTask not found: {task_id}")
                 return result
 
+            # Get oss_url from Video model if video_id exists
+            oss_url = None
+            if task.video_id:
+                video = session.execute(
+                    select(Video).where(Video.video_id == task.video_id)
+                ).scalar_one_or_none()
+                if video:
+                    oss_url = video.oss_url
+                    logger.info(f"Found oss_url for video_id {task.video_id}: {oss_url}")
+
             # Convert the SQLAlchemy object to a dictionary
             task_data = {
                 "id": task.id,
@@ -59,7 +69,7 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
                 "render_status": task.render_status.value if task.render_status else None,
                 "progress": task.progress,
                 "message": task.message,
-                "draft_url": task.draft_url,
+                "oss_url": oss_url,
                 "extra": task.extra,
                 "created_at": task.created_at.isoformat() if task.created_at else None,
                 "updated_at": task.updated_at.isoformat() if task.updated_at else None,
