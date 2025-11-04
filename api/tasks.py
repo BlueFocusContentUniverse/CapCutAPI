@@ -49,7 +49,6 @@ def get_task(task_id: str):
                 "status": row.status,
                 "progress": row.progress,
                 "message": row.message,
-                "draft_url": row.draft_url,
                 "extra": row.extra,
             }
         })
@@ -64,7 +63,7 @@ def update_task(task_id: str):
         if not row:
             return jsonify({"success": False, "error": "not_found"}), 404
 
-        allowed = {"status", "progress", "message", "draft_url", "extra"}
+        allowed = {"status", "progress", "message", "extra"}
         for key, value in data.items():
             if key in allowed:
                 setattr(row, key, value)
@@ -81,7 +80,7 @@ def update_tasks_by_draft(draft_id: str):
         if not rows:
             return jsonify({"success": False, "error": "not_found"}), 404
 
-        allowed = {"status", "progress", "message", "draft_url", "extra"}
+        allowed = {"status", "progress", "message", "extra"}
         updates = {k: v for k, v in data.items() if k in allowed}
         if not updates:
             return jsonify({"success": False, "error": "no_valid_fields"}), 400

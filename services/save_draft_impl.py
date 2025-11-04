@@ -81,7 +81,6 @@ def save_draft_background(draft_id, draft_folder, task_id):
                 "progress": 0,
                 "completed_files": 0,
                 "total_files": 0,
-                "draft_url": ""
             }
             update_tasks_cache(task_id, task_status)  # Use new cache management function
             logger.error(f"Draft {draft_id} does not exist in cache (memory or Redis), task {task_id} failed.")
@@ -96,7 +95,6 @@ def save_draft_background(draft_id, draft_folder, task_id):
             "progress": 0,
             "completed_files": 0,
             "total_files": 0,
-            "draft_url": ""
         }
         update_tasks_cache(task_id, task_status)  # Use new cache management function
         logger.info(f"Task {task_id} status updated to 'processing': Preparing draft files.")

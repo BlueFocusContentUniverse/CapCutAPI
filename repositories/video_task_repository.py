@@ -148,7 +148,6 @@ class VideoTaskRepository:
                     "render_status": task.render_status.value if task.render_status else None,
                     "progress": task.progress,
                     "message": task.message,
-                    "draft_url": task.draft_url,
                     "extra": task.extra,
                     "created_at": int(task.created_at.timestamp()),
                     "updated_at": int(task.updated_at.timestamp()),
