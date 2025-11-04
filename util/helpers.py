@@ -33,13 +33,23 @@ def is_windows_path(path):
     return re.match(r"^[a-zA-Z]:\\|\\\\", path) is not None
 
 
-def zip_draft(draft_id):
+def zip_draft(draft_id, draft_dir):
+    """
+    Compress a draft directory into a zip file.
+
+    Args:
+        draft_id: The draft identifier (used for zip filename)
+        draft_dir: The directory path containing the draft to compress
+
+    Returns:
+        Path to the created zip file
+    """
     current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # Compress folder
     zip_dir = os.path.join(current_dir, "tmp/zip")
     os.makedirs(zip_dir, exist_ok=True)
     zip_path = os.path.join(zip_dir, f"{draft_id}.zip")
-    shutil.make_archive(os.path.join(zip_dir, draft_id), "zip", os.path.join(current_dir, draft_id))
+    shutil.make_archive(os.path.join(zip_dir, draft_id), "zip", draft_dir)
     return zip_path
 
 def url_to_hash(url, length=16):

@@ -39,6 +39,16 @@ def assign_attr_with_json(obj: object, attrs: List[str], json_data: Dict[str, An
             type_hints.update(cls.__annotations__)
 
     for attr in attrs:
+        # Skip if attribute not found in json_data
+        if attr not in json_data:
+            continue
+
+        # Skip if attribute not found in type_hints
+        if attr not in type_hints:
+            # Fallback: set attribute directly without type conversion
+            obj.__setattr__(attr, json_data[attr])
+            continue
+
         if hasattr(type_hints[attr], 'import_json'):
             obj.__setattr__(attr, type_hints[attr].import_json(json_data[attr]))
         else:

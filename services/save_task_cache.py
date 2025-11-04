@@ -1,9 +1,9 @@
 from collections import OrderedDict
 from typing import Any, Dict
 
-# Using OrderedDict to implement LRU cache, limiting the maximum number to 1000
+# Using OrderedDict to implement LRU cache, limiting the maximum number to 100
 DRAFT_TASKS: Dict[str, dict] = OrderedDict()  # Using Dict for type hinting
-MAX_TASKS_CACHE_SIZE = 1000
+MAX_TASKS_CACHE_SIZE = 100
 
 
 def update_tasks_cache(task_id: str, task_status: dict) -> None:

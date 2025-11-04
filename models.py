@@ -149,7 +149,6 @@ class VideoTask(Base):
     render_status = Column(SAEnum(VideoTaskStatus, name="video_task_status"), index=True, nullable=False, default=VideoTaskStatus.INITIALIZED)
     progress = Column(Float, nullable=True)  # Changed from Integer to Float for decimal precision (0.0 - 100.0)
     message = Column(Text, nullable=True)
-    draft_url = Column(Text, nullable=True)  # Deprecated: use video_id to get URL from Video table
 
     # arbitrary extra data (e.g., Celery IDs, etc.)
     extra = Column(JSONB, nullable=True)

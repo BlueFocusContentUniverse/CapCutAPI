@@ -28,8 +28,6 @@ def add_text():
     font_alpha = data.get("alpha", data.get("font_alpha", 1.0))
     outro_animation = data.get("outro_animation", None)
     outro_duration = data.get("outro_duration", 0.5)
-    width = data.get("width", 1080)
-    height = data.get("height", 1920)
 
     fixed_width = data.get("fixed_width", -1)
     fixed_height = data.get("fixed_height", -1)
@@ -156,8 +154,6 @@ def add_text():
             intro_duration=intro_duration,
             outro_animation=outro_animation,
             outro_duration=outro_duration,
-            width=width,
-            height=height,
             fixed_width=fixed_width,
             fixed_height=fixed_height,
             text_styles=text_styles,

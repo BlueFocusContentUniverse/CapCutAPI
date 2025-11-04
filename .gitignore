@@ -17,3 +17,10 @@ tmp/
 .env
 .env.prod
 .env.local
+
+# Draft archive directory - contains temporary draft files
+# Ignore all contents except README.md
+draft_archive/*
+!draft_archive/README.md
+!draft_archive/template
+!draft_archive/template_jianying

@@ -53,8 +53,6 @@ def add_text_impl(
     intro_duration: float = 0.5,
     outro_animation: str | None = None,
     outro_duration: float = 0.5,
-    width: int = 1080,
-    height: int = 1920,
     fixed_width: float = -1,  # Text fixed width ratio, default -1 means not fixed
     fixed_height: float = -1,  # Text fixed height ratio, default -1 means not fixed
     # 多样式文本参数

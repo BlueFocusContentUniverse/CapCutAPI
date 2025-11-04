@@ -27,7 +27,6 @@ class COSClient:
             secret_key = os.getenv("COS_SECRET_KEY")
             region = os.getenv("COS_REGION", "ap-guangzhou")
             bucket_name = os.getenv("COS_BUCKET_NAME")
-            endpoint = os.getenv("COS_ENDPOINT")
 
             if not secret_id or not secret_key or not bucket_name:
                 logger.warning(
@@ -40,7 +39,6 @@ class COSClient:
                 Region=region,
                 SecretId=secret_id,
                 SecretKey=secret_key,
-                Endpoint=endpoint
             )
 
             self.client = CosS3Client(config)
@@ -79,6 +77,76 @@ class COSClient:
             logger.error(f"Failed to parse object key from URL {oss_url}: {e}")
             return None
 
+    def upload_file(
+        self,
+        local_file_path: str,
+        object_key: Optional[str] = None,
+        content_type: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Upload a file to COS.
+
+        Args:
+            local_file_path: Path to the local file to upload
+            object_key: Object key (path) in COS. If None, uses the filename
+            content_type: Content type of the file. If None, auto-detects based on extension
+
+        Returns:
+            CDN URL of the uploaded file, or None if upload fails
+        """
+        if not self.is_available():
+            logger.warning("COS client not available, cannot upload file")
+            return None
+
+        if not os.path.exists(local_file_path):
+            logger.error(f"Local file does not exist: {local_file_path}")
+            return None
+
+        try:
+            # Generate object key if not provided
+            if object_key is None:
+                object_key = os.path.basename(local_file_path)
+
+            # Auto-detect content type if not provided
+            if content_type is None:
+                ext = os.path.splitext(local_file_path)[1].lower()
+                content_type_map = {
+                    ".zip": "application/zip",
+                    ".mp4": "video/mp4",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".png": "image/png",
+                    ".json": "application/json",
+                }
+                content_type = content_type_map.get(ext, "application/octet-stream")
+
+            logger.info(f"Uploading file to COS: {local_file_path} -> {object_key}")
+
+            # Upload file
+            with open(local_file_path, "rb") as fp:
+                self.client.put_object(
+                    Bucket=self.bucket_name,
+                    Body=fp,
+                    Key=object_key,
+                    ContentType=content_type
+                )
+
+            # Generate CDN URL
+            cdn_domain = os.getenv("COS_CDN_DOMAIN")
+            if cdn_domain:
+                # Use CDN domain if configured
+                cdn_url = f"https://{cdn_domain}/{object_key}"
+            else:
+                # Use default COS URL
+                cdn_url = f"https://{self.bucket_name}.cos.{self.region}.myqcloud.com/{object_key}"
+
+            logger.info(f"Successfully uploaded file to COS: {cdn_url}")
+            return cdn_url
+
+        except Exception as e:
+            logger.error(f"Failed to upload file to COS ({local_file_path}): {e}")
+            return None
+
     def delete_object_from_url(self, oss_url: str) -> bool:
         """
         Delete an object from COS using its full URL.
@@ -104,7 +172,7 @@ class COSClient:
 
             logger.info(f"Deleting object from COS: bucket={self.bucket_name}, key={object_key}")
 
-            response = self.client.delete_object(
+            self.client.delete_object(
                 Bucket=self.bucket_name,
                 Key=object_key
             )
@@ -182,7 +250,7 @@ class COSClient:
             return {
                 "success_count": 0,
                 "failed_count": len(oss_urls),
-                "errors": [str(e)] + parse_errors
+                "errors": [str(e), *parse_errors]
             }
 
 

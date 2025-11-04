@@ -24,7 +24,8 @@ from services.save_task_cache import (
 
 # Import configuration
 from settings import IS_CAPCUT_ENV
-from util.helpers import is_windows_path
+from util.cos_client import get_cos_client
+from util.helpers import is_windows_path, zip_draft
 
 # --- Get your Logger instance ---
 # The name here must match the logger name you configured in app.py
@@ -106,9 +107,29 @@ def save_draft_background(draft_id, draft_folder, task_id):
             shutil.rmtree(draft_id)
 
         logger.info(f"Starting to save draft: {draft_id}")
-        # Save draft
+        # Save draft to draft_archive directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        draft_folder_for_duplicate = draft.Draft_folder(current_dir)
+        project_root = os.path.dirname(current_dir)
+        draft_archive_dir = os.path.join(project_root, "draft_archive")
+
+        # Ensure draft_archive directory exists
+        os.makedirs(draft_archive_dir, exist_ok=True)
+
+        # Copy template directories to draft_archive if they don't exist
+        # This is needed because Draft_folder expects templates in the same directory tree
+        template_src_dir = os.path.join(current_dir, "template" if IS_CAPCUT_ENV else "template_jianying")
+        template_dst_dir = os.path.join(draft_archive_dir, "template" if IS_CAPCUT_ENV else "template_jianying")
+        if not os.path.exists(template_dst_dir):
+            logger.info(f"Copying template directory to draft_archive: {template_src_dir} -> {template_dst_dir}")
+            shutil.copytree(template_src_dir, template_dst_dir)
+
+        # Delete possibly existing draft_id folder in draft_archive
+        draft_path_in_archive = os.path.join(draft_archive_dir, draft_id)
+        if os.path.exists(draft_path_in_archive):
+            logger.warning(f"Deleting existing draft folder in draft_archive: {draft_path_in_archive}")
+            shutil.rmtree(draft_path_in_archive)
+
+        draft_folder_for_duplicate = draft.Draft_folder(draft_archive_dir)
         # Choose different template directory based on configuration
         template_dir = "template" if IS_CAPCUT_ENV else "template_jianying"
         draft_folder_for_duplicate.duplicate_as_template(template_dir, draft_id)
@@ -138,7 +159,7 @@ def save_draft_background(draft_id, draft_folder, task_id):
                 download_tasks.append({
                     "type": "audio",
                     "func": download_file,
-                    "args": (remote_url, os.path.join(current_dir, f"{draft_id}/assets/audio/{material_name}")),
+                    "args": (remote_url, os.path.join(draft_archive_dir, f"{draft_id}/assets/audio/{material_name}")),
                     "material": audio
                 })
 
@@ -161,7 +182,7 @@ def save_draft_background(draft_id, draft_folder, task_id):
                     download_tasks.append({
                         "type": "image",
                         "func": download_file,
-                        "args": (remote_url, os.path.join(current_dir, f"{draft_id}/assets/image/{material_name}")),
+                        "args": (remote_url, os.path.join(draft_archive_dir, f"{draft_id}/assets/image/{material_name}")),
                         "material": video
                     })
 
@@ -177,7 +198,7 @@ def save_draft_background(draft_id, draft_folder, task_id):
                     download_tasks.append({
                         "type": "video",
                         "func": download_file,
-                        "args": (remote_url, os.path.join(current_dir, f"{draft_id}/assets/video/{material_name}")),
+                        "args": (remote_url, os.path.join(draft_archive_dir, f"{draft_id}/assets/video/{material_name}")),
                         "material": video
                     })
 
@@ -230,10 +251,58 @@ def save_draft_background(draft_id, draft_folder, task_id):
         update_task_field(task_id, "message", "Saving draft information")
         logger.info(f"Task {task_id} progress 70%: Saving draft information.")
 
-        script.dump(os.path.join(current_dir, f"{draft_id}/draft_info.json"))
-        logger.info(f"Draft information has been saved to {os.path.join(current_dir, draft_id)}/draft_info.json.")
+        script.dump(os.path.join(draft_archive_dir, f"{draft_id}/draft_info.json"))
+        logger.info(f"Draft information has been saved to {os.path.join(draft_archive_dir, draft_id)}/draft_info.json.")
 
         draft_url = ""
+
+        # Update task status - Start compressing draft
+        update_task_field(task_id, "progress", 80)
+        update_task_field(task_id, "message", "Compressing draft files")
+        logger.info(f"Task {task_id} progress 80%: Compressing draft files.")
+
+        # Compress the entire draft directory
+        draft_dir_path = os.path.join(draft_archive_dir, draft_id)
+        zip_path = zip_draft(draft_id, draft_dir_path)
+        logger.info(f"Draft directory {draft_dir_path} has been compressed to {zip_path}.")
+
+        # Update task status - Start uploading to OSS
+        update_task_field(task_id, "progress", 90)
+        update_task_field(task_id, "message", "Uploading to cloud storage")
+        logger.info(f"Task {task_id} progress 90%: Uploading to cloud storage.")
+
+        # Upload to COS and get CDN URL
+        cos_client = get_cos_client()
+        if not cos_client.is_available():
+            logger.error("COS client not available, cannot upload draft")
+            raise Exception("Cloud storage service is not available")
+
+        # Generate object key with draft_id prefix for better organization
+        object_key = f"draft_archives/{draft_id}/{os.path.basename(zip_path)}"
+        draft_url = cos_client.upload_file(zip_path, object_key=object_key)
+
+        if not draft_url:
+            logger.error(f"Failed to upload draft {draft_id} to COS")
+            raise Exception("Failed to upload draft to cloud storage")
+
+        logger.info(f"Draft archive has been uploaded to COS, CDN URL: {draft_url}")
+        update_task_field(task_id, "draft_url", draft_url)
+
+        # Clean up temporary files
+        try:
+            # Remove draft folder using draft_folder_for_duplicate.remove()
+            draft_folder_for_duplicate.remove(draft_id)
+            logger.info(f"Cleaned up temporary draft folder: {os.path.join(draft_archive_dir, draft_id)}")
+        except FileNotFoundError:
+            # Folder might already be removed or doesn't exist
+            logger.warning(f"Draft folder {draft_id} not found for cleanup, may already be removed")
+        except Exception as e:
+            logger.error(f"Failed to remove draft folder {draft_id}: {e}")
+
+        # Clean up zip file after successful upload
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+            logger.info(f"Cleaned up temporary zip file: {zip_path}")
 
         # Update task status - Completed
         update_task_field(task_id, "status", "completed")
