@@ -67,7 +67,7 @@ def build_asset_path(draft_folder: str, draft_id: str, asset_type: str, material
         draft_real_path = os.path.join(draft_folder, draft_id, "assets", asset_type, material_name)
     return draft_real_path
 
-def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id: str, draft_version: Optional[int] = None):
+def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id: str, draft_version: Optional[int] = None, archive_name: Optional[str] = None):
     """Background save draft to OSS
 
     Args:
@@ -75,6 +75,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         draft_folder: Draft folder path (optional)
         archive_id: Archive ID for tracking progress
         draft_version: Specific version to retrieve (optional). If None, uses current version.
+        archive_name: Optional custom archive name (optional). If provided, will be used in the COS object key.
     """
     archive_storage = get_postgres_archive_storage()
 
@@ -300,7 +301,16 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             raise Exception("Cloud storage service is not available")
 
         # Generate object key with draft_id and version for better organization
-        object_key = f"draft_archives/{draft_id}/v{actual_version}/{os.path.basename(zip_path)}"
+        # If archive_name is provided, use it with a 4-character random string
+        if archive_name:
+            import random
+            import string
+            random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+            filename = f"{archive_name}_{random_suffix}.zip"
+            object_key = f"draft_archives/{draft_id}/v{actual_version}/{filename}"
+            logger.info(f"Using custom archive name: {filename}")
+        else:
+            object_key = f"draft_archives/{draft_id}/v{actual_version}/{os.path.basename(zip_path)}"
         draft_url = cos_client.upload_file(zip_path, object_key=object_key)
 
         if not draft_url:
@@ -353,10 +363,11 @@ def save_draft_impl(
     draft_folder: Optional[str] = None,
     draft_version: Optional[int] = None,
     user_id: Optional[str] = None,
-    user_name: Optional[str] = None
+    user_name: Optional[str] = None,
+    archive_name: Optional[str] = None
 ) -> Dict[str, str]:
     """Start a background task to save the draft"""
-    logger.info(f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}")
+    logger.info(f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}, archive_name={archive_name}")
     try:
         archive_storage = get_postgres_archive_storage()
 
@@ -393,11 +404,11 @@ def save_draft_impl(
         # Start a background thread to execute the task
         thread = threading.Thread(
             target=save_draft_background,
-            args=(draft_id, draft_folder, archive_id, draft_version),
+            args=(draft_id, draft_folder, archive_id, draft_version, archive_name),
             daemon=True
         )
         thread.start()
-        logger.info(f"Started background thread for archive {archive_id} (version: {draft_version})")
+        logger.info(f"Started background thread for archive {archive_id} (version: {draft_version}, archive_name: {archive_name})")
 
         return {
             "success": True,

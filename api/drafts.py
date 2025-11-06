@@ -92,6 +92,7 @@ def save_draft():
     draft_version = data.get("draft_version")
     user_id = data.get("user_id")
     user_name = data.get("user_name")
+    archive_name = data.get("archive_name")
 
     result = {
         "success": False,
@@ -109,7 +110,8 @@ def save_draft():
             draft_folder=draft_folder,
             draft_version=draft_version,
             user_id=user_id,
-            user_name=user_name
+            user_name=user_name,
+            archive_name=archive_name
         )
 
         result["success"] = True
