@@ -4,22 +4,20 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Literal
+from typing import Dict, Literal, Optional
 
 import imageio.v2 as imageio
-import requests  # Import requests for making HTTP calls
 
 import pyJianYingDraft as draft
 from downloader import download_file
-from draft_cache import get_from_cache
+from draft_cache import get_from_cache_with_version
+from repositories.draft_archive_repository import get_postgres_archive_storage
 from services.get_duration_impl import get_video_duration
 from services.save_task_cache import (
-    create_task,
     get_task_status,
     update_task_field,
-    update_task_fields,
-    update_tasks_cache,
 )
 
 # Import configuration
@@ -69,35 +67,63 @@ def build_asset_path(draft_folder: str, draft_id: str, asset_type: str, material
         draft_real_path = os.path.join(draft_folder, draft_id, "assets", asset_type, material_name)
     return draft_real_path
 
-def save_draft_background(draft_id, draft_folder, task_id):
-    """Background save draft to OSS"""
+def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id: str, draft_version: Optional[int] = None):
+    """Background save draft to OSS
+
+    Args:
+        draft_id: Draft ID
+        draft_folder: Draft folder path (optional)
+        archive_id: Archive ID for tracking progress
+        draft_version: Specific version to retrieve (optional). If None, uses current version.
+    """
+    archive_storage = get_postgres_archive_storage()
+
     try:
-        # Get draft information from cache (memory first, then Redis)
-        script = get_from_cache(draft_id)
-        if script is None:
-            task_status = {
-                "status": "failed",
-                "message": f"Draft {draft_id} does not exist in cache (memory or Redis)",
-                "progress": 0,
-                "completed_files": 0,
-                "total_files": 0,
-            }
-            update_tasks_cache(task_id, task_status)  # Use new cache management function
-            logger.error(f"Draft {draft_id} does not exist in cache (memory or Redis), task {task_id} failed.")
-            return
+        # Get draft information based on version parameter
+        if draft_version is not None:
+            # Retrieve specific version from PostgreSQL
+            from repositories.draft_repository import get_postgres_storage
+            pg_storage = get_postgres_storage()
+            script = pg_storage.get_draft_version(draft_id, draft_version)
+            if script is None:
+                error_msg = f"Draft {draft_id} version {draft_version} does not exist in storage"
+                archive_storage.update_archive(
+                    archive_id,
+                    progress=0.0,
+                    downloaded_files=0,
+                    total_files=0,
+                    message=error_msg,
+                    draft_version=draft_version
+                )
+                logger.error(f"{error_msg}, archive {archive_id} failed.")
+                return
+            # Use the specified version
+            actual_version = draft_version
+            logger.info(f"Successfully retrieved draft {draft_id} version {draft_version} from storage.")
+        else:
+            # Get current version draft information from cache (memory first, then PostgreSQL)
+            script, actual_version = get_from_cache_with_version(draft_id)
+            if script is None:
+                error_msg = f"Draft {draft_id} does not exist in cache (memory or PostgreSQL)"
+                archive_storage.update_archive(
+                    archive_id,
+                    progress=0.0,
+                    downloaded_files=0,
+                    total_files=0,
+                    message=error_msg,
+                    draft_version=actual_version
+                )
+                logger.error(f"{error_msg}, archive {archive_id} failed.")
+                return
 
-        logger.info(f"Successfully retrieved draft {draft_id} from cache.")
-
-        # Update task status to processing
-        task_status = {
-            "status": "processing",
-            "message": "Preparing draft files",
-            "progress": 0,
-            "completed_files": 0,
-            "total_files": 0,
-        }
-        update_tasks_cache(task_id, task_status)  # Use new cache management function
-        logger.info(f"Task {task_id} status updated to 'processing': Preparing draft files.")
+            archive_storage.update_archive(
+                archive_id,
+                progress=0.0,
+                downloaded_files=0,
+                total_files=0,
+                draft_version=actual_version
+            )
+            logger.info(f"Successfully retrieved draft {draft_id} version {actual_version} from cache.")
 
         # Delete possibly existing draft_id folder
         if os.path.exists(draft_id):
@@ -132,12 +158,11 @@ def save_draft_background(draft_id, draft_folder, task_id):
         template_dir = "template" if IS_CAPCUT_ENV else "template_jianying"
         draft_folder_for_duplicate.duplicate_as_template(template_dir, draft_id)
 
-        # Update task status
-        update_task_field(task_id, "message", "Updating media file metadata")
-        update_task_field(task_id, "progress", 5)
-        logger.info(f"Task {task_id} progress 5%: Updating media file metadata.")
+        # Update archive status
+        archive_storage.update_archive(archive_id, progress=5.0)
+        logger.info(f"Archive {archive_id} progress 5%: Updating media file metadata.")
 
-        # update_media_metadata(script, task_id)
+        # update_media_metadata(script, archive_id)
 
         download_tasks = []
 
@@ -200,9 +225,12 @@ def save_draft_background(draft_id, draft_folder, task_id):
                         "material": video
                     })
 
-        update_task_field(task_id, "message", f"Collected {len(download_tasks)} download tasks in total")
-        update_task_field(task_id, "progress", 10)
-        logger.info(f"Task {task_id} progress 10%: Collected {len(download_tasks)} download tasks in total.")
+        archive_storage.update_archive(
+            archive_id,
+            progress=10.0,
+            total_files=len(download_tasks)
+        )
+        logger.info(f"Archive {archive_id} progress 10%: Collected {len(download_tasks)} download tasks in total.")
 
         # Execute all download tasks concurrently
         downloaded_paths = []
@@ -225,49 +253,45 @@ def save_draft_background(draft_id, draft_folder, task_id):
                         local_path = future.result()
                         downloaded_paths.append(local_path)
 
-                        # Update task status - only update completed files count
+                        # Update archive status - only update completed files count
                         completed_files += 1
-                        update_task_field(task_id, "completed_files", completed_files)
-                        task_status = get_task_status(task_id)
-                        completed = task_status["completed_files"]
                         total = len(download_tasks)
-                        update_task_field(task_id, "total_files", total)
                         # Download part accounts for 60% of the total progress
-                        download_progress = 10 + int((completed / total) * 60)
-                        update_task_field(task_id, "progress", download_progress)
-                        update_task_field(task_id, "message", f"Downloaded {completed}/{total} files")
+                        download_progress = 10 + int((completed_files / total) * 60)
+                        archive_storage.update_archive(
+                            archive_id,
+                            downloaded_files=completed_files,
+                            progress=float(download_progress)
+                        )
 
-                        logger.info(f"Task {task_id}: Successfully downloaded {task['type']} file, progress {download_progress}.")
+                        logger.info(f"Archive {archive_id}: Successfully downloaded {task['type']} file, progress {download_progress}.")
                     except Exception as e:
-                        logger.error(f"Task {task_id}: Download {task['type']} file failed: {e!s}", exc_info=True)
+                        logger.error(f"Archive {archive_id}: Download {task['type']} file failed: {e!s}", exc_info=True)
                         # Continue processing other files, don't interrupt the entire process
 
-            logger.info(f"Task {task_id}: Concurrent download completed, downloaded {len(downloaded_paths)} files in total.")
+            logger.info(f"Archive {archive_id}: Concurrent download completed, downloaded {len(downloaded_paths)} files in total.")
 
-        # Update task status - Start saving draft information
-        update_task_field(task_id, "progress", 70)
-        update_task_field(task_id, "message", "Saving draft information")
-        logger.info(f"Task {task_id} progress 70%: Saving draft information.")
+        # Update archive status - Start saving draft information
+        archive_storage.update_archive(archive_id, progress=70.0)
+        logger.info(f"Archive {archive_id} progress 70%: Saving draft information.")
 
         script.dump(os.path.join(draft_archive_dir, f"{draft_id}/draft_info.json"))
         logger.info(f"Draft information has been saved to {os.path.join(draft_archive_dir, draft_id)}/draft_info.json.")
 
         draft_url = ""
 
-        # Update task status - Start compressing draft
-        update_task_field(task_id, "progress", 80)
-        update_task_field(task_id, "message", "Compressing draft files")
-        logger.info(f"Task {task_id} progress 80%: Compressing draft files.")
+        # Update archive status - Start compressing draft
+        archive_storage.update_archive(archive_id, progress=80.0)
+        logger.info(f"Archive {archive_id} progress 80%: Compressing draft files.")
 
         # Compress the entire draft directory
         draft_dir_path = os.path.join(draft_archive_dir, draft_id)
         zip_path = zip_draft(draft_id, draft_dir_path)
         logger.info(f"Draft directory {draft_dir_path} has been compressed to {zip_path}.")
 
-        # Update task status - Start uploading to OSS
-        update_task_field(task_id, "progress", 90)
-        update_task_field(task_id, "message", "Uploading to cloud storage")
-        logger.info(f"Task {task_id} progress 90%: Uploading to cloud storage.")
+        # Update archive status - Start uploading to OSS
+        archive_storage.update_archive(archive_id, progress=90.0)
+        logger.info(f"Archive {archive_id} progress 90%: Uploading to cloud storage.")
 
         # Upload to COS and get CDN URL
         cos_client = get_cos_client()
@@ -275,8 +299,8 @@ def save_draft_background(draft_id, draft_folder, task_id):
             logger.error("COS client not available, cannot upload draft")
             raise Exception("Cloud storage service is not available")
 
-        # Generate object key with draft_id prefix for better organization
-        object_key = f"draft_archives/{draft_id}/{os.path.basename(zip_path)}"
+        # Generate object key with draft_id and version for better organization
+        object_key = f"draft_archives/{draft_id}/v{actual_version}/{os.path.basename(zip_path)}"
         draft_url = cos_client.upload_file(zip_path, object_key=object_key)
 
         if not draft_url:
@@ -284,7 +308,6 @@ def save_draft_background(draft_id, draft_folder, task_id):
             raise Exception("Failed to upload draft to cloud storage")
 
         logger.info(f"Draft archive has been uploaded to COS, CDN URL: {draft_url}")
-        update_task_field(task_id, "draft_url", draft_url)
 
         # Clean up temporary files
         try:
@@ -302,45 +325,85 @@ def save_draft_background(draft_id, draft_folder, task_id):
             os.remove(zip_path)
             logger.info(f"Cleaned up temporary zip file: {zip_path}")
 
-        # Update task status - Completed
-        update_task_field(task_id, "status", "completed")
-        update_task_field(task_id, "progress", 100)
-        update_task_field(task_id, "message", "Draft creation completed")
-        logger.info(f"Task {task_id} completed, draft URL: {draft_url}")
+        # Update archive status - Completed
+        archive_storage.update_archive(
+            archive_id,
+            progress=100.0,
+            download_url=draft_url,
+            message="Draft creation completed successfully"
+        )
+        logger.info(f"Archive {archive_id} completed, draft URL: {draft_url}")
         return draft_url
 
     except Exception as e:
-        # Update task status - Failed
-        update_task_fields(task_id,
-                          status="failed",
-                          message=f"Failed to save draft: {e!s}")
-        logger.error(f"Saving draft {draft_id} task {task_id} failed: {e!s}", exc_info=True)
+        # Update archive status - Failed
+        error_msg = f"Failed to save draft: {e!s}"
+        archive_storage.update_archive(
+            archive_id,
+            message=error_msg
+        )
+        logger.error(f"Saving draft {draft_id} archive {archive_id} failed: {e!s}", exc_info=True)
         return ""
 
 def query_task_status(task_id: str):
     return get_task_status(task_id)
 
-def save_draft_impl(draft_id: str, draft_folder: str = None) -> Dict[str, str]:
+def save_draft_impl(
+    draft_id: str,
+    draft_folder: Optional[str] = None,
+    draft_version: Optional[int] = None,
+    user_id: Optional[str] = None,
+    user_name: Optional[str] = None
+) -> Dict[str, str]:
     """Start a background task to save the draft"""
-    logger.info(f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}")
+    logger.info(f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}")
     try:
-        # Generate a unique task ID
-        task_id = draft_id
-        create_task(task_id)
-        logger.info(f"Task {task_id} has been created.")
+        archive_storage = get_postgres_archive_storage()
 
-        # Changed to synchronous execution
-        return {
-            "success": True,
-            "draft_url": save_draft_background(draft_id, draft_folder, task_id)
+        # Check if archive already exists for this draft_id and draft_version
+        existing_archive = archive_storage.get_archive_by_draft(draft_id, draft_version)
+
+        if existing_archive and existing_archive.get("download_url"):
+            # Archive already exists and has a download URL, return it immediately
+            logger.info(f"Archive already exists for draft {draft_id} version {draft_version}, returning existing URL")
+            return {
+                "success": True,
+                "draft_url": existing_archive["download_url"],
+                "archive_id": existing_archive["archive_id"],
+                "message": "Draft archive already exists"
             }
 
-        # # Start a background thread to execute the task
-        # thread = threading.Thread(
-        #     target=save_draft_background,
-        #     args=(draft_id, draft_folder, task_id)
-        # )
-        # thread.start()
+        # Create or get archive_id
+        if existing_archive:
+            # Archive exists but no download_url yet (possibly failed or in progress)
+            archive_id = existing_archive["archive_id"]
+            logger.info(f"Using existing archive {archive_id} for draft {draft_id} version {draft_version}")
+        else:
+            # Create new archive record
+            archive_id = archive_storage.create_archive(
+                draft_id=draft_id,
+                draft_version=draft_version,
+                user_id=user_id,
+                user_name=user_name
+            )
+            if not archive_id:
+                raise Exception("Failed to create draft archive record")
+            logger.info(f"Created new archive {archive_id} for draft {draft_id} version {draft_version}")
+
+        # Start a background thread to execute the task
+        thread = threading.Thread(
+            target=save_draft_background,
+            args=(draft_id, draft_folder, archive_id, draft_version),
+            daemon=True
+        )
+        thread.start()
+        logger.info(f"Started background thread for archive {archive_id} (version: {draft_version})")
+
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "message": "Draft archiving started in background"
+        }
 
     except Exception as e:
         logger.error(f"Failed to start save draft task {draft_id}: {e!s}", exc_info=True)
@@ -612,12 +675,12 @@ def query_script_impl(draft_id: str, force_update: bool = False):
     :return: Script object
     """
     # Get draft information from cache (memory first, then PostgreSQL)
-    script = get_from_cache(draft_id)
+    script, version = get_from_cache_with_version(draft_id)
     if script is None:
         logger.warning(f"Draft {draft_id} does not exist in cache (memory or PostgreSQL).")
         return None
 
-    logger.info(f"Retrieved draft {draft_id} from cache.")
+    logger.info(f"Retrieved draft {draft_id} version {version} from cache.")
 
     # If force_update is True, force refresh media metadata
     if force_update:
@@ -626,161 +689,3 @@ def query_script_impl(draft_id: str, force_update: bool = False):
 
     # Return script object
     return script
-
-def download_script(draft_id: str, draft_folder: str = None, script_data: Dict = None) -> Dict[str, str]:
-    """Downloads the draft script and its associated media assets.
-
-    This function fetches the script object from a remote API,
-    then iterates through its materials (audios, videos, images)
-    to download them to the specified draft folder. It also updates
-    task status and progress throughout the process.
-
-    :param draft_id: The ID of the draft to download.
-    :param draft_folder: The base folder where the draft's assets will be stored.
-                         If None, assets will be stored directly under a folder named
-                         after the draft_id in the current working directory.
-    :return: A dictionary indicating success and, if successful, the URL where the draft
-             would eventually be saved (though this function primarily focuses on download).
-             If failed, it returns an error message.
-    """
-
-    logger.info(f"Starting to download draft: {draft_id} to folder: {draft_folder}")
-    # Copy template to target directory
-    template_path = os.path.join("./", "template") if IS_CAPCUT_ENV else os.path.join("./", "template_jianying")
-    new_draft_path = os.path.join(draft_folder, draft_id)
-    if os.path.exists(new_draft_path):
-        logger.warning(f"Deleting existing draft target folder: {new_draft_path}")
-        shutil.rmtree(new_draft_path)
-
-    # Copy draft folder
-    shutil.copytree(template_path, new_draft_path)
-
-    try:
-        # 1. Fetch the script from the remote endpoint
-        if script_data is None:
-            query_url = "https://cut-jianying-vdvswivepm.cn-hongkong.fcapp.run/query_script"
-            headers = {"Content-Type": "application/json"}
-            payload = {"draft_id": draft_id}
-
-            logger.info(f"Attempting to get script for draft ID: {draft_id} from {query_url}.")
-            response = requests.post(query_url, headers=headers, json=payload)
-            response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
-
-            script_data = json.loads(response.json().get("output"))
-            logger.info(f"Successfully retrieved script data for draft {draft_id}.")
-        else:
-            logger.info("Using provided script_data, skipping remote retrieval.")
-
-        # Collect download tasks
-        download_tasks = []
-
-        # Collect audio download tasks
-        audios = script_data.get("materials",{}).get("audios",[])
-        if audios:
-            for audio in audios:
-                remote_url = audio["remote_url"]
-                material_name = audio["name"]
-                # Use helper function to build path
-                if draft_folder:
-                    audio["path"]=build_asset_path(draft_folder, draft_id, "audio", material_name)
-                    logger.debug(f"Local path for audio {material_name}: {audio['path']}")
-                if not remote_url:
-                    logger.warning(f"Audio file {material_name} has no remote_url, skipping download.")
-                    continue
-
-                # Add audio download task
-                download_tasks.append({
-                    "type": "audio",
-                    "func": download_file,
-                    "args": (remote_url, audio["path"]),
-                    "material": audio
-                })
-
-        # Collect video and image download tasks
-        videos = script_data["materials"]["videos"]
-        if videos:
-            for video in videos:
-                remote_url = video["remote_url"]
-                material_name = video["material_name"]
-
-                if video["type"] == "photo":
-                    # Use helper function to build path
-                    if draft_folder:
-                        video["path"] = build_asset_path(draft_folder, draft_id, "image", material_name)
-                    if not remote_url:
-                        logger.warning(f"Image file {material_name} has no remote_url, skipping download.")
-                        continue
-
-                    # Add image download task
-                    download_tasks.append({
-                        "type": "image",
-                        "func": download_file,
-                        "args": (remote_url, video["path"]),
-                        "material": video
-                    })
-
-                elif video["type"] == "video":
-                    # Use helper function to build path
-                    if draft_folder:
-                        video["path"] = build_asset_path(draft_folder, draft_id, "video", material_name)
-                    if not remote_url:
-                        logger.warning(f"Video file {material_name} has no remote_url, skipping download.")
-                        continue
-
-                    # Add video download task
-                    download_tasks.append({
-                        "type": "video",
-                        "func": download_file,
-                        "args": (remote_url, video["path"]),
-                        "material": video
-                    })
-
-        # Execute all download tasks concurrently
-        downloaded_paths = []
-        completed_files = 0
-        if download_tasks:
-            logger.info(f"Starting concurrent download of {len(download_tasks)} files...")
-
-            # Use thread pool for concurrent downloads, maximum concurrency of 16
-            with ThreadPoolExecutor(max_workers=16) as executor:
-                # Submit all download tasks
-                future_to_task = {
-                    executor.submit(task["func"], *task["args"]): task
-                    for task in download_tasks
-                }
-
-                # Wait for all tasks to complete
-                for future in as_completed(future_to_task):
-                    task = future_to_task[future]
-                    try:
-                        local_path = future.result()
-                        downloaded_paths.append(local_path)
-
-                        # Update task status - only update completed files count
-                        completed_files += 1
-                        logger.info(f"Downloaded {completed_files}/{len(download_tasks)} files.")
-                    except Exception as e:
-                        logger.error(f"Failed to download {task['type']} file {task['args'][0]}: {e!s}", exc_info=True)
-                        logger.error("Download failed.")
-                        # Continue processing other files, don't interrupt the entire process
-
-            logger.info(f"Concurrent download completed, downloaded {len(downloaded_paths)} files in total.")
-
-        """Write draft file content to file"""
-        with open(f"{draft_folder}/{draft_id}/draft_info.json", "w", encoding="utf-8") as f:
-            f.write(json.dumps(script_data))
-        logger.info("Draft has been saved.")
-
-        # No draft_url for download, but return success
-        return {"success": True, "message": f"Draft {draft_id} and its assets downloaded successfully"}
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"API request failed: {e}", exc_info=True)
-        return {"success": False, "error": f"Failed to fetch script from API: {e!s}"}
-    except Exception as e:
-        logger.error(f"Unexpected error during download: {e}", exc_info=True)
-        return {"success": False, "error": f"An unexpected error occurred: {e!s}"}
-
-if __name__ == "__main__":
-    print("hello")
-    download_script("kox_jy_1751012163_a7e8c315","/Users/sunguannan/Movies/JianyingPro/User Data/Projects/com.lveditor.draft")

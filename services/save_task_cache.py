@@ -87,7 +87,7 @@ def update_task_fields(task_id: str, **fields) -> None:
 
 def increment_task_field(task_id: str, field: str, increment: int = 1) -> None:
     """Increment a numeric field in the task status
-    
+
     :param task_id: Task ID
     :param field: Field name to increment
     :param increment: Value to increment by, default is 1
@@ -105,7 +105,7 @@ def increment_task_field(task_id: str, field: str, increment: int = 1) -> None:
 
 def get_task_status(task_id: str) -> dict:
     """Get task status
-    
+
     :param task_id: Task ID
     :return: Task status information dictionary
     """
@@ -127,7 +127,7 @@ def get_task_status(task_id: str) -> dict:
 
 def create_task(task_id: str) -> None:
     """Create a new task and initialize its status
-    
+
     :param task_id: Task ID
     """
     task_status = {

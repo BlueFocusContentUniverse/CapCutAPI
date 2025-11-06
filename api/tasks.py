@@ -47,6 +47,7 @@ def get_task(task_id: str):
                 "task_id": row.task_id,
                 "draft_id": row.draft_id,
                 "status": row.status,
+                "render_status": row.render_status,
                 "progress": row.progress,
                 "message": row.message,
                 "extra": row.extra,

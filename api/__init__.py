@@ -4,6 +4,7 @@ from flask import Flask
 def register_blueprints(app: Flask) -> None:
     """Register all API blueprints on the given Flask app."""
     from .audio import bp as audio_bp
+    from .draft_archives import archive_bp as draft_archives_bp
     from .draft_management_api import draft_bp as draft_management_bp
     from .drafts import bp as drafts_bp
     from .effects import bp as effects_bp
@@ -35,6 +36,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(health_bp)
     app.register_blueprint(tasks_bp)
     app.register_blueprint(draft_management_bp)
+    app.register_blueprint(draft_archives_bp)
     app.register_blueprint(tracks_bp)
     app.register_blueprint(segments_bp)
     app.register_blueprint(videos_bp)

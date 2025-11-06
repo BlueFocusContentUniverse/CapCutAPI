@@ -35,7 +35,7 @@ def create_draft_service():
     }
 
     try:
-        script, draft_id = create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
+        _script, draft_id = create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
 
         result["success"] = True
         result["output"] = {"draft_id": draft_id}
@@ -89,6 +89,9 @@ def save_draft():
 
     draft_id = data.get("draft_id")
     draft_folder = data.get("draft_folder")
+    draft_version = data.get("draft_version")
+    user_id = data.get("user_id")
+    user_name = data.get("user_name")
 
     result = {
         "success": False,
@@ -101,7 +104,13 @@ def save_draft():
         return jsonify(result)
 
     try:
-        draft_result = save_draft_impl(draft_id, draft_folder)
+        draft_result = save_draft_impl(
+            draft_id=draft_id,
+            draft_folder=draft_folder,
+            draft_version=draft_version,
+            user_id=user_id,
+            user_name=user_name
+        )
 
         result["success"] = True
         result["output"] = draft_result

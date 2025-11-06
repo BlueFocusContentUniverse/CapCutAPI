@@ -2,6 +2,7 @@
 ORM models for Draft and VideoTask.
 """
 
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -19,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy import (
     Enum as SAEnum,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from db import Base
 
@@ -163,6 +164,38 @@ class VideoTask(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
+    )
+
+
+class DraftArchive(Base):
+    __tablename__ = "draft_archives"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    archive_id = Column(UUID(as_uuid=True), unique=True, index=True, nullable=False, default=uuid.uuid4)
+    user_id = Column(String(255), index=True, nullable=True)
+    user_name = Column(String(255), nullable=True)
+    draft_id = Column(String(255), index=True, nullable=False)
+    draft_version = Column(Integer, nullable=True)
+    download_url = Column(Text, nullable=True)
+    total_files = Column(Integer, nullable=True, default=0)
+    progress = Column(Float, nullable=True, default=0.0)
+    downloaded_files = Column(Integer, nullable=True, default=0)
+    message = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("draft_id", "draft_version", name="uq_draft_archives_draft_id_version"),
     )
 
 
