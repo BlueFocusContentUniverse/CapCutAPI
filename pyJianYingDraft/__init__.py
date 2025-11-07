@@ -2,7 +2,7 @@ from .audio_segment import Audio_segment
 from .draft_folder import Draft_folder
 from .effect_segment import Effect_segment, Filter_segment
 from .keyframe import Keyframe_property
-from .local_materials import Audio_material, Crop_settings, Video_material
+from .local_materials import Audio_material, Crop_settings, VideoMaterial
 from .metadata import (
     AudioSceneEffectType,
     CapCutGroupAnimationType,
@@ -101,7 +101,7 @@ __all__ = [
     "VideoCharacterEffectType",
     "VideoSceneEffectType",
     "VideoSegment",
-    "Video_material",
+    "VideoMaterial",
     "tim",
     "trange"
 ]

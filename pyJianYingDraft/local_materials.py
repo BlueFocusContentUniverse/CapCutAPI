@@ -1,9 +1,9 @@
-import os
-import uuid
-import subprocess
 import json
-from typing import Optional, Literal
-from typing import Dict, Any
+import os
+import subprocess
+import uuid
+from typing import Any, Dict, Literal, Optional
+
 
 class Crop_settings:
     """素材的裁剪设置, 各属性均在0-1之间, 注意素材的坐标原点在左上角"""
@@ -43,7 +43,7 @@ class Crop_settings:
             "lower_right_y": self.lower_right_y
         }
 
-class Video_material:
+class VideoMaterial:
     """本地视频素材（视频或图片）, 一份素材可以在多个片段中使用"""
 
     material_id: str
@@ -69,11 +69,11 @@ class Video_material:
     replace_path: Optional[str] = None
     """替换路径, 如果设置了这个值, 在导出json时会用这个路径替代原始path"""
 
-    def __init__(self, material_type: Literal["video", "photo"], 
+    def __init__(self, material_type: Literal["video", "photo"],
                  path: Optional[str] = None,
-                 replace_path: Optional[str] = None, 
-                 material_name: Optional[str] = None, 
-                 crop_settings: Crop_settings = Crop_settings(), 
+                 replace_path: Optional[str] = None,
+                 material_name: Optional[str] = None,
+                 crop_settings: Crop_settings = Crop_settings(),
                  remote_url: Optional[str] = None,
                  duration: Optional[float] = None,
                  width: Optional[int] = None,
@@ -98,7 +98,7 @@ class Video_material:
         # 确保至少提供了path或remote_url
         if not path and not remote_url:
             raise ValueError("必须提供 path 或 remote_url 中的至少一个参数")
-            
+
         # 处理远程URL情况
         if remote_url:
             if not material_name:
@@ -132,7 +132,7 @@ class Video_material:
                 # 使用默认宽高，在下载的时候才会获取真实宽高
                 self.width = 0
                 self.height = 0
-            except Exception as e:
+            except Exception:
                 # 如果获取失败，使用默认值
                 self.width = 1920
                 self.height = 1080
@@ -145,77 +145,77 @@ class Video_material:
             self.width = width
             self.height = height
             return  # 直接返回，跳过后续的ffprobe检测
-        
+
         # 如果没有提供duration，则使用ffprobe获取
         try:
             # 使用ffprobe获取媒体信息
             media_path = self.path if self.path else self.remote_url
             command = [
-                'ffprobe',
-                '-v', 'error',
-                '-select_streams', 'v:0',  # 选择第一个视频流
-                '-show_entries', 'stream=width,height,duration,codec_type',  # 添加codec_type
-                '-show_entries', 'format=duration,format_name',  # 添加format_name
-                '-of', 'json',
+                "ffprobe",
+                "-v", "error",
+                "-select_streams", "v:0",  # 选择第一个视频流
+                "-show_entries", "stream=width,height,duration,codec_type",  # 添加codec_type
+                "-show_entries", "format=duration,format_name",  # 添加format_name
+                "-of", "json",
                 media_path
             ]
             result = subprocess.check_output(command, stderr=subprocess.STDOUT)
-            result_str = result.decode('utf-8')
+            result_str = result.decode("utf-8")
             # 查找JSON开始位置（第一个'{'）
-            json_start = result_str.find('{')
+            json_start = result_str.find("{")
             if json_start != -1:
                 json_str = result_str[json_start:]
                 info = json.loads(json_str)
             else:
                 raise ValueError(f"无法在输出中找到JSON数据: {result_str}")
-            
-            if 'streams' in info and len(info['streams']) > 0:
-                stream = info['streams'][0]
-                self.width = int(stream.get('width', 0))
-                self.height = int(stream.get('height', 0))
-                
+
+            if "streams" in info and len(info["streams"]) > 0:
+                stream = info["streams"][0]
+                self.width = int(stream.get("width", 0))
+                self.height = int(stream.get("height", 0))
+
                 # 如果指定了material_type，则优先使用指定的类型
                 if material_type is not None:
                     self.material_type = material_type
                 else:
                     # 通过format_name和codec_type判断是否是动态视频
-                    format_name = info.get('format', {}).get('format_name', '').lower()
-                    codec_type = stream.get('codec_type', '').lower()
-                    
+                    format_name = info.get("format", {}).get("format_name", "").lower()
+                    codec_type = stream.get("codec_type", "").lower()
+
                     # 检查是否是GIF或其他动态视频
-                    if 'gif' in format_name or (codec_type == 'video' and stream.get('duration') is not None):
+                    if "gif" in format_name or (codec_type == "video" and stream.get("duration") is not None):
                         self.material_type = "video"
                     else:
                         self.material_type = "photo"
-                
+
                 # 设置持续时间
                 if self.material_type == "video":
                     # 优先使用流的duration，如果没有则使用格式的duration
-                    duration = stream.get('duration') or info['format'].get('duration', '0')
+                    duration = stream.get("duration") or info["format"].get("duration", "0")
                     self.duration = int(float(duration) * 1e6)  # 转换为微秒
                 else:
                     self.duration = 10800000000  # 静态图片默认3小时
             else:
                 raise ValueError(f"无法获取媒体文件 {media_path} 的流信息")
-                
+
         except subprocess.CalledProcessError as e:
             raise ValueError(f"处理文件 {media_path} 时出错: {e.output.decode('utf-8')}")
         except json.JSONDecodeError as e:
             raise ValueError(f"解析媒体信息时出错: {e}")
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Video_material":
+    def from_dict(cls, data: Dict[str, Any]) -> "VideoMaterial":
         """从字典创建视频素材对象
         
         Args:
             data (Dict[str, Any]): 包含素材信息的字典
             
         Returns:
-            Video_material: 新创建的视频素材对象
+            VideoMaterial: 新创建的视频素材对象
         """
         # 创建实例但不调用__init__
         instance = cls.__new__(cls)
-        
+
         # 设置基本属性
         instance.material_id = data["id"]
         instance.local_material_id = data.get("local_material_id", "")
@@ -226,7 +226,7 @@ class Video_material:
         instance.width = data["width"]
         instance.material_type = data["type"]
         instance.replace_path = None  # 默认不设置替换路径
-        
+
         # 设置裁剪设置
         crop_data = data.get("crop", {})
         instance.crop_settings = Crop_settings(
@@ -239,7 +239,7 @@ class Video_material:
             lower_right_x=crop_data.get("lower_right_x", 1.0),
             lower_right_y=crop_data.get("lower_right_y", 1.0)
         )
-        
+
         return instance
 
     def export_json(self) -> Dict[str, Any]:
@@ -285,7 +285,7 @@ class Audio_material:
     duration: int
     """素材时长, 单位为微秒"""
 
-    def __init__(self, path: Optional[str] = None, replace_path = None, material_name: Optional[str] = None, 
+    def __init__(self, path: Optional[str] = None, replace_path = None, material_name: Optional[str] = None,
                  remote_url: Optional[str] = None, duration: Optional[float] = None):
         """从指定位置加载音频素材, 注意视频文件不应该作为音频素材使用
     
@@ -300,47 +300,47 @@ class Audio_material:
         """
         if not path and not remote_url:
             raise ValueError("必须提供 path 或 remote_url 中的至少一个参数")
-    
+
         if path:
             path = os.path.abspath(path)
             if not os.path.exists(path):
                 raise FileNotFoundError(f"找不到 {path}")
-    
+
         # 从URL中获取文件名作为material_name
         if not material_name and remote_url:
-            original_filename = os.path.basename(remote_url.split('?')[0])  # 修复：使用remote_url而不是audio_url
+            original_filename = os.path.basename(remote_url.split("?")[0])  # 修复：使用remote_url而不是audio_url
             name_without_ext = os.path.splitext(original_filename)[0]  # 获取不带扩展名的文件名
             material_name = f"{name_without_ext}.mp3"  # 使用原始文件名+时间戳+固定mp3扩展名
-        
+
         self.material_name = material_name if material_name else (os.path.basename(path) if path else "unknown")
         self.material_id = uuid.uuid4().hex
         self.path = path if path else ""
         self.replace_path = replace_path
         self.remote_url = remote_url
-        
+
         # 如果外部提供了duration，直接使用，跳过ffprobe检测
         if duration is not None:
             self.duration = int(float(duration) * 1e6)  # 转换为微秒
             return  # 直接返回，跳过后续的ffprobe检测
-        
+
         # 如果没有提供duration，则使用ffprobe获取
         self.duration = 0  # 初始化为0，如果有path则后续会更新
-    
+
         try:
             # 使用ffprobe获取音频信息
             command = [
-                'ffprobe',
-                '-v', 'error',
-                '-select_streams', 'a:0',  # 选择第一个音频流
-                '-show_entries', 'stream=duration',
-                '-show_entries', 'format=duration',
-                '-of', 'json',
+                "ffprobe",
+                "-v", "error",
+                "-select_streams", "a:0",  # 选择第一个音频流
+                "-show_entries", "stream=duration",
+                "-show_entries", "format=duration",
+                "-of", "json",
                 path if path else remote_url
             ]
             result = subprocess.check_output(command, stderr=subprocess.STDOUT)
-            result_str = result.decode('utf-8')
+            result_str = result.decode("utf-8")
             # 查找JSON开始位置（第一个'{'）
-            json_start = result_str.find('{')
+            json_start = result_str.find("{")
             if json_start != -1:
                 json_str = result_str[json_start:]
                 info = json.loads(json_str)
@@ -349,31 +349,31 @@ class Audio_material:
 
             # 检查是否有视频流
             video_command = [
-                'ffprobe',
-                '-v', 'error',
-                '-select_streams', 'v:0',
-                '-show_entries', 'stream=codec_type',
-                '-of', 'json',
+                "ffprobe",
+                "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=codec_type",
+                "-of", "json",
                 path if path else remote_url
             ]
             video_result = subprocess.check_output(video_command, stderr=subprocess.STDOUT)
-            video_result_str = video_result.decode('utf-8')
+            video_result_str = video_result.decode("utf-8")
             # 查找JSON开始位置（第一个'{'）
-            video_json_start = video_result_str.find('{')
+            video_json_start = video_result_str.find("{")
             if video_json_start != -1:
                 video_json_str = video_result_str[video_json_start:]
                 video_info = json.loads(video_json_str)
             else:
                 print(f"无法在输出中找到JSON数据: {video_result_str}")
-            
-            if 'streams' in video_info and len(video_info['streams']) > 0:
+
+            if "streams" in video_info and len(video_info["streams"]) > 0:
                 raise ValueError("音频素材不应包含视频轨道")
 
             # 检查音频流
-            if 'streams' in info and len(info['streams']) > 0:
-                stream = info['streams'][0]
+            if "streams" in info and len(info["streams"]) > 0:
+                stream = info["streams"][0]
                 # 优先使用流的duration，如果没有则使用格式的duration
-                duration_value = stream.get('duration') or info['format'].get('duration', '0')
+                duration_value = stream.get("duration") or info["format"].get("duration", "0")
                 self.duration = int(float(duration_value) * 1e6)  # 转换为微秒
             else:
                 raise ValueError(f"给定的素材文件 {path} 没有音频轨道")
@@ -382,7 +382,7 @@ class Audio_material:
             raise ValueError(f"处理文件 {path} 时出错: {e.output.decode('utf-8')}")
         except json.JSONDecodeError as e:
             raise ValueError(f"解析媒体信息时出错: {e}")
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Audio_material":
         """从字典创建音频素材对象
@@ -395,7 +395,7 @@ class Audio_material:
         """
         # 创建实例但不调用__init__
         instance = cls.__new__(cls)
-        
+
         # 设置基本属性
         instance.material_id = data["id"]
         instance.material_name = data["name"]  # 注意这里是name而不是material_name
@@ -403,7 +403,7 @@ class Audio_material:
         instance.duration = data["duration"]
         instance.replace_path = None  # 默认不设置替换路径
         instance.remote_url = data.get("remote_url")
-        
+
         return instance
 
     def export_json(self) -> Dict[str, Any]:
@@ -411,7 +411,7 @@ class Audio_material:
             "app_id": 0,
             "category_id": "",
             "category_name": "local",
-            "check_flag": 3 if hasattr(self, 'has_audio_effect') and self.has_audio_effect else 1,
+            "check_flag": 3 if hasattr(self, "has_audio_effect") and self.has_audio_effect else 1,
             "copyright_limit_type": "none",
             "duration": self.duration,
             "effect_id": "",

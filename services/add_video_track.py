@@ -234,16 +234,16 @@ def add_video_track(
 
     # Create video clip
     if draft_video_path:
-        video_material = draft.Video_material(material_type="video", replace_path=draft_video_path, remote_url=video_url, material_name=material_name, duration=video_duration, width=0, height=0)
+        video_material = draft.VideoMaterial(material_type="video", replace_path=draft_video_path, remote_url=video_url, material_name=material_name, duration=video_duration, width=0, height=0)
     else:
-        video_material = draft.Video_material(material_type="video", remote_url=video_url, material_name=material_name, duration = video_duration, width=0, height=0)
+        video_material = draft.VideoMaterial(material_type="video", remote_url=video_url, material_name=material_name, duration = video_duration, width=0, height=0)
 
     # Create source_timerange and target_timerange
     source_timerange = trange(f"{start}s", f"{source_duration}s")
     target_timerange = trange(f"{target_start}s", f"{final_target_duration}s")
 
     video_segment = draft.VideoSegment(
-        video_material,
+        material=video_material,
         target_timerange=target_timerange,
         source_timerange=source_timerange,
         speed=speed,

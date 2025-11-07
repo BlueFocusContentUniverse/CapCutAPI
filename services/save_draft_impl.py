@@ -75,7 +75,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         draft_folder: Draft folder path (optional)
         archive_id: Archive ID for tracking progress
         draft_version: Specific version to retrieve (optional). If None, uses current version.
-        archive_name: Optional custom archive name (optional). If provided, will be used in the COS object key.
+        archive_name: Optional custom archive name (optional). If provided, will be used instead of draft_id in asset paths and folder names.
     """
     archive_storage = get_postgres_archive_storage()
 
@@ -126,10 +126,14 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             )
             logger.info(f"Successfully retrieved draft {draft_id} version {actual_version} from cache.")
 
-        # Delete possibly existing draft_id folder
-        if os.path.exists(draft_id):
-            logger.warning(f"Deleting existing draft folder (current working directory): {draft_id}")
-            shutil.rmtree(draft_id)
+        # Determine the folder name to use: archive_name if provided, else draft_id
+        folder_name = archive_name if archive_name else draft_id
+        logger.info(f"Using folder name: {folder_name} (archive_name: {archive_name}, draft_id: {draft_id})")
+
+        # Delete possibly existing folder
+        if os.path.exists(folder_name):
+            logger.warning(f"Deleting existing draft folder (current working directory): {folder_name}")
+            shutil.rmtree(folder_name)
 
         logger.info(f"Starting to save draft: {draft_id}")
         # Save draft to draft_archive directory
@@ -148,8 +152,8 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             logger.info(f"Copying template directory to draft_archive: {template_src_dir} -> {template_dst_dir}")
             shutil.copytree(template_src_dir, template_dst_dir)
 
-        # Delete possibly existing draft_id folder in draft_archive
-        draft_path_in_archive = os.path.join(draft_archive_dir, draft_id)
+        # Delete possibly existing folder in draft_archive
+        draft_path_in_archive = os.path.join(draft_archive_dir, folder_name)
         if os.path.exists(draft_path_in_archive):
             logger.warning(f"Deleting existing draft folder in draft_archive: {draft_path_in_archive}")
             shutil.rmtree(draft_path_in_archive)
@@ -157,7 +161,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         draft_folder_for_duplicate = draft.Draft_folder(draft_archive_dir)
         # Choose different template directory based on configuration
         template_dir = "template" if IS_CAPCUT_ENV else "template_jianying"
-        draft_folder_for_duplicate.duplicate_as_template(template_dir, draft_id)
+        draft_folder_for_duplicate.duplicate_as_template(template_dir, folder_name)
 
         # Update archive status
         archive_storage.update_archive(archive_id, progress=5.0)
@@ -174,7 +178,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                 material_name = audio.material_name
                 # Use helper function to build path
                 if draft_folder:
-                    audio.replace_path = build_asset_path(draft_folder, draft_id, "audio", material_name)
+                    audio.replace_path = build_asset_path(draft_folder, folder_name, "audio", material_name)
                 if not remote_url:
                     logger.warning(f"Audio file {material_name} has no remote_url, skipping download.")
                     continue
@@ -183,7 +187,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                 download_tasks.append({
                     "type": "audio",
                     "func": download_file,
-                    "args": (remote_url, os.path.join(draft_archive_dir, f"{draft_id}/assets/audio/{material_name}")),
+                    "args": (remote_url, os.path.join(draft_archive_dir, f"{folder_name}/assets/audio/{material_name}")),
                     "material": audio
                 })
 
@@ -197,7 +201,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                 if video.material_type == "photo":
                     # Use helper function to build path
                     if draft_folder:
-                        video.replace_path = build_asset_path(draft_folder, draft_id, "image", material_name)
+                        video.replace_path = build_asset_path(draft_folder, folder_name, "image", material_name)
                     if not remote_url:
                         logger.warning(f"Image file {material_name} has no remote_url, skipping download.")
                         continue
@@ -206,14 +210,14 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                     download_tasks.append({
                         "type": "image",
                         "func": download_file,
-                        "args": (remote_url, os.path.join(draft_archive_dir, f"{draft_id}/assets/image/{material_name}")),
+                        "args": (remote_url, os.path.join(draft_archive_dir, f"{folder_name}/assets/image/{material_name}")),
                         "material": video
                     })
 
                 elif video.material_type == "video":
                     # Use helper function to build path
                     if draft_folder:
-                        video.replace_path = build_asset_path(draft_folder, draft_id, "video", material_name)
+                        video.replace_path = build_asset_path(draft_folder, folder_name, "video", material_name)
                     if not remote_url:
                         logger.warning(f"Video file {material_name} has no remote_url, skipping download.")
                         continue
@@ -222,7 +226,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                     download_tasks.append({
                         "type": "video",
                         "func": download_file,
-                        "args": (remote_url, os.path.join(draft_archive_dir, f"{draft_id}/assets/video/{material_name}")),
+                        "args": (remote_url, os.path.join(draft_archive_dir, f"{folder_name}/assets/video/{material_name}")),
                         "material": video
                     })
 
@@ -276,8 +280,8 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         archive_storage.update_archive(archive_id, progress=70.0)
         logger.info(f"Archive {archive_id} progress 70%: Saving draft information.")
 
-        script.dump(os.path.join(draft_archive_dir, f"{draft_id}/draft_info.json"))
-        logger.info(f"Draft information has been saved to {os.path.join(draft_archive_dir, draft_id)}/draft_info.json.")
+        script.dump(os.path.join(draft_archive_dir, f"{folder_name}/draft_info.json"))
+        logger.info(f"Draft information has been saved to {os.path.join(draft_archive_dir, folder_name)}/draft_info.json.")
 
         draft_url = ""
 
@@ -286,8 +290,8 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         logger.info(f"Archive {archive_id} progress 80%: Compressing draft files.")
 
         # Compress the entire draft directory
-        draft_dir_path = os.path.join(draft_archive_dir, draft_id)
-        zip_path = zip_draft(draft_id, draft_dir_path)
+        draft_dir_path = os.path.join(draft_archive_dir, folder_name)
+        zip_path = zip_draft(folder_name, draft_dir_path)
         logger.info(f"Draft directory {draft_dir_path} has been compressed to {zip_path}.")
 
         # Update archive status - Start uploading to OSS
@@ -322,13 +326,13 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         # Clean up temporary files
         try:
             # Remove draft folder using draft_folder_for_duplicate.remove()
-            draft_folder_for_duplicate.remove(draft_id)
-            logger.info(f"Cleaned up temporary draft folder: {os.path.join(draft_archive_dir, draft_id)}")
+            draft_folder_for_duplicate.remove(folder_name)
+            logger.info(f"Cleaned up temporary draft folder: {os.path.join(draft_archive_dir, folder_name)}")
         except FileNotFoundError:
             # Folder might already be removed or doesn't exist
-            logger.warning(f"Draft folder {draft_id} not found for cleanup, may already be removed")
+            logger.warning(f"Draft folder {folder_name} not found for cleanup, may already be removed")
         except Exception as e:
-            logger.error(f"Failed to remove draft folder {draft_id}: {e}")
+            logger.error(f"Failed to remove draft folder {folder_name}: {e}")
 
         # Clean up zip file after successful upload
         if os.path.exists(zip_path):

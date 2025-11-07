@@ -11,7 +11,7 @@ from . import util
 from . import exceptions
 from .template_mode import EditableTrack, ImportedMediaTrack, ImportedTextTrack, Shrink_mode, Extend_mode, import_track
 from .time_util import Timerange, tim, srt_tstamp
-from .local_materials import Video_material, Audio_material
+from .local_materials import VideoMaterial, Audio_material
 from .segment import BaseSegment, Speed, ClipSettings, AudioFade
 from .audio_segment import Audio_segment, Audio_effect
 from .video_segment import VideoSegment, StickerSegment, Segment_animations, Video_effect, Transition, Filter, BackgroundFilling
@@ -27,7 +27,7 @@ class Script_material:
 
     audios: List[Audio_material]
     """音频素材列表"""
-    videos: List[Video_material]
+    videos: List[VideoMaterial]
     """视频素材列表"""
     stickers: List[Dict[str, Any]]
     """贴纸素材列表"""
@@ -72,14 +72,14 @@ class Script_material:
         self.canvases = []
 
     @overload
-    def __contains__(self, item: Union[Video_material, Audio_material]) -> bool: ...
+    def __contains__(self, item: Union[VideoMaterial, Audio_material]) -> bool: ...
     @overload
     def __contains__(self, item: Union[AudioFade, Audio_effect]) -> bool: ...
     @overload
     def __contains__(self, item: Union[Segment_animations, Video_effect, Transition, Filter]) -> bool: ...
 
     def __contains__(self, item) -> bool:
-        if isinstance(item, Video_material):
+        if isinstance(item, VideoMaterial):
             return item.material_id in [video.material_id for video in self.videos]
         elif isinstance(item, Audio_material):
             return item.material_id in [audio.material_id for audio in self.audios]
@@ -271,11 +271,11 @@ class ScriptFile:
 
         return obj
 
-    def add_material(self, material: Union[Video_material, Audio_material]) -> "ScriptFile":
+    def add_material(self, material: Union[VideoMaterial, Audio_material]) -> "ScriptFile":
         """向草稿文件中添加一个素材"""
         if material in self.materials:  # 素材已存在
             return self
-        if isinstance(material, Video_material):
+        if isinstance(material, VideoMaterial):
             self.materials.videos.append(material)
         elif isinstance(material, Audio_material):
             self.materials.audios.append(material)
@@ -832,7 +832,7 @@ class ScriptFile:
 
         return self
 
-    def replace_material_by_name(self, material_name: str, material: Union[Video_material, Audio_material],
+    def replace_material_by_name(self, material_name: str, material: Union[VideoMaterial, Audio_material],
                                  replace_crop: bool = False) -> "ScriptFile":
         """替换指定名称的素材, 并影响所有引用它的片段
 
@@ -840,14 +840,14 @@ class ScriptFile:
 
         Args:
             material_name (`str`): 要替换的素材名称
-            material (`Video_material` or `Audio_material`): 新素材, 目前只支持视频和音频
+            material (`VideoMaterial` or `Audio_material`): 新素材, 目前只支持视频和音频
             replace_crop (`bool`, optional): 是否替换原素材的裁剪设置, 默认为否. 仅对视频素材有效.
 
         Raises:
             `MaterialNotFound`: 根据指定名称未找到与新素材同类的素材
             `AmbiguousMaterial`: 根据指定名称找到多个与新素材同类的素材
         """
-        video_mode = isinstance(material, Video_material)
+        video_mode = isinstance(material, VideoMaterial)
         # 查找素材
         target_json_obj: Optional[Dict[str, Any]] = None
         target_material_list = self.imported_materials["videos" if video_mode else "audios"]
@@ -870,7 +870,7 @@ class ScriptFile:
 
         return self
 
-    def replace_material_by_seg(self, track: EditableTrack, segment_index: int, material: Union[Video_material, Audio_material],
+    def replace_material_by_seg(self, track: EditableTrack, segment_index: int, material: Union[VideoMaterial, Audio_material],
                                 source_timerange: Optional[Timerange] = None, *,
                                 handle_shrink: Shrink_mode = Shrink_mode.cut_tail,
                                 handle_extend: Union[Extend_mode, List[Extend_mode]] = Extend_mode.cut_material_tail) -> "ScriptFile":
@@ -879,7 +879,7 @@ class ScriptFile:
         Args:
             track (`Editable_track`): 要替换素材的轨道, 由`get_imported_track`获取
             segment_index (`int`): 要替换素材的片段下标, 从0开始
-            material (`Video_material` or `Audio_material`): 新素材, 必须与原素材类型一致
+            material (`VideoMaterial` or `Audio_material`): 新素材, 必须与原素材类型一致
             source_timerange (`Timerange`, optional): 从原素材中截取的时间范围, 默认为全时段, 若是图片素材则默认与原片段等长.
             handle_shrink (`Shrink_mode`, optional): 新素材比原素材短时的处理方式, 默认为裁剪尾部, 使片段长度与素材一致.
             handle_extend (`Extend_mode` or `List[Extend_mode]`, optional): 新素材比原素材长时的处理方式, 将按顺序逐个尝试直至成功或抛出异常.
@@ -901,7 +901,7 @@ class ScriptFile:
         if isinstance(handle_extend, Extend_mode):
             handle_extend = [handle_extend]
         if source_timerange is None:
-            if isinstance(material, Video_material) and (material.material_type == "photo"):
+            if isinstance(material, VideoMaterial) and (material.material_type == "photo"):
                 source_timerange = Timerange(0, seg.duration)
             else:
                 source_timerange = Timerange(0, material.duration)

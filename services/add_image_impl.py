@@ -124,9 +124,9 @@ def add_image_impl(
 
     # Create image material
     if draft_image_path:
-        image_material = draft.Video_material(path=None, material_type="photo", replace_path=draft_image_path, remote_url=image_url, material_name=material_name)
+        image_material = draft.VideoMaterial(path=None, material_type="photo", replace_path=draft_image_path, remote_url=image_url, material_name=material_name)
     else:
-        image_material = draft.Video_material(path=None, material_type="photo", remote_url=image_url, material_name=material_name)
+        image_material = draft.VideoMaterial(path=None, material_type="photo", remote_url=image_url, material_name=material_name)
 
     # Create target_timerange (image)
     duration = end - start
@@ -135,7 +135,7 @@ def add_image_impl(
 
     # Create image segment
     image_segment = draft.VideoSegment(
-        image_material,
+        material=image_material,
         target_timerange=target_timerange,
         source_timerange=source_timerange,
         clip_settings=ClipSettings(

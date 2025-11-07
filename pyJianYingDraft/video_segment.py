@@ -15,7 +15,7 @@ from pyJianYingDraft.metadata.capcut_mask_meta import CapCutMaskType
 from settings import IS_CAPCUT_ENV
 
 from .animation import Segment_animations, Video_animation
-from .local_materials import Video_material
+from .local_materials import VideoMaterial
 from .segment import AudioFade, ClipSettings, VisualSegment
 from .time_util import Timerange, tim
 
@@ -307,7 +307,7 @@ class BackgroundFilling:
 class VideoSegment(VisualSegment):
     """安放在轨道上的一个视频/图片片段"""
 
-    material_instance: Video_material
+    material_instance: VideoMaterial
     """素材实例"""
     material_size: Tuple[int, int]
     """素材尺寸"""
@@ -350,13 +350,13 @@ class VideoSegment(VisualSegment):
     """
 
     # TODO: material参数接受path进行便捷构造
-    def __init__(self, material: Video_material, target_timerange: Timerange, *,
+    def __init__(self, material: VideoMaterial, target_timerange: Timerange, *,
                  source_timerange: Optional[Timerange] = None, speed: Optional[float] = None, volume: float = 1.0,
                  clip_settings: Optional[ClipSettings] = None):
         """利用给定的视频/图片素材构建一个轨道片段, 并指定其时间信息及图像调节设置
 
         Args:
-            material (`Video_material`): 素材实例
+            material (`VideoMaterial`): 素材实例
             target_timerange (`Timerange`): 片段在轨道上的目标时间范围
             source_timerange (`Timerange`, optional): 截取的素材片段的时间范围, 默认从开头根据`speed`截取与`target_timerange`等长的一部分
             speed (`float`, optional): 播放速度, 默认为1.0. 此项与`source_timerange`同时指定时, 将覆盖`target_timerange`中的时长

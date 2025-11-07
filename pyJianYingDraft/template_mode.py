@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from . import exceptions, util
 from .audio_segment import Audio_segment
 from .keyframe import Keyframe, Keyframe_list, Keyframe_property
-from .local_materials import Audio_material, Video_material
+from .local_materials import Audio_material, VideoMaterial
 from .metadata import AudioSceneEffectType
 from .segment import BaseSegment
 from .time_util import Timerange
@@ -151,7 +151,7 @@ class ImportedMediaTrack(EditableTrack):
 
     def check_material_type(self, material: object) -> bool:
         """检查素材类型是否与轨道类型匹配"""
-        if self.track_type == Track_type.video and isinstance(material, Video_material):
+        if self.track_type == Track_type.video and isinstance(material, VideoMaterial):
             return True
         if self.track_type == Track_type.audio and isinstance(material, Audio_material):
             return True
@@ -258,7 +258,7 @@ def import_track(json_data: Dict[str, Any], imported_materials: Dict[str, Any] =
                 # 从imported_materials中查找视频素材
                 for video_material in imported_materials.get("videos", []):
                     if video_material["id"] == material_id:
-                        material = Video_material.from_dict(video_material)
+                        material = VideoMaterial.from_dict(video_material)
                         break
 
                 if material:
