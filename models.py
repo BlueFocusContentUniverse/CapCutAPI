@@ -176,6 +176,7 @@ class DraftArchive(Base):
     user_name = Column(String(255), nullable=True)
     draft_id = Column(String(255), index=True, nullable=False)
     draft_version = Column(Integer, nullable=True)
+    archive_name = Column(String(255), nullable=True)
     download_url = Column(Text, nullable=True)
     total_files = Column(Integer, nullable=True, default=0)
     progress = Column(Float, nullable=True, default=0.0)

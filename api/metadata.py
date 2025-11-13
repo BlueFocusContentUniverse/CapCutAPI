@@ -1,24 +1,18 @@
+import logging
+
 from flask import Blueprint, jsonify
 
 from logging_utils import api_endpoint_logger
 from pyJianYingDraft.metadata import (
-    AudioSceneEffectType,
     CapCutGroupAnimationType,
     CapCutIntroType,
     CapCutOutroType,
     GroupAnimationType,
     IntroType,
     OutroType,
-    SpeechToSongType,
     TextIntro,
     TextLoopAnim,
     TextOutro,
-    ToneEffectType,
-)
-from pyJianYingDraft.metadata.capcut_audio_effect_meta import (
-    CapCutSpeechToSongEffectType,
-    CapCutVoiceCharactersEffectType,
-    CapCutVoiceFiltersEffectType,
 )
 from pyJianYingDraft.metadata.capcut_effect_meta import (
     CapCutVideoCharacterEffectType,
@@ -32,14 +26,17 @@ from pyJianYingDraft.metadata.capcut_text_animation_meta import (
 )
 from pyJianYingDraft.metadata.capcut_transition_meta import CapCutTransitionType
 from pyJianYingDraft.metadata.filter_meta import FilterType
-from pyJianYingDraft.metadata.font_meta import FontType
 from pyJianYingDraft.metadata.mask_meta import MaskType
 from pyJianYingDraft.metadata.transition_meta import TransitionType
 from pyJianYingDraft.metadata.video_effect_meta import (
     VideoCharacterEffectType,
     VideoSceneEffectType,
 )
+from services.get_audio_effect_types_impl import get_audio_effect_types_impl
+from services.get_font_types_impl import get_font_types_impl
 from settings.local import IS_CAPCUT_ENV
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("metadata", __name__)
 
@@ -160,110 +157,16 @@ def get_filter_types():
         return jsonify(result)
 
 
-def get_audio_effect_types_logic():
-    """Core logic for getting audio effect types (without Flask dependency)."""
-    result = {"success": True, "output": "", "error": ""}
-    try:
-        audio_effect_types = []
-        if IS_CAPCUT_ENV:
-            for name, member in CapCutVoiceFiltersEffectType.__members__.items():
-                params_info = []
-                for param in member.value.params:
-                    params_info.append({
-                        "name": param.name,
-                        "default_value": param.default_value * 100,
-                        "min_value": param.min_value * 100,
-                        "max_value": param.max_value * 100,
-                    })
-                audio_effect_types.append({"name": name, "type": "Voice_filters", "params": params_info})
-
-            for name, member in CapCutVoiceCharactersEffectType.__members__.items():
-                params_info = []
-                for param in member.value.params:
-                    params_info.append({
-                        "name": param.name,
-                        "default_value": param.default_value * 100,
-                        "min_value": param.min_value * 100,
-                        "max_value": param.max_value * 100,
-                    })
-                audio_effect_types.append({"name": name, "type": "Voice_characters", "params": params_info})
-
-            for name, member in CapCutSpeechToSongEffectType.__members__.items():
-                params_info = []
-                for param in member.value.params:
-                    params_info.append({
-                        "name": param.name,
-                        "default_value": param.default_value * 100,
-                        "min_value": param.min_value * 100,
-                        "max_value": param.max_value * 100,
-                    })
-                audio_effect_types.append({"name": name, "type": "Speech_to_song", "params": params_info})
-        else:
-            for name, member in ToneEffectType.__members__.items():
-                params_info = []
-                for param in member.value.params:
-                    params_info.append({
-                        "name": param.name,
-                        "default_value": param.default_value * 100,
-                        "min_value": param.min_value * 100,
-                        "max_value": param.max_value * 100,
-                    })
-                audio_effect_types.append({"name": name, "type": "Tone", "params": params_info})
-
-            for name, member in AudioSceneEffectType.__members__.items():
-                params_info = []
-                for param in member.value.params:
-                    params_info.append({
-                        "name": param.name,
-                        "default_value": param.default_value * 100,
-                        "min_value": param.min_value * 100,
-                        "max_value": param.max_value * 100,
-                    })
-                audio_effect_types.append({"name": name, "type": "Audio_scene", "params": params_info})
-
-            for name, member in SpeechToSongType.__members__.items():
-                params_info = []
-                for param in member.value.params:
-                    params_info.append({
-                        "name": param.name,
-                        "default_value": param.default_value * 100,
-                        "min_value": param.min_value * 100,
-                        "max_value": param.max_value * 100,
-                    })
-                audio_effect_types.append({"name": name, "type": "Speech_to_song", "params": params_info})
-        result["output"] = audio_effect_types
-        return result
-    except Exception as e:
-        result["success"] = False
-        result["error"] = f"Error occurred while getting audio effect types: {e!s}"
-        return result
-
-
 @bp.route("/get_audio_effect_types", methods=["GET"])
 @api_endpoint_logger
 def get_audio_effect_types():
-    return jsonify(get_audio_effect_types_logic())
-
-
-def get_font_types_logic():
-    """Core logic for getting font types (without Flask dependency)."""
-    result = {"success": True, "output": "", "error": ""}
-    try:
-        font_types = []
-        for name, member in FontType.__members__.items():
-            font_types.append({"name": name})
-        result["output"] = font_types
-        return result
-    except Exception as e:
-        result["success"] = False
-        result["error"] = f"Error occurred while getting font types: {e!s}"
-        return result
+    return jsonify(get_audio_effect_types_impl())
 
 
 @api_endpoint_logger
 @bp.route("/get_font_types", methods=["GET"])
 def get_font_types():
-    return jsonify(get_font_types_logic())
+    return jsonify(get_font_types_impl())
 
 
 @api_endpoint_logger

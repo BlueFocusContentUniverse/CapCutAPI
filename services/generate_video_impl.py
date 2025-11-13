@@ -52,14 +52,13 @@ def generate_video_impl(
         if name:
             draft_content["name"] = name
 
-        broker_url = os.getenv("CELERY_BROKER_URL") or os.getenv("REDIS_URL")
-        backend_url = os.getenv("CELERY_RESULT_BACKEND") or os.getenv("REDIS_URL")
+        broker_url = os.getenv("CELERY_BROKER_URL")
 
-        if not broker_url or not backend_url:
-            result["error"] = "CELERY_BROKER_URL and CELERY_RESULT_BACKEND environment variables are required"
+        if not broker_url:
+            result["error"] = "CELERY_BROKER_URL environment variable is required"
             return result
 
-        celery_client = Celery(broker=broker_url, backend=backend_url)
+        celery_client = Celery(broker=broker_url)
 
         # Pre-generate task id so we can create a DB record before task starts
         final_task_id = uuid.uuid4().hex

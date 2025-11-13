@@ -47,13 +47,13 @@ def add_sticker_impl(
     # Add sticker track
     if track_name is not None:
         try:
-            imported_track = script.get_imported_track(draft.Track_type.sticker, name=track_name)
+            imported_track = script.get_imported_track(draft.TrackType.sticker, name=track_name)
             # If no exception is thrown, the track already exists
         except exceptions.TrackNotFound:
             # Track doesn't exist, create a new track
-            script.add_track(draft.Track_type.sticker, track_name=track_name, relative_index=relative_index)
+            script.add_track(draft.TrackType.sticker, track_name=track_name, relative_index=relative_index)
     else:
-        script.add_track(draft.Track_type.sticker, relative_index=relative_index)
+        script.add_track(draft.TrackType.sticker, relative_index=relative_index)
 
     # Create sticker segment
     sticker_segment = draft.StickerSegment(

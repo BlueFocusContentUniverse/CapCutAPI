@@ -1,8 +1,10 @@
 import json
 import logging
 import os
+import random
 import re
 import shutil
+import string
 import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -127,7 +129,11 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             logger.info(f"Successfully retrieved draft {draft_id} version {actual_version} from cache.")
 
         # Determine the folder name to use: archive_name if provided, else draft_id
-        folder_name = archive_name if archive_name else draft_id
+        if archive_name:
+            random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=2))
+            folder_name = f"{archive_name}_{random_suffix}"
+        else:
+            folder_name = draft_id
         logger.info(f"Using folder name: {folder_name} (archive_name: {archive_name}, draft_id: {draft_id})")
 
         # Delete possibly existing folder
@@ -158,7 +164,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             logger.warning(f"Deleting existing draft folder in draft_archive: {draft_path_in_archive}")
             shutil.rmtree(draft_path_in_archive)
 
-        draft_folder_for_duplicate = draft.Draft_folder(draft_archive_dir)
+        draft_folder_for_duplicate = draft.DraftFolder(draft_archive_dir)
         # Choose different template directory based on configuration
         template_dir = "template" if IS_CAPCUT_ENV else "template_jianying"
         draft_folder_for_duplicate.duplicate_as_template(template_dir, folder_name)
@@ -305,16 +311,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             raise Exception("Cloud storage service is not available")
 
         # Generate object key with draft_id and version for better organization
-        # If archive_name is provided, use it with a 4-character random string
-        if archive_name:
-            import random
-            import string
-            random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            filename = f"{archive_name}_{random_suffix}.zip"
-            object_key = f"draft_archives/{draft_id}/v{actual_version}/{filename}"
-            logger.info(f"Using custom archive name: {filename}")
-        else:
-            object_key = f"draft_archives/{draft_id}/v{actual_version}/{os.path.basename(zip_path)}"
+        object_key = f"draft_archives/{draft_id}/v{actual_version}/{os.path.basename(zip_path)}"
         draft_url = cos_client.upload_file(zip_path, object_key=object_key)
 
         if not draft_url:
@@ -399,11 +396,12 @@ def save_draft_impl(
                 draft_id=draft_id,
                 draft_version=draft_version,
                 user_id=user_id,
-                user_name=user_name
+                user_name=user_name,
+                archive_name=archive_name
             )
             if not archive_id:
                 raise Exception("Failed to create draft archive record")
-            logger.info(f"Created new archive {archive_id} for draft {draft_id} version {draft_version}")
+            logger.info(f"Created new archive {archive_id} for draft {draft_id} version {draft_version} with archive_name={archive_name}")
 
         # Start a background thread to execute the task
         thread = threading.Thread(
@@ -481,9 +479,9 @@ def update_media_metadata(script, task_id=None):
 
                     # Update timerange for all segments using this audio material
                     for track_name, track in script.tracks.items():
-                        if track.track_type == draft.Track_type.audio:
+                        if track.track_type == draft.TrackType.audio:
                             for segment in track.segments:
-                                if isinstance(segment, draft.Audio_segment) and segment.material_id == audio.material_id:
+                                if isinstance(segment, draft.AudioSegment) and segment.material_id == audio.material_id:
                                     # Get current settings
                                     current_target = segment.target_timerange
                                     current_source = segment.source_timerange
@@ -573,7 +571,7 @@ def update_media_metadata(script, task_id=None):
 
                             # Update timerange for all segments using this video material
                             for track_name, track in script.tracks.items():
-                                if track.track_type == draft.Track_type.video:
+                                if track.track_type == draft.TrackType.video:
                                     for segment in track.segments:
                                         if isinstance(segment, draft.VideoSegment) and segment.material_id == video.material_id:
                                             # Get current settings

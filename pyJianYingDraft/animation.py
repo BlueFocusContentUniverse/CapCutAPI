@@ -1,17 +1,25 @@
 """定义视频/文本动画相关类"""
 
 import uuid
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from typing import Union, Optional
-from typing import Literal, Dict, List, Any
-
+from .metadata import (
+    CapCutGroupAnimationType,
+    CapCutIntroType,
+    CapCutOutroType,
+    CapCutTextIntro,
+    CapCutTextLoopAnim,
+    CapCutTextOutro,
+    GroupAnimationType,
+    IntroType,
+    OutroType,
+    TextIntro,
+    TextLoopAnim,
+    TextOutro,
+)
+from .metadata.effect_meta import AnimationMeta
 from .time_util import Timerange
 
-from .metadata.effect_meta import AnimationMeta
-from .metadata import IntroType, OutroType, GroupAnimationType
-from .metadata import CapCutIntroType, CapCutOutroType, CapCutGroupAnimationType
-from .metadata import TextIntro, TextOutro, TextLoopAnim
-from .metadata import CapCutTextIntro, CapCutTextLoopAnim, CapCutTextOutro
 
 class Animation:
     """一个视频/文本动画效果"""
@@ -67,7 +75,7 @@ class Video_animation(Animation):
                  start: int, duration: int):
         super().__init__(animation_type.value, start, duration)
 
-        if ((isinstance(animation_type, IntroType) or isinstance(animation_type, CapCutIntroType))):
+        if (isinstance(animation_type, IntroType) or isinstance(animation_type, CapCutIntroType)):
             self.animation_type = "in"
         elif isinstance(animation_type, OutroType) or isinstance(animation_type, CapCutOutroType):
             self.animation_type = "out"

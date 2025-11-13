@@ -15,7 +15,7 @@ if str(project_root) not in sys.path:
 
 # Import metadata from our models
 from db import Base, _database_url
-from models import Draft, VideoTask, DraftVersion  # noqa: F401
+from models import Draft, VideoTask  # noqa: F401
 from dotenv import load_dotenv
 
 load_dotenv()

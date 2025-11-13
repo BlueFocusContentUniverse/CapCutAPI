@@ -1,8 +1,8 @@
-from .audio_segment import Audio_segment
-from .draft_folder import Draft_folder
+from .audio_segment import AudioSegment
+from .draft_folder import DraftFolder
 from .effect_segment import Effect_segment, Filter_segment
-from .keyframe import Keyframe_property
-from .local_materials import Audio_material, Crop_settings, VideoMaterial
+from .keyframe import KeyframeProperty
+from .local_materials import AudioMaterial, CropSettings, VideoMaterial
 from .metadata import (
     AudioSceneEffectType,
     CapCutGroupAnimationType,
@@ -34,7 +34,7 @@ from .metadata import (
     VideoSceneEffectType,
 )
 from .script_file import ScriptFile
-from .template_mode import Extend_mode, Shrink_mode
+from .template_mode import ExtendMode, ShrinkMode
 from .text_segment import (
     Text_background,
     Text_border,
@@ -48,14 +48,14 @@ from .text_segment import (
 # if ISWIN:
 #     from .jianying_controller import Jianying_controller, Export_resolution, Export_framerate
 from .time_util import SEC, Timerange, tim, trange
-from .track import Track_type
+from .track import TrackType
 from .video_segment import ClipSettings, StickerSegment, VideoSegment
 
 __all__ = [
     "SEC",
+    "AudioMaterial",
     "AudioSceneEffectType",
-    "Audio_material",
-    "Audio_segment",
+    "AudioSegment",
     "CapCutGroupAnimationType",
     "CapCutIntroType",
     "CapCutMaskType",
@@ -70,20 +70,20 @@ __all__ = [
     "CapCutVoiceCharactersEffectType",
     "CapCutVoiceFiltersEffectType",
     "ClipSettings",
-    "Crop_settings",
-    "Draft_folder",
+    "CropSettings",
+    "DraftFolder",
     "Effect_segment",
-    "Extend_mode",
+    "ExtendMode",
     "FilterType",
     "Filter_segment",
     "FontType",
     "GroupAnimationType",
     "IntroType",
-    "Keyframe_property",
+    "KeyframeProperty",
     "MaskType",
     "OutroType",
     "ScriptFile",
-    "Shrink_mode",
+    "ShrinkMode",
     "SpeechToSongType",
     "StickerSegment",
     "TextIntro",
@@ -96,23 +96,12 @@ __all__ = [
     "Text_style",
     "Timerange",
     "ToneEffectType",
-    "Track_type",
+    "TrackType",
     "TransitionType",
     "VideoCharacterEffectType",
+    "VideoMaterial",
     "VideoSceneEffectType",
     "VideoSegment",
-    "VideoMaterial",
     "tim",
     "trange"
 ]
-
-# # 仅在Windows系统下添加jianying_controller相关的导出
-# if ISWIN:
-#     __all__.extend([
-#         "JianyingController",
-#         "ExportResolution",
-#         "ExportFramerate",
-#         "Jianying_controller",
-#         "Export_resolution",
-#         "Export_framerate",
-#     ])

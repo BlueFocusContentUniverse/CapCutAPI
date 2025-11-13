@@ -32,6 +32,7 @@ class PostgresDraftArchiveStorage:
         draft_version: Optional[int] = None,
         user_id: Optional[str] = None,
         user_name: Optional[str] = None,
+        archive_name: Optional[str] = None,
     ) -> Optional[str]:
         """
         Create a new draft archive record.
@@ -41,6 +42,7 @@ class PostgresDraftArchiveStorage:
             draft_version: The version of the draft (optional)
             user_id: User ID who initiated the archive
             user_name: User name who initiated the archive
+            archive_name: Custom name for the archive (optional)
 
         Returns:
             The archive_id (UUID as string) if created successfully, None otherwise
@@ -54,13 +56,14 @@ class PostgresDraftArchiveStorage:
                     draft_version=draft_version,
                     user_id=user_id,
                     user_name=user_name,
+                    archive_name=archive_name,
                     progress=0.0,
                     total_files=0,
                     downloaded_files=0,
                 )
                 session.add(archive)
                 session.commit()
-                logger.info(f"Created draft archive {archive_id} for draft {draft_id} version {draft_version}")
+                logger.info(f"Created draft archive {archive_id} for draft {draft_id} version {draft_version} with archive_name={archive_name}")
                 return str(archive_id)
         except SQLAlchemyError as e:
             logger.error(f"Database error creating draft archive for {draft_id}: {e}")
@@ -104,6 +107,7 @@ class PostgresDraftArchiveStorage:
                     "draft_version": row.draft_version,
                     "user_id": row.user_id,
                     "user_name": row.user_name,
+                    "archive_name": row.archive_name,
                     "download_url": row.download_url,
                     "total_files": row.total_files,
                     "progress": row.progress,
@@ -146,6 +150,7 @@ class PostgresDraftArchiveStorage:
                     "draft_version": row.draft_version,
                     "user_id": row.user_id,
                     "user_name": row.user_name,
+                    "archive_name": row.archive_name,
                     "download_url": row.download_url,
                     "total_files": row.total_files,
                     "progress": row.progress,
@@ -287,6 +292,7 @@ class PostgresDraftArchiveStorage:
                         "draft_version": row.draft_version,
                         "user_id": row.user_id,
                         "user_name": row.user_name,
+                        "archive_name": row.archive_name,
                         "download_url": row.download_url,
                         "total_files": row.total_files,
                         "progress": row.progress,

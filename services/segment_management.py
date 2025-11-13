@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from draft_cache import get_from_cache, update_cache
-from pyJianYingDraft.audio_segment import Audio_segment
+from pyJianYingDraft.audio_segment import AudioSegment
 from pyJianYingDraft.effect_segment import Effect_segment
 from pyJianYingDraft.exceptions import SegmentNotFound
 from pyJianYingDraft.text_segment import Text_segment
@@ -288,7 +288,7 @@ def get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict
             }
 
     # Audio_segment specific properties
-    elif isinstance(segment, Audio_segment):
+    elif isinstance(segment, AudioSegment):
         if hasattr(segment, "material_instance") and segment.material_instance:
             result["material_name"] = getattr(segment.material_instance, "name", None)
             result["material_path"] = getattr(segment.material_instance, "path", None)

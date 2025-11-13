@@ -4,7 +4,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Union
 
 from .animation import Segment_animations
-from .keyframe import Keyframe_list, Keyframe_property
+from .keyframe import Keyframe_list, KeyframeProperty
 from .time_util import Timerange, tim
 
 
@@ -246,7 +246,7 @@ class VisualSegment(MediaSegment):
         self.uniform_scale = True
         self.animations_instance = None
 
-    def add_keyframe(self, _property: Keyframe_property, time_offset: Union[int, str], value: float) -> "VisualSegment":
+    def add_keyframe(self, _property: KeyframeProperty, time_offset: Union[int, str], value: float) -> "VisualSegment":
         """为给定属性创建一个关键帧, 并自动加入到关键帧列表中
 
         Args:
@@ -257,12 +257,12 @@ class VisualSegment(MediaSegment):
         Raises:
             `ValueError`: 试图同时设置`uniform_scale`以及`scale_x`或`scale_y`其中一者
         """
-        if (_property == Keyframe_property.scale_x or _property == Keyframe_property.scale_y) and self.uniform_scale:
+        if (_property == KeyframeProperty.scale_x or _property == KeyframeProperty.scale_y) and self.uniform_scale:
             self.uniform_scale = False
-        elif _property == Keyframe_property.uniform_scale:
+        elif _property == KeyframeProperty.uniform_scale:
             if not self.uniform_scale:
                 raise ValueError("已设置 scale_x 或 scale_y 时, 不能再设置 uniform_scale")
-            _property = Keyframe_property.scale_x
+            _property = KeyframeProperty.scale_x
 
         if isinstance(time_offset, str): time_offset = tim(time_offset)
 

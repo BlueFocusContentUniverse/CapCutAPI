@@ -7,7 +7,7 @@ from typing import List
 from .script_file import ScriptFile
 
 
-class Draft_folder:
+class DraftFolder:
     """管理一个文件夹及其内的一系列草稿"""
 
     folder_path: str

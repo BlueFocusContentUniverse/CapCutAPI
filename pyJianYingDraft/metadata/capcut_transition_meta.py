@@ -1,6 +1,7 @@
 from .effect_meta import EffectEnum
 from .transition_meta import TransitionMeta
 
+
 class CapCutTransitionType(EffectEnum):
     """CapCut自带的转场效果类型"""
 

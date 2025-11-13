@@ -83,9 +83,9 @@ def add_image_impl(
 
     # Check if video track exists, if not, add a default video track
     try:
-        script.get_track(draft.Track_type.video, track_name=None)
+        script.get_track(draft.TrackType.video, track_name=None)
     except exceptions.TrackNotFound:
-        script.add_track(draft.Track_type.video, relative_index=0)
+        script.add_track(draft.TrackType.video, relative_index=0)
     except NameError:
         # If multiple video tracks exist (NameError), do nothing
         pass
@@ -93,13 +93,13 @@ def add_image_impl(
     # Add video track (only when track doesn't exist)
     if track_name is not None:
         try:
-            script.get_imported_track(draft.Track_type.video, name=track_name)
+            script.get_imported_track(draft.TrackType.video, name=track_name)
             # If no exception is thrown, the track already exists
         except exceptions.TrackNotFound:
             # Track doesn't exist, create a new track
-            script.add_track(draft.Track_type.video, track_name=track_name, relative_index=relative_index)
+            script.add_track(draft.TrackType.video, track_name=track_name, relative_index=relative_index)
     else:
-        script.add_track(draft.Track_type.video, relative_index=relative_index)
+        script.add_track(draft.TrackType.video, relative_index=relative_index)
 
     # Generate material_name but don't download the image
     material_name = f"image_{url_to_hash(image_url)}.png"

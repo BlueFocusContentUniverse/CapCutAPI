@@ -135,13 +135,13 @@ def add_text_impl(
     # Add text track
     if track_name is not None:
         try:
-            script.get_imported_track(draft.Track_type.text, name=track_name)
+            script.get_imported_track(draft.TrackType.text, name=track_name)
             # If no exception is thrown, the track already exists
         except exceptions.TrackNotFound:
             # Track doesn't exist, create a new track
-            script.add_track(draft.Track_type.text, track_name=track_name)
+            script.add_track(draft.TrackType.text, track_name=track_name)
     else:
-        script.add_track(draft.Track_type.audio)
+        script.add_track(draft.TrackType.audio)
 
     # Convert hexadecimal color to RGB tuple
     try:

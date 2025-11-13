@@ -98,22 +98,22 @@ def add_audio_track(
 
     # Create audio material
     if draft_audio_path:
-        audio_material = draft.Audio_material(
+        audioMaterial = draft.AudioMaterial(
             replace_path=draft_audio_path,
             remote_url=audio_url,
             material_name=material_name,
             duration=audio_duration
         )
     else:
-        audio_material = draft.Audio_material(
+        audioMaterial = draft.AudioMaterial(
             remote_url=audio_url,
             material_name=material_name,
             duration=audio_duration
         )
 
     # Create audio segment
-    audio_segment = draft.Audio_segment(
-        audio_material,
+    audio_segment = draft.AudioSegment(
+        audioMaterial,
         target_timerange=trange(f"{target_start}s", f"{segment_duration}s"),
         source_timerange=trange(f"{start}s", f"{segment_duration}s"),
         speed=speed,
@@ -170,15 +170,15 @@ def add_audio_track(
         # Add audio track (only when track doesn't exist)
         if track_name is not None:
             try:
-                script.get_imported_track(draft.Track_type.audio, name=track_name)
+                script.get_imported_track(draft.TrackType.audio, name=track_name)
                 # If no exception is thrown, the track already exists
                 logger.debug(f"Audio track '{track_name}' already exists")
             except exceptions.TrackNotFound:
                 # Track doesn't exist, create a new track
-                script.add_track(draft.Track_type.audio, track_name=track_name)
+                script.add_track(draft.TrackType.audio, track_name=track_name)
                 logger.debug(f"Created new audio track '{track_name}'")
         else:
-            script.add_track(draft.Track_type.audio)
+            script.add_track(draft.TrackType.audio)
             logger.debug("Added audio track with default name")
 
         # Add audio segment to track

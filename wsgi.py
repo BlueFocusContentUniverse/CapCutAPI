@@ -2,25 +2,23 @@
 WSGI entry point for production deployment
 """
 
+# Import the Flask application
+# Configure logging for production
+import logging
 import os
 import sys
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
-
-# Add the project directory to Python path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
 
 # Load environment variables
 from dotenv import load_dotenv
 
-load_dotenv()
-
-# Import the Flask application
-# Configure logging for production
-import logging
-from logging.handlers import RotatingFileHandler
-
 from capcut_server import app
+
+load_dotenv()
+# Add the project directory to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
 if not app.debug:
     # Create logs directory if it doesn't exist

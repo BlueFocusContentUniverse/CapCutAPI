@@ -67,13 +67,13 @@ def get_tracks_api():
 def delete_track_api():
     """
     Delete a track from a draft by name
-    
+
     Request body:
     {
         "draft_id": str (required),
         "track_name": str (required)
     }
-    
+
     Response:
     {
         "success": bool,
@@ -123,13 +123,13 @@ def delete_track_api():
 def get_track_details_api():
     """
     Get detailed information about a specific track
-    
+
     Request body:
     {
         "draft_id": str (required),
         "track_name": str (required)
     }
-    
+
     Response:
     {
         "success": bool,

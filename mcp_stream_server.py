@@ -17,7 +17,6 @@ import mcp.types as types
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
-from api.metadata import get_audio_effect_types_logic, get_font_types_logic
 from db import init_db
 from logging_utils import mcp_tool_logger
 
@@ -29,6 +28,8 @@ from services.add_text_impl import add_text_impl
 from services.add_video_track import add_video_track
 from services.create_draft import create_draft
 from services.generate_video_impl import generate_video_impl
+from services.get_audio_effect_types_impl import get_audio_effect_types_impl
+from services.get_font_types_impl import get_font_types_impl
 from services.segment_management import delete_segment, get_segment_details
 from services.track_management import delete_track, get_track_details, get_tracks
 
@@ -563,13 +564,13 @@ def tool_get_video_task_status(task_id: str) -> Dict[str, Any]:
 @mcp_tool_logger("get_font_types")
 def tool_get_font_types() -> Dict[str, Any]:
     """Fetch available font types."""
-    return get_font_types_logic()
+    return get_font_types_impl()
 
 
 @mcp_tool_logger("get_audio_effect_types")
 def tool_get_audio_effect_types() -> Dict[str, Any]:
     """Fetch available audio effect types."""
-    return get_audio_effect_types_logic()
+    return get_audio_effect_types_impl()
 
 
 @mcp_tool_logger("get_tracks")

@@ -75,13 +75,13 @@ def add_effect_impl(
     # Add effect track (only when track doesn't exist)
     if track_name is not None:
         try:
-            script.get_imported_track(draft.Track_type.effect, name=track_name)
+            script.get_imported_track(draft.TrackType.effect, name=track_name)
             # If no exception is thrown, the track already exists
         except exceptions.TrackNotFound:
             # Track doesn't exist, create a new track
-            script.add_track(draft.Track_type.effect, track_name=track_name)
+            script.add_track(draft.TrackType.effect, track_name=track_name)
     else:
-        script.add_track(draft.Track_type.effect)
+        script.add_track(draft.TrackType.effect)
 
     # Add effect
     script.add_effect(effect_enum, t_range, params=params, track_name=track_name)

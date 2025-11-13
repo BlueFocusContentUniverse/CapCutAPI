@@ -5,7 +5,7 @@ import uuid
 from typing import Any, Dict, Literal, Optional
 
 
-class Crop_settings:
+class CropSettings:
     """素材的裁剪设置, 各属性均在0-1之间, 注意素材的坐标原点在左上角"""
 
     upper_left_x: float
@@ -62,7 +62,7 @@ class VideoMaterial:
     """素材高度"""
     width: int
     """素材宽度"""
-    crop_settings: Crop_settings
+    crop_settings: CropSettings
     """素材裁剪设置"""
     material_type: Literal["video", "photo"]
     """素材类型: 视频或图片"""
@@ -73,7 +73,7 @@ class VideoMaterial:
                  path: Optional[str] = None,
                  replace_path: Optional[str] = None,
                  material_name: Optional[str] = None,
-                 crop_settings: Crop_settings = Crop_settings(),
+                 crop_settings: CropSettings = CropSettings(),
                  remote_url: Optional[str] = None,
                  duration: Optional[float] = None,
                  width: Optional[int] = None,
@@ -206,10 +206,10 @@ class VideoMaterial:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "VideoMaterial":
         """从字典创建视频素材对象
-        
+
         Args:
             data (Dict[str, Any]): 包含素材信息的字典
-            
+
         Returns:
             VideoMaterial: 新创建的视频素材对象
         """
@@ -229,7 +229,7 @@ class VideoMaterial:
 
         # 设置裁剪设置
         crop_data = data.get("crop", {})
-        instance.crop_settings = Crop_settings(
+        instance.crop_settings = CropSettings(
             upper_left_x=crop_data.get("upper_left_x", 0.0),
             upper_left_y=crop_data.get("upper_left_y", 0.0),
             upper_right_x=crop_data.get("upper_right_x", 1.0),
@@ -265,7 +265,7 @@ class VideoMaterial:
         }
         return video_material_json
 
-class Audio_material:
+class AudioMaterial:
     """本地音频素材"""
 
     material_id: str
@@ -384,14 +384,14 @@ class Audio_material:
             raise ValueError(f"解析媒体信息时出错: {e}")
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Audio_material":
+    def from_dict(cls, data: Dict[str, Any]) -> "AudioMaterial":
         """从字典创建音频素材对象
-        
+
         Args:
             data (Dict[str, Any]): 包含素材信息的字典
-            
+
         Returns:
-            Audio_material: 新创建的音频素材对象
+            AudioMaterial: 新创建的音频素材对象
         """
         # 创建实例但不调用__init__
         instance = cls.__new__(cls)

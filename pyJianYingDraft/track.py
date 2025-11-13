@@ -8,7 +8,7 @@ from typing import Any, Dict, Generic, List, Type, TypeVar, Union
 
 import pyJianYingDraft as draft
 
-from .audio_segment import Audio_segment
+from .audio_segment import AudioSegment
 from .effect_segment import Effect_segment, Filter_segment
 from .exceptions import SegmentOverlap
 from .segment import BaseSegment
@@ -17,10 +17,10 @@ from .video_segment import StickerSegment, VideoSegment
 
 
 @dataclass
-class Track_meta:
+class TrackMeta:
     """与轨道类型关联的轨道元数据"""
 
-    segment_type: Union[Type[VideoSegment], Type[Audio_segment],
+    segment_type: Union[Type[VideoSegment], Type[AudioSegment],
                         Type[Effect_segment], Type[Filter_segment],
                         Type[Text_segment], Type[StickerSegment], None]
     """与轨道关联的片段类型"""
@@ -29,35 +29,35 @@ class Track_meta:
     allow_modify: bool
     """当被导入时, 是否允许修改"""
 
-class Track_type(Enum):
+class TrackType(Enum):
     """轨道类型枚举
 
     变量名对应type属性, 值表示相应的轨道元数据
     """
 
-    video = Track_meta(VideoSegment, 0, True)
-    audio = Track_meta(Audio_segment, 0, True)
-    effect = Track_meta(Effect_segment, 10000, False)
-    filter = Track_meta(Filter_segment, 11000, False)
-    sticker = Track_meta(StickerSegment, 14000, False)
-    text = Track_meta(Text_segment, 15000, True)  # 原本是14000, 避免与sticker冲突改为15000
+    video = TrackMeta(VideoSegment, 0, True)
+    audio = TrackMeta(AudioSegment, 0, True)
+    effect = TrackMeta(Effect_segment, 10000, False)
+    filter = TrackMeta(Filter_segment, 11000, False)
+    sticker = TrackMeta(StickerSegment, 14000, False)
+    text = TrackMeta(Text_segment, 15000, True)  # 原本是14000, 避免与sticker冲突改为15000
 
-    adjust = Track_meta(None, 0, False)
+    adjust = TrackMeta(None, 0, False)
     """仅供导入时使用, 不要尝试新建此类型的轨道"""
 
     @staticmethod
-    def from_name(name: str) -> "Track_type":
+    def from_name(name: str) -> "TrackType":
         """根据名称获取轨道类型枚举"""
-        for t in Track_type:
+        for t in TrackType:
             if t.name == name:
                 return t
         raise ValueError("Invalid track type: %s" % name)
 
 
-class Base_track(ABC):
+class BaseTrack(ABC):
     """轨道基类"""
 
-    track_type: Track_type
+    track_type: TrackType
     """轨道类型"""
     name: str
     """轨道名称"""
@@ -70,7 +70,7 @@ class Base_track(ABC):
     def export_json(self) -> Dict[str, Any]: ...
 
 Seg_type = TypeVar("Seg_type", bound=BaseSegment)
-class Track(Base_track, Generic[Seg_type]):
+class Track(BaseTrack, Generic[Seg_type]):
     """非模板模式下的轨道"""
 
     mute: bool
@@ -82,7 +82,7 @@ class Track(Base_track, Generic[Seg_type]):
     pending_keyframes: List[Dict[str, Any]]
     """待处理的关键帧列表"""
 
-    def __init__(self, track_type: Track_type, name: str, render_index: int, mute: bool):
+    def __init__(self, track_type: TrackType, name: str, render_index: int, mute: bool):
         self.track_type = track_type
         self.name = name
         self.track_id = uuid.uuid4().hex
@@ -130,7 +130,7 @@ class Track(Base_track, Generic[Seg_type]):
                     continue
 
                 # 将属性类型字符串转换为枚举值
-                property_enum = getattr(draft.Keyframe_property, property_type)
+                property_enum = getattr(draft.KeyframeProperty, property_type)
 
                 # 解析value值
                 if (property_type == "alpha" and value.endswith("%")) or (property_type == "volume" and value.endswith("%")):

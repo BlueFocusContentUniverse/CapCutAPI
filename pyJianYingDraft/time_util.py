@@ -1,7 +1,6 @@
 """定义时间范围类以及与时间相关的辅助函数"""
 
-from typing import Union
-from typing import Dict
+from typing import Dict, Union
 
 SEC = 1000000
 """一秒=1e6微秒"""

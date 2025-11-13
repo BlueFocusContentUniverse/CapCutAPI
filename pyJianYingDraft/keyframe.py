@@ -33,7 +33,7 @@ class Keyframe:
             "values": self.values
         }
 
-class Keyframe_property(Enum):
+class KeyframeProperty(Enum):
     """关键帧所控制的属性类型"""
 
     position_x = "KFTypePositionX"
@@ -67,12 +67,12 @@ class Keyframe_list:
 
     list_id: str
     """关键帧列表全局id, 自动生成"""
-    keyframe_property: Keyframe_property
+    keyframe_property: KeyframeProperty
     """关键帧对应的属性"""
     keyframes: List[Keyframe]
     """关键帧列表"""
 
-    def __init__(self, keyframe_property: Keyframe_property):
+    def __init__(self, keyframe_property: KeyframeProperty):
         """为给定的关键帧属性初始化关键帧列表"""
         self.list_id = uuid.uuid4().hex
 

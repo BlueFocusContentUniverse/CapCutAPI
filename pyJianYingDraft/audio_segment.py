@@ -13,8 +13,8 @@ from pyJianYingDraft.metadata.capcut_audio_effect_meta import (
     CapCutVoiceFiltersEffectType,
 )
 
-from .keyframe import Keyframe_list, Keyframe_property
-from .local_materials import Audio_material
+from .keyframe import Keyframe_list, KeyframeProperty
+from .local_materials import AudioMaterial
 from .metadata import (
     AudioSceneEffectType,
     EffectParamInstance,
@@ -25,7 +25,7 @@ from .segment import AudioFade, MediaSegment
 from .time_util import Timerange, tim
 
 
-class Audio_effect:
+class AudioEffect:
     """音频特效对象"""
 
     name: str
@@ -89,10 +89,10 @@ class Audio_effect:
             # 不导出path和constant_material_id
         }
 
-class Audio_segment(MediaSegment):
+class AudioSegment(MediaSegment):
     """安放在轨道上的一个音频片段"""
 
-    material_instance: Audio_material
+    material_instance: AudioMaterial
     """音频素材实例"""
 
     fade: Optional[AudioFade]
@@ -101,18 +101,18 @@ class Audio_segment(MediaSegment):
     在放入轨道时自动添加到素材列表中
     """
 
-    effects: List[Audio_effect]
+    effects: List[AudioEffect]
     """音频特效列表
 
     在放入轨道时自动添加到素材列表中
     """
 
-    def __init__(self, material: Audio_material, target_timerange: Timerange, *,
+    def __init__(self, material: AudioMaterial, target_timerange: Timerange, *,
                  source_timerange: Optional[Timerange] = None, speed: Optional[float] = None, volume: float = 1.0):
         """利用给定的音频素材构建一个轨道片段, 并指定其时间信息及播放速度/音量
 
         Args:
-            material (`Audio_material`): 素材实例
+            material (`AudioMaterial`): 素材实例
             target_timerange (`Timerange`): 片段在轨道上的目标时间范围
             source_timerange (`Timerange`, optional): 截取的素材片段的时间范围, 默认从开头根据`speed`截取与`target_timerange`等长的一部分
             speed (`float`, optional): 播放速度, 默认为1.0. 此项与`source_timerange`同时指定时, 将覆盖`target_timerange`中的时长
@@ -140,7 +140,7 @@ class Audio_segment(MediaSegment):
 
     def add_effect(self, effect_type: Union[AudioSceneEffectType, ToneEffectType, SpeechToSongType, CapCutVoiceFiltersEffectType, CapCutVoiceCharactersEffectType, CapCutSpeechToSongEffectType],
                    params: Optional[List[Optional[float]]] = None,
-                   effect_id: Optional[str] = None) -> "Audio_segment":
+                   effect_id: Optional[str] = None) -> "AudioSegment":
         """为音频片段添加一个作用于整个片段的音频效果, 目前"声音成曲"效果不能自动被剪映所识别
 
         Args:
@@ -155,7 +155,7 @@ class Audio_segment(MediaSegment):
         if params is not None and len(params) > len(effect_type.value.params):
             raise ValueError("为音频效果 %s 传入了过多的参数" % effect_type.value.name)
         self.material_instance.has_audio_effect = True  # 添加这行代码
-        effect_inst = Audio_effect(effect_type, params)
+        effect_inst = AudioEffect(effect_type, params)
         if effect_id is not None:
             effect_inst.effect_id = effect_id
         if effect_inst.category_id in [eff.category_id for eff in self.effects]:
@@ -165,7 +165,7 @@ class Audio_segment(MediaSegment):
 
         return self
 
-    def add_fade(self, in_duration: Union[str, int], out_duration: Union[str, int]) -> "Audio_segment":
+    def add_fade(self, in_duration: Union[str, int], out_duration: Union[str, int]) -> "AudioSegment":
         """为音频片段添加淡入淡出效果
 
         Args:
@@ -186,14 +186,14 @@ class Audio_segment(MediaSegment):
 
         return self
 
-    def add_keyframe(self, time_offset: int, volume: float) -> "Audio_segment":
+    def add_keyframe(self, time_offset: int, volume: float) -> "AudioSegment":
         """为音频片段创建一个*控制音量*的关键帧, 并自动加入到关键帧列表中
 
         Args:
             time_offset (`int`): 关键帧的时间偏移量, 单位为微秒
             volume (`float`): 音量在`time_offset`处的值
         """
-        _property = Keyframe_property.volume
+        _property = KeyframeProperty.volume
         for kf_list in self.common_keyframes:
             if kf_list.keyframe_property == _property:
                 kf_list.add_keyframe(time_offset, volume)
