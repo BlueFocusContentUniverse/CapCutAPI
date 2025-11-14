@@ -3,7 +3,7 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from logging_utils import api_endpoint_logger
-from services.add_audio_track import add_audio_track
+from services.add_audio_track import add_audio_track, batch_add_audio_track
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("audio", __name__)
@@ -92,42 +92,24 @@ def batch_add_audios():
         return jsonify(result)
 
     try:
-        outputs = []
-        for idx, audio in enumerate(audios):
-            audio_url = audio.get("audio_url")
-            start = audio.get("start", 0)
-            end = audio.get("end", None)
-            target_start = audio.get("target_start", 0)
-            speed = audio.get("speed", 1.0)
-            duration = audio.get("duration", None)
-
-            if not audio_url:
-                logger.warning(f"Audio at index {idx} is missing 'audio_url', skipping.")
-                continue
-
-            draft_result = add_audio_track(
-                audio_url=audio_url,
-                start=start,
-                end=end,
-                target_start=target_start,
-                draft_id=draft_id,
-                volume=volume,
-                track_name=track_name,
-                speed=speed,
-                sound_effects=sound_effects,
-                duration=duration
-            )
-
-            outputs.append({
-                "audio_url": audio_url,
-                "result": draft_result
-            })
-
-            # Update draft_id for subsequent audios
-            draft_id = draft_result
+        batch_result = batch_add_audio_track(
+            audios=audios,
+            draft_folder=data.get("draft_folder"),
+            draft_id=draft_id,
+            volume=volume,
+            track_name=track_name,
+            speed=data.get("speed", 1.0),
+            sound_effects=sound_effects,
+        )
 
         result["success"] = True
-        result["output"] = outputs
+        result["output"] = batch_result["outputs"]
+        if batch_result["skipped"]:
+            skipped_descriptions = [
+                entry.get("audio_url") or f"index {entry.get('index')}"
+                for entry in batch_result["skipped"]
+            ]
+            result["error"] = f"Skipped audios: {skipped_descriptions}"
         return jsonify(result)
 
     except Exception as e:

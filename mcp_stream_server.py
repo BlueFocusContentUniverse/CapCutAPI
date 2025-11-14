@@ -23,9 +23,10 @@ from logging_utils import mcp_tool_logger
 # pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
 from mcp_tools import TOOLS, execute_tool
+from services.add_audio_track import batch_add_audio_track
 from services.add_effect_impl import add_effect_impl
 from services.add_text_impl import add_text_impl
-from services.add_video_track import add_video_track
+from services.add_video_track import add_video_track, batch_add_video_track
 from services.create_draft import create_draft
 from services.generate_video_impl import generate_video_impl
 from services.get_audio_effect_types_impl import get_audio_effect_types_impl
@@ -92,48 +93,26 @@ def tool_batch_add_videos(
     if not videos:
         return {"success": False, "error": "videos array is empty"}
 
-    outputs = []
-    current_draft_id = draft_id
-
-    for idx, video in enumerate(videos):
-        video_url = video.get("video_url")
-        if not video_url:
-            logger.warning(f"Video at index {idx} is missing 'video_url', skipping.")
-            continue
-
-        video_start = video.get("start", 0)
-        video_end = video.get("end", 0)
-        video_target_start = video.get("target_start", 0)
-        video_speed = video.get("speed", 1.0)
-        mode = video.get("mode", "cover")
-        duration = video.get("duration", None)
-        target_duration = video.get("target_duration", None)
-
-        result = add_video_track(
-            video_url=video_url,
-            start=video_start,
-            end=video_end,
-            mode=mode,
-            target_duration=target_duration,
-            target_start=video_target_start,
-            draft_id=current_draft_id,
+    try:
+        batch_result = batch_add_video_track(
+            videos=videos,
+            draft_folder=None,
+            draft_id=draft_id,
             transform_y=transform_y,
             scale_x=scale_x,
             scale_y=scale_y,
             transform_x=transform_x,
-            speed=video_speed,
             track_name=track_name,
             relative_index=relative_index,
-            duration=duration,
+            transition=transition,
+            transition_duration=transition_duration,
+            volume=volume,
             intro_animation=intro_animation,
             intro_animation_duration=intro_animation_duration,
             outro_animation=outro_animation,
             outro_animation_duration=outro_animation_duration,
             combo_animation=combo_animation,
             combo_animation_duration=combo_animation_duration,
-            transition=transition,
-            transition_duration=transition_duration,
-            volume=volume,
             mask_type=mask_type,
             mask_center_x=mask_center_x,
             mask_center_y=mask_center_y,
@@ -148,20 +127,17 @@ def tool_batch_add_videos(
             fade_in_duration=fade_in_duration,
             fade_out_duration=fade_out_duration,
             background_blur=background_blur,
+            default_mode="cover",
         )
-
-        outputs.append({
-            "video_url": video_url,
-            "result": result
-        })
-
-        # Update draft_id for subsequent videos
-        current_draft_id = result
+    except Exception as exc:
+        logger.error(f"Failed to batch add videos: {exc}", exc_info=True)
+        return {"success": False, "error": str(exc)}
 
     return {
         "success": True,
-        "output": outputs,
-        "final_draft_id": current_draft_id
+        "output": batch_result["outputs"],
+        "final_draft_id": batch_result["draft_id"],
+        "skipped": batch_result["skipped"],
     }
 
 
@@ -259,8 +235,6 @@ def tool_batch_add_audios(
     effect_params: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
     """Batch add multiple audios to the track."""
-    from services.add_audio_track import add_audio_track
-
     if not audios:
         return {"success": False, "error": "audios array is empty"}
 
@@ -268,46 +242,25 @@ def tool_batch_add_audios(
     if effect_type is not None:
         sound_effects = [(effect_type, effect_params)]
 
-    outputs = []
-    current_draft_id = draft_id
-
-    for idx, audio in enumerate(audios):
-        audio_url = audio.get("audio_url")
-        if not audio_url:
-            logger.warning(f"Audio at index {idx} is missing 'audio_url', skipping.")
-            continue
-
-        audio_start = audio.get("start", 0)
-        audio_end = audio.get("end", None)
-        audio_target_start = audio.get("target_start", 0)
-        audio_speed = audio.get("speed", 1.0)
-        audio_duration = audio.get("duration", None)
-
-        result = add_audio_track(
-            audio_url=audio_url,
-            start=audio_start,
-            end=audio_end,
-            target_start=audio_target_start,
-            draft_id=current_draft_id,
+    try:
+        batch_result = batch_add_audio_track(
+            audios=audios,
+            draft_folder=None,
+            draft_id=draft_id,
             volume=volume,
             track_name=track_name,
-            speed=audio_speed,
+            speed=1.0,
             sound_effects=sound_effects,
-            duration=audio_duration
         )
-
-        outputs.append({
-            "audio_url": audio_url,
-            "result": result
-        })
-
-        # Update draft_id for subsequent audios
-        current_draft_id = result
+    except Exception as exc:
+        logger.error(f"Failed to batch add audios: {exc}", exc_info=True)
+        return {"success": False, "error": str(exc)}
 
     return {
         "success": True,
-        "output": outputs,
-        "final_draft_id": current_draft_id
+        "output": batch_result["outputs"],
+        "final_draft_id": batch_result["draft_id"],
+        "skipped": batch_result["skipped"],
     }
 
 

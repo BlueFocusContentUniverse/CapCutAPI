@@ -49,6 +49,24 @@ def generate_video_impl(
             return result
 
         draft_content = json.loads(script.dumps())
+        materials = draft_content.get("materials") if isinstance(draft_content, dict) else None
+        material_count = 0
+        if isinstance(materials, dict):
+            for material_group in materials.values():
+                if isinstance(material_group, list):
+                    material_count += len(material_group)
+                elif isinstance(material_group, dict):
+                    material_count += sum(
+                        len(sub_group) for sub_group in material_group.values() if isinstance(sub_group, list)
+                    )
+
+        if material_count == 0:
+            logger.warning(f"Draft {draft_id} contains no materials. Aborting video generation dispatch.")
+            result["error"] = (
+                "Draft has no materials. Please add at least one media asset before generating a video."
+            )
+            return result
+
         if name:
             draft_content["name"] = name
 

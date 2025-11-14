@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from logging_utils import api_endpoint_logger
 from services.add_video_keyframe_impl import add_video_keyframe_impl
-from services.add_video_track import add_video_track
+from services.add_video_track import add_video_track, batch_add_video_track
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("video", __name__)
@@ -169,73 +169,50 @@ def batch_add_videos():
         return jsonify(result)
 
     try:
-        outputs = []
-        for idx, video in enumerate(videos):
-            video_url = video.get("video_url")
-            start = video.get("start", 0)
-            end = video.get("end", 0)
-            target_start = video.get("target_start", 0)
-            mode=video.get("mode", "cover")
-            target_duration = video.get("target_duration", None)
-            duration = video.get("duration", None)
-            speed = video.get("speed", 1.0)
-
-            if not video_url:
-                logger.warning(f"Video at index {idx} is missing 'video_url', skipping.")
-                continue
-
-            draft_result = add_video_track(
-                draft_folder=draft_folder,
-                video_url=video_url,
-                start=start,
-                end=end,
-                mode=mode,
-                target_duration=target_duration,
-                target_start=target_start,
-                draft_id=draft_id,
-                transform_y=transform_y,
-                scale_x=scale_x,
-                scale_y=scale_y,
-                transform_x=transform_x,
-                speed=speed,
-                track_name=track_name,
-                relative_index=relative_index,
-                duration=duration,
-                intro_animation=intro_animation,
-                intro_animation_duration=intro_animation_duration,
-                outro_animation=outro_animation,
-                outro_animation_duration=outro_animation_duration,
-                combo_animation=combo_animation,
-                combo_animation_duration=combo_animation_duration,
-                transition=transition,
-                transition_duration=transition_duration,
-                volume=volume,
-                mask_type=mask_type,
-                mask_center_x=mask_center_x,
-                mask_center_y=mask_center_y,
-                mask_size=mask_size,
-                mask_rotation=mask_rotation,
-                mask_feather=mask_feather,
-                mask_invert=mask_invert,
-                mask_rect_width=mask_rect_width,
-                mask_round_corner=mask_round_corner,
-                filter_type=filter_type,
-                filter_intensity=filter_intensity,
-                fade_in_duration=fade_in_duration,
-                fade_out_duration=fade_out_duration,
-                background_blur=background_blur
-            )
-
-            outputs.append({
-                "video_url": video_url,
-                "result": draft_result
-            })
-
-            # Update draft_id for subsequent videos
-            draft_id = draft_result
+        batch_result = batch_add_video_track(
+            videos=videos,
+            draft_folder=draft_folder,
+            draft_id=draft_id,
+            transform_y=transform_y,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            transform_x=transform_x,
+            track_name=track_name,
+            relative_index=relative_index,
+            transition=transition,
+            transition_duration=transition_duration,
+            volume=volume,
+            intro_animation=intro_animation,
+            intro_animation_duration=intro_animation_duration,
+            outro_animation=outro_animation,
+            outro_animation_duration=outro_animation_duration,
+            combo_animation=combo_animation,
+            combo_animation_duration=combo_animation_duration,
+            mask_type=mask_type,
+            mask_center_x=mask_center_x,
+            mask_center_y=mask_center_y,
+            mask_size=mask_size,
+            mask_rotation=mask_rotation,
+            mask_feather=mask_feather,
+            mask_invert=mask_invert,
+            mask_rect_width=mask_rect_width,
+            mask_round_corner=mask_round_corner,
+            filter_type=filter_type,
+            filter_intensity=filter_intensity,
+            fade_in_duration=fade_in_duration,
+            fade_out_duration=fade_out_duration,
+            background_blur=background_blur,
+            default_mode=data.get("mode", "cover"),
+        )
 
         result["success"] = True
-        result["output"] = outputs
+        result["output"] = batch_result["outputs"]
+        if batch_result["skipped"]:
+            skipped_descriptions = [
+                entry.get("video_url") or f"index {entry.get('index')}"
+                for entry in batch_result["skipped"]
+            ]
+            result["error"] = f"Skipped videos: {skipped_descriptions}"
         return jsonify(result)
 
     except Exception as e:

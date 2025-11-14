@@ -2,7 +2,7 @@ import logging
 import time
 from collections import OrderedDict
 from collections.abc import Mapping
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import pyJianYingDraft as draft
 from repositories.draft_repository import get_postgres_storage
@@ -239,7 +239,13 @@ def get_cache_stats() -> Dict:
             "postgres_stats": {}
         }
 
-def update_draft_with_retry(draft_id: str, modifier_func, max_retries: int = MAX_RETRIES) -> bool:
+def update_draft_with_retry(
+    draft_id: str,
+    modifier_func,
+    max_retries: int = MAX_RETRIES,
+    *,
+    return_error: bool = False,
+) -> Union[bool, Tuple[bool, Optional[Exception]]]:
     """
     Update a draft with automatic retry on version conflicts.
 
@@ -265,17 +271,25 @@ def update_draft_with_retry(draft_id: str, modifier_func, max_retries: int = MAX
     """
     normalized_id = _normalize_cache_key(draft_id)
     if not normalized_id:
-        logger.error("Cannot update draft with invalid draft_id: %s", draft_id)
+        err = ValueError(f"Cannot update draft with invalid draft_id: {draft_id!r}")
+        logger.error("%s", err)
+        if return_error:
+            return False, err
         return False
 
     retry_delay = RETRY_DELAY_MS / 1000.0  # Convert to seconds
+    last_exception: Optional[Exception] = None
 
     for attempt in range(max_retries):
         try:
             # Get latest version from database
             result = get_from_cache_with_version(normalized_id)
             if result is None:
-                logger.error(f"Draft {normalized_id} not found in cache")
+                err = RuntimeError(f"Draft {normalized_id} not found in cache or storage")
+                last_exception = err
+                logger.error("%s", err)
+                if return_error:
+                    return False, err
                 return False
 
             script, current_version = result
@@ -289,29 +303,44 @@ def update_draft_with_retry(draft_id: str, modifier_func, max_retries: int = MAX
 
             if success:
                 logger.info(f"Successfully updated draft {normalized_id} on attempt {attempt + 1}")
+                if return_error:
+                    return True, None
                 return True
             else:
+                last_exception = RuntimeError(
+                    f"Version conflict for draft {normalized_id} on attempt {attempt + 1}/{max_retries}"
+                )
                 # Version conflict - retry
                 if attempt < max_retries - 1:
                     logger.warning(
-                        f"Version conflict for draft {normalized_id} on attempt {attempt + 1}/{max_retries}. "
-                        f"Retrying in {retry_delay * 1000:.0f}ms..."
+                        f"{last_exception}. Retrying in {retry_delay * 1000:.0f}ms..."
                     )
                     time.sleep(retry_delay)
                     # Exponential backoff
                     retry_delay *= 2
                 else:
                     logger.error(
-                        f"Failed to update draft {normalized_id} after {max_retries} attempts due to version conflicts"
+                        "Failed to update draft %s after %s attempts due to version conflicts",
+                        normalized_id,
+                        max_retries,
                     )
+                    if return_error:
+                        return False, last_exception
                     return False
 
         except Exception as e:
-            logger.error(f"Error during update attempt {attempt + 1} for draft {normalized_id}: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
-                retry_delay *= 2
-            else:
-                return False
+            last_exception = e
+            logger.error(
+                "Error during update attempt %s for draft %s: %s",
+                attempt + 1,
+                normalized_id,
+                e,
+                exc_info=True,
+            )
+            if return_error:
+                return False, last_exception
+            raise
 
+    if return_error:
+        return False, last_exception
     return False

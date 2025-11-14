@@ -2,7 +2,8 @@
 import logging
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import pyJianYingDraft as draft
 from draft_cache import update_draft_with_retry
@@ -24,19 +25,28 @@ from .create_draft import get_draft
 logger = logging.getLogger(__name__)
 
 
-def add_audio_track(
+@dataclass
+class AudioSegmentPayload:
+    audio_url: str
+    segment: draft.AudioSegment
+    track_name: Optional[str]
+    sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]]
+
+
+def _prepare_audio_segment_payload(
+    *,
+    draft_id: str,
     audio_url: str,
-    draft_folder: Optional[str] = None,
-    start: float = 0,
-    end: Optional[float] = None,
-    target_start: float = 0,
-    draft_id: Optional[str] = None,
-    volume: float = 1.0,
-    track_name: str = "audio_main",
-    speed: float = 1.0,
-    sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]]=None,
-    duration: Optional[float] = None  # Added duration parameter
-) -> Dict[str, str]:
+    draft_folder: Optional[str],
+    start: float,
+    end: Optional[float],
+    target_start: float,
+    volume: float,
+    track_name: Optional[str],
+    speed: float,
+    sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]],
+    duration: Optional[float],
+) -> AudioSegmentPayload:
     """
     Add an audio track to the specified draft
     :param draft_folder: Draft folder path, optional parameter
@@ -52,10 +62,6 @@ def add_audio_track(
     :param duration: Audio duration (seconds), if provided, skip duration detection
     :return: Updated draft information
     """
-    # Get or create draft (initial fetch for validation only)
-    draft_id, _ = get_draft(draft_id=draft_id)
-    logger.info(f"Starting audio track addition to draft {draft_id}")
-
     # If duration parameter is provided, prioritize it; otherwise use default audio duration of 0 seconds, real duration will be obtained during download
     if duration is not None:
         # Use the provided duration, skip duration retrieval and checking
@@ -120,76 +126,112 @@ def add_audio_track(
         volume=volume
     )
 
-    # Add scene sound effects
-    if sound_effects:
-        for effect_name, params in sound_effects:
-            # Choose different effect types based on IS_CAPCUT_ENV
+    return AudioSegmentPayload(
+        audio_url=audio_url,
+        segment=audio_segment,
+        track_name=track_name,
+        sound_effects=sound_effects,
+    )
+
+
+def _apply_audio_segment_to_script(
+    script,
+    payload: AudioSegmentPayload,
+    draft_id: str,
+) -> None:
+    logger.debug(f"Applying audio track modifications to draft {draft_id}")
+
+    track_name = payload.track_name
+
+    if track_name is not None:
+        try:
+            script.get_imported_track(draft.TrackType.audio, name=track_name)
+            logger.debug(f"Audio track '{track_name}' already exists")
+        except exceptions.TrackNotFound:
+            script.add_track(draft.TrackType.audio, track_name=track_name)
+            logger.debug(f"Created new audio track '{track_name}'")
+    else:
+        script.add_track(draft.TrackType.audio)
+        logger.debug("Added audio track with default name")
+
+    if payload.sound_effects:
+        for effect_name, params in payload.sound_effects:
             effect_type = None
-
             if IS_CAPCUT_ENV:
-                # In CapCut environment, look for effects in CapCut_Voice_filters_effect_type
-                try:
-                    effect_type = getattr(CapCutVoiceFiltersEffectType, effect_name)
-                except AttributeError:
+                for source in (
+                    CapCutVoiceFiltersEffectType,
+                    CapCutVoiceCharactersEffectType,
+                    CapCutSpeechToSongEffectType,
+                ):
                     try:
-                        # Look for effects in CapCut_Voice_characters_effect_type
-                        effect_type = getattr(CapCutVoiceCharactersEffectType, effect_name)
+                        effect_type = getattr(source, effect_name)
+                        break
                     except AttributeError:
-                        # If still not found, look for effects in CapCut_Speech_to_song_effect_type
-                        try:
-                            effect_type = getattr(CapCutSpeechToSongEffectType, effect_name)
-                        except AttributeError:
-                            effect_type = None
+                        continue
             else:
-                # In JianYing environment, look for effects in Audio_scene_effect_type
-                try:
-                    effect_type = getattr(AudioSceneEffectType, effect_name)
-                except AttributeError:
-                    # If not found in Audio_scene_effect_type, continue searching in other effect types
+                for source in (
+                    AudioSceneEffectType,
+                    ToneEffectType,
+                    SpeechToSongType,
+                ):
                     try:
-                        effect_type = getattr(ToneEffectType, effect_name)
+                        effect_type = getattr(source, effect_name)
+                        break
                     except AttributeError:
-                        # If still not found, look for effects in Speech_to_song_type
-                        try:
-                            effect_type = getattr(SpeechToSongType, effect_name)
-                        except AttributeError:
-                            effect_type = None
+                        continue
 
-            # If corresponding effect type is found, add it to the audio segment
             if effect_type:
-                audio_segment.add_effect(effect_type, params)
+                payload.segment.add_effect(effect_type, params)
                 logger.debug(f"Added audio effect: {effect_name}")
             else:
                 logger.warning(f"Audio effect named {effect_name} not found")
 
-    # Define modifier function that will be called with retry logic
+    script.add_segment(payload.segment, track_name=track_name)
+    logger.debug("Added audio segment to track")
+
+
+def add_audio_track(
+    audio_url: str,
+    draft_folder: Optional[str] = None,
+    start: float = 0,
+    end: Optional[float] = None,
+    target_start: float = 0,
+    draft_id: Optional[str] = None,
+    volume: float = 1.0,
+    track_name: str = "audio_main",
+    speed: float = 1.0,
+    sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]] = None,
+    duration: Optional[float] = None  # Added duration parameter
+) -> Dict[str, str]:
+    # Get or create draft (initial fetch for validation only)
+    draft_id, _ = get_draft(draft_id=draft_id)
+    logger.info(f"Starting audio track addition to draft {draft_id}")
+
+    payload = _prepare_audio_segment_payload(
+        draft_id=draft_id,
+        audio_url=audio_url,
+        draft_folder=draft_folder,
+        start=start,
+        end=end,
+        target_start=target_start,
+        volume=volume,
+        track_name=track_name,
+        speed=speed,
+        sound_effects=sound_effects,
+        duration=duration,
+    )
+
     def modify_draft(script):
-        """Modifier function that adds audio track to the draft"""
-        logger.debug(f"Applying audio track modifications to draft {draft_id}")
+        _apply_audio_segment_to_script(script, payload, draft_id)
 
-        # Add audio track (only when track doesn't exist)
-        if track_name is not None:
-            try:
-                script.get_imported_track(draft.TrackType.audio, name=track_name)
-                # If no exception is thrown, the track already exists
-                logger.debug(f"Audio track '{track_name}' already exists")
-            except exceptions.TrackNotFound:
-                # Track doesn't exist, create a new track
-                script.add_track(draft.TrackType.audio, track_name=track_name)
-                logger.debug(f"Created new audio track '{track_name}'")
-        else:
-            script.add_track(draft.TrackType.audio)
-            logger.debug("Added audio track with default name")
-
-        # Add audio segment to track
-        script.add_segment(audio_segment, track_name=track_name)
-        logger.debug("Added audio segment to track")
-
-    # Use retry mechanism to handle concurrent updates
-    success = update_draft_with_retry(draft_id, modify_draft)
+    success, last_error = update_draft_with_retry(draft_id, modify_draft, return_error=True)
 
     if not success:
         error_msg = f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
+        if last_error:
+            error_msg = f"{error_msg}. Last error: {last_error}"
+            logger.error(error_msg, exc_info=True)
+            raise RuntimeError(error_msg) from last_error
         logger.error(error_msg)
         raise RuntimeError(error_msg)
 
@@ -198,4 +240,99 @@ def add_audio_track(
     return {
         "draft_id": draft_id,
         # "draft_url": generate_draft_url(draft_id)
+    }
+
+
+def batch_add_audio_track(
+    audios: List[Dict[str, Any]],
+    draft_folder: Optional[str] = None,
+    draft_id: Optional[str] = None,
+    volume: float = 1.0,
+    track_name: str = "audio_main",
+    speed: float = 1.0,
+    sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]] = None,
+) -> Dict[str, Any]:
+    if not audios:
+        raise ValueError("audios parameter must contain at least one audio entry")
+
+    draft_id, _ = get_draft(draft_id=draft_id)
+    logger.info(f"Starting batch audio track addition to draft {draft_id} (count={len(audios)})")
+
+    payloads: List[AudioSegmentPayload] = []
+    skipped: List[Dict[str, Any]] = []
+
+    for idx, audio in enumerate(audios):
+        audio_url = audio.get("audio_url")
+        if not audio_url:
+            logger.warning(f"Audio at index {idx} is missing 'audio_url', skipping.")
+            skipped.append({"index": idx, "reason": "missing_audio_url"})
+            continue
+
+        try:
+            payload = _prepare_audio_segment_payload(
+                draft_id=draft_id,
+                audio_url=audio_url,
+                draft_folder=audio.get("draft_folder", draft_folder),
+                start=audio.get("start", 0),
+                end=audio.get("end"),
+                target_start=audio.get("target_start", 0),
+                volume=audio.get("volume", volume),
+                track_name=audio.get("track_name", track_name),
+                speed=audio.get("speed", speed),
+                sound_effects=audio.get("sound_effects", sound_effects),
+                duration=audio.get("duration"),
+            )
+            payloads.append(payload)
+        except Exception as exc:
+            logger.error(f"Failed to prepare audio at index {idx}: {exc}", exc_info=True)
+            skipped.append(
+                {
+                    "index": idx,
+                    "reason": str(exc),
+                    "audio_url": audio_url,
+                }
+            )
+
+    if not payloads:
+        logger.warning("No valid audios were prepared for batch addition.")
+        return {
+            "draft_id": draft_id,
+            "outputs": [],
+            "skipped": skipped,
+        }
+
+    def modify_draft(script):
+        for index, payload in enumerate(payloads):
+            try:
+                _apply_audio_segment_to_script(script, payload, draft_id)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed to apply audio payload at index {index} "
+                    f"for URL {payload.audio_url}: {exc}"
+                ) from exc
+
+    success, last_error = update_draft_with_retry(draft_id, modify_draft, return_error=True)
+    if not success:
+        error_msg = (
+            f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
+        )
+        if last_error:
+            error_msg = f"{error_msg}. Last error: {last_error}"
+            logger.error(error_msg, exc_info=True)
+            raise RuntimeError(error_msg) from last_error
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+    outputs = [
+        {
+            "audio_url": payload.audio_url,
+            "result": {"draft_id": draft_id},
+        }
+        for payload in payloads
+    ]
+
+    return {
+        "draft_id": draft_id,
+        "outputs": outputs,
+        "skipped": skipped,
     }
