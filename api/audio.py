@@ -39,7 +39,7 @@ def add_audio():
 
     if not audio_url:
         result["error"] = "Hi, the required parameters 'audio_url' are missing."
-        return jsonify(result)
+        return jsonify(result), 400
 
     try:
         draft_result = add_audio_track(
@@ -62,7 +62,7 @@ def add_audio():
 
     except Exception as e:
         result["error"] = f"Error occurred while processing audio: {e!s}."
-        return jsonify(result)
+        return jsonify(result), 400
 
 
 @bp.route("/batch_add_audios", methods=["POST"])
@@ -91,7 +91,7 @@ def batch_add_audios():
 
     if not audios:
         result["error"] = "Hi, the required parameter 'audios' is missing or empty."
-        return jsonify(result)
+        return jsonify(result), 400
 
     try:
         batch_result = batch_add_audio_track(
@@ -112,11 +112,13 @@ def batch_add_audios():
                 for entry in batch_result["skipped"]
             ]
             result["error"] = f"Skipped audios: {skipped_descriptions}"
+            result["success"] = False
+            return jsonify(result), 400
         return jsonify(result)
 
     except Exception as e:
         logger.error(f"Error occurred while processing batch audios: {e!s}", exc_info=True)
         result["error"] = f"Error occurred while processing batch audios: {e!s}."
-        return jsonify(result)
+        return jsonify(result), 400
 
 

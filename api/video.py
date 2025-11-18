@@ -65,7 +65,7 @@ def add_video():
 
     if not video_url:
         result["error"] = "Hi, the required parameters 'video_url' are missing."
-        return jsonify(result)
+        return jsonify(result), 400
 
     try:
         draft_result = add_video_track(
@@ -117,7 +117,7 @@ def add_video():
 
     except Exception as e:
         result["error"] = f"Error occurred while processing video: {e!s}."
-        return jsonify(result)
+        return jsonify(result), 400
 
 
 @bp.route("/batch_add_videos", methods=["POST"])
@@ -168,7 +168,7 @@ def batch_add_videos():
 
     if not videos:
         result["error"] = "Hi, the required parameter 'videos' is missing or empty."
-        return jsonify(result)
+        return jsonify(result), 400
 
     try:
         batch_result = batch_add_video_track(
@@ -215,12 +215,14 @@ def batch_add_videos():
                 for entry in batch_result["skipped"]
             ]
             result["error"] = f"Skipped videos: {skipped_descriptions}"
+            result["success"] = False
+            return jsonify(result), 400
         return jsonify(result)
 
     except Exception as e:
         logger.error(f"Error occurred while processing batch videos: {e!s}", exc_info=True)
         result["error"] = f"Error occurred while processing batch videos: {e!s}."
-        return jsonify(result)
+        return jsonify(result), 400
 
 
 @bp.route("/add_video_keyframe", methods=["POST"])
@@ -263,6 +265,6 @@ def add_video_keyframe():
 
     except Exception as e:
         result["error"] = f"Error occurred while adding keyframe: {e!s}."
-        return jsonify(result)
+        return jsonify(result), 400
 
 

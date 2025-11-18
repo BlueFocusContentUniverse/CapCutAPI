@@ -51,7 +51,7 @@ def add_image():
 
     if not image_url:
         result["error"] = "Hi, the required parameters 'image_url' are missing."
-        return jsonify(result)
+        return jsonify(result), 400
 
     try:
         draft_result = add_image_impl(
@@ -92,6 +92,6 @@ def add_image():
 
     except Exception as e:
         result["error"] = f"Error occurred while processing image: {e!s}."
-        return jsonify(result)
+        return jsonify(result), 400
 
 

@@ -8,6 +8,7 @@ which supports stdio and SSE (HTTP) transports.
 """
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -91,7 +92,9 @@ def tool_batch_add_videos(
 ) -> Dict[str, Any]:
     """Batch add multiple videos to the track."""
     if not videos:
-        return {"success": False, "error": "videos array is empty"}
+        error_obj = {"code": "invalid_input", "message": "videos array is empty"}
+        logger.error(error_obj["message"])
+        raise RuntimeError(json.dumps(error_obj))
 
     try:
         batch_result = batch_add_video_track(
@@ -131,13 +134,33 @@ def tool_batch_add_videos(
         )
     except Exception as exc:
         logger.error(f"Failed to batch add videos: {exc}", exc_info=True)
-        return {"success": False, "error": str(exc)}
+        err = {"code": "exception", "message": str(exc)}
+        raise RuntimeError(json.dumps(err)) from exc
+
+    outputs = batch_result.get("outputs")
+    skipped = batch_result.get("skipped")
+    draft_id = batch_result.get("draft_id")
+
+    # If some videos were skipped, treat the result as an error response to signal attention is needed.
+    if skipped:
+        skipped_descriptions = [
+            entry.get("video_url") or f"index {entry.get('index')}"
+            for entry in skipped
+        ]
+        error_obj = {
+            "code": "skipped_items",
+            "message": "Skipped videos",
+            "skipped": skipped_descriptions,
+            "draft_id": draft_id,
+        }
+        logger.warning(error_obj["message"] + ": " + str(skipped_descriptions))
+        raise RuntimeError(json.dumps(error_obj))
 
     return {
         "success": True,
-        "output": batch_result["outputs"],
-        "final_draft_id": batch_result["draft_id"],
-        "skipped": batch_result["skipped"],
+        "output": outputs,
+        "draft_id": draft_id,
+        "skipped": skipped,
     }
 
 
@@ -240,7 +263,9 @@ def tool_batch_add_audios(
 ) -> Dict[str, Any]:
     """Batch add multiple audios to the track."""
     if not audios:
-        return {"success": False, "error": "audios array is empty"}
+        error_obj = {"code": "invalid_input", "message": "audios array is empty"}
+        logger.error(error_obj["message"])
+        raise RuntimeError(json.dumps(error_obj))
 
     sound_effects = None
     if effect_type is not None:
@@ -258,13 +283,33 @@ def tool_batch_add_audios(
         )
     except Exception as exc:
         logger.error(f"Failed to batch add audios: {exc}", exc_info=True)
-        return {"success": False, "error": str(exc)}
+        err = {"code": "exception", "message": str(exc)}
+        raise RuntimeError(json.dumps(err)) from exc
+
+    outputs = batch_result.get("outputs")
+    skipped = batch_result.get("skipped")
+    draft_id = batch_result.get("draft_id")
+
+    # If some audios were skipped, treat the result as an error response to signal attention is needed.
+    if skipped:
+        skipped_descriptions = [
+            entry.get("audio_url") or f"index {entry.get('index')}"
+            for entry in skipped
+        ]
+        error_obj = {
+            "code": "skipped_items",
+            "message": "Skipped audios",
+            "skipped": skipped_descriptions,
+            "draft_id": draft_id,
+        }
+        logger.warning(error_obj["message"] + ": " + str(skipped_descriptions))
+        raise RuntimeError(json.dumps(error_obj))
 
     return {
         "success": True,
-        "output": batch_result["outputs"],
-        "final_draft_id": batch_result["draft_id"],
-        "skipped": batch_result["skipped"],
+        "output": outputs,
+        "draft_id": draft_id,
+        "skipped": skipped,
     }
 
 

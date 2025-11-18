@@ -14,9 +14,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install minimal system dependencies for health checks
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+# Use noninteractive frontend to avoid prompts during build and install ffmpeg
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy requirement files first for better caching

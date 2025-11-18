@@ -14,10 +14,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies if needed (uncomment if wheels fail)
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-#     build-essential \
-#  && rm -rf /var/lib/apt/lists/*
+# Use noninteractive frontend to avoid prompts during build and install ffmpeg
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copy requirement files first for better caching
 COPY requirements.txt ./
