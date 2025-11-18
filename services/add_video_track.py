@@ -58,6 +58,7 @@ def _prepare_video_segment_payload(
     outro_animation_duration: float,
     combo_animation: Optional[str],
     combo_animation_duration: float,
+    video_name: Optional[str],
     duration: Optional[float],
     transition: Optional[str],
     transition_duration: Optional[float],
@@ -107,8 +108,12 @@ def _prepare_video_segment_payload(
         video_duration = -1.0
         print("⚠️  警告：未提供duration参数，视频时长将在下载时自动获取（可能耗时较长）")
 
-    # Generate local filename
-    material_name = f"video_{url_to_hash(video_url)}.mp4"
+    if video_name:
+        material_name = video_name
+        logger.debug(f"Using custom video_name '{video_name}' for URL {video_url}")
+    else:
+        # Generate local filename
+        material_name = f"video_{url_to_hash(video_url)}.mp4"
 
     # Build draft_video_path
     draft_video_path = None
@@ -409,6 +414,7 @@ def add_video_track(
     speed: float = 1.0,
     track_name: str = "main",
     relative_index: int = 0,
+    video_name: Optional[str] = None,
     intro_animation: Optional[str] = None,  # New entrance animation parameter, higher priority than animation
     intro_animation_duration: float = 0.5,  # New entrance animation duration parameter, default 0.5 seconds
     outro_animation: Optional[str] = None,  # Exit animation parameter
@@ -463,6 +469,7 @@ def add_video_track(
         outro_animation_duration=outro_animation_duration,
         combo_animation=combo_animation,
         combo_animation_duration=combo_animation_duration,
+        video_name=video_name,
         duration=duration,
         transition=transition,
         transition_duration=transition_duration,
@@ -588,6 +595,7 @@ def batch_add_video_track(
                 outro_animation_duration=video.get("outro_animation_duration", outro_animation_duration),
                 combo_animation=video.get("combo_animation", combo_animation),
                 combo_animation_duration=video.get("combo_animation_duration", combo_animation_duration),
+                video_name=video.get("video_name"),
                 duration=video.get("duration"),
                 transition=video.get("transition", transition),
                 transition_duration=video.get("transition_duration", transition_duration),

@@ -157,6 +157,7 @@ def tool_add_video(
     scale_y: float = 1,
     speed: float = 1.0,
     track_name: str = "main",
+    video_name: Optional[str] = None,
     volume: float = 1.0,
     transition: Optional[str] = None,
     transition_duration: float = 0.5,
@@ -195,6 +196,7 @@ def tool_add_video(
         outro_animation_duration=outro_animation_duration,
         combo_animation=combo_animation,
         combo_animation_duration=combo_animation_duration,
+        video_name=video_name,
     )
 
 
@@ -207,6 +209,7 @@ def tool_add_audio(
     target_start: float = 0,
     volume: float = 1.0,
     speed: float = 1.0,
+    audio_name: Optional[str] = None,
     track_name: str = "audio_main",
     duration: Optional[float] = None,
 ) -> Dict[str, Any]:
@@ -218,6 +221,7 @@ def tool_add_audio(
         "target_start": target_start,
         "volume": volume,
         "speed": speed,
+        "audio_name": audio_name,
         "track_name": track_name,
         "duration": duration,
     }

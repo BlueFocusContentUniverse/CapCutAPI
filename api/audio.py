@@ -15,6 +15,7 @@ def add_audio():
     data = request.get_json()
 
     audio_url = data.get("audio_url")
+    audio_name = data.get("audio_name")
     start = data.get("start", 0)
     end = data.get("end", None)
     draft_id = data.get("draft_id")
@@ -51,6 +52,7 @@ def add_audio():
             track_name=track_name,
             speed=speed,
             sound_effects=sound_effects,
+            audio_name=audio_name,
             duration=duration
         )
 

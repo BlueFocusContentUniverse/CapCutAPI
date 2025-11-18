@@ -45,6 +45,7 @@ def _prepare_audio_segment_payload(
     track_name: Optional[str],
     speed: float,
     sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]],
+    audio_name: Optional[str],
     duration: Optional[float],
 ) -> AudioSegmentPayload:
     """
@@ -72,8 +73,12 @@ def _prepare_audio_segment_payload(
         audio_duration = 0.0  # Default audio duration is 0 seconds
         logger.warning("No duration provided, audio duration will be detected during download")
 
-    # Generate material name
-    material_name = f"audio_{url_to_hash(audio_url)}.mp3"
+    if audio_name:
+        material_name = audio_name
+        logger.debug(f"Using custom audio_name '{audio_name}' for URL {audio_url}")
+    else:
+        # Generate material name
+        material_name = f"audio_{url_to_hash(audio_url)}.mp3"
 
     # Build draft_audio_path
     draft_audio_path = None
@@ -201,6 +206,7 @@ def add_audio_track(
     track_name: str = "audio_main",
     speed: float = 1.0,
     sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]] = None,
+    audio_name: Optional[str] = None,
     duration: Optional[float] = None  # Added duration parameter
 ) -> Dict[str, str]:
     # Get or create draft (initial fetch for validation only)
@@ -218,6 +224,7 @@ def add_audio_track(
         track_name=track_name,
         speed=speed,
         sound_effects=sound_effects,
+        audio_name=audio_name,
         duration=duration,
     )
 
@@ -280,6 +287,7 @@ def batch_add_audio_track(
                 track_name=audio.get("track_name", track_name),
                 speed=audio.get("speed", speed),
                 sound_effects=audio.get("sound_effects", sound_effects),
+                audio_name=audio.get("audio_name"),
                 duration=audio.get("duration"),
             )
             payloads.append(payload)

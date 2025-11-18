@@ -17,6 +17,7 @@ def add_video():
 
     draft_folder = data.get("draft_folder")
     video_url = data.get("video_url")
+    video_name = data.get("video_name")
     start = data.get("start", 0)
     end = data.get("end", 0)
     mode = data.get("mode", "cover")
@@ -90,6 +91,7 @@ def add_video():
             outro_animation_duration=outro_animation_duration,
             combo_animation=combo_animation,
             combo_animation_duration=combo_animation_duration,
+            video_name=video_name,
             transition=transition,
             transition_duration=transition_duration,
             volume=volume,

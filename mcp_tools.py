@@ -64,6 +64,7 @@ TOOLS = [
         • mode（可选，默认cover）：速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed
         • target_duration（默认None）：fill模式专用，素材在轨道上的目标时长（秒）
         • duration（默认None）：视频素材总时长（秒）
+        • video_name（可选）：视频素材名称
         
         【共享参数】
         其他参数（transform_x/y、scale_x/y、transition、mask_type等）在根级别设置，应用于所有视频
@@ -84,7 +85,8 @@ TOOLS = [
                             "speed": {"type": "number", "default": 1.0, "description": "播放速度"},
                             "mode": {"type": "string", "enum": ["cover", "fill"], "default": "cover", "description": "速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed"},
                             "target_duration": {"type": ["number", "null"], "default": None, "description": "fill模式专用，素材在轨道上的目标时长（秒）"},
-                            "duration": {"type": ["number", "null"], "default": None, "description": "视频素材总时长（秒）"}
+                            "duration": {"type": ["number", "null"], "default": None, "description": "视频素材总时长（秒）"},
+                            "video_name": {"type": "string", "description": "视频素材名称"}
                         },
                         "required": ["video_url", "start", "end", "target_start", "mode", "target_duration", "duration"]
                     }
@@ -271,6 +273,7 @@ TOOLS = [
                 "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始音频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示使用默认值0.0，实际时长在下载时获取"},
                 "effect_type": {"type": "string", "description": "音效处理类型名称。根据IS_CAPCUT_ENV自动选择：CapCut环境支持CapCutVoiceFiltersEffectType/CapCutVoiceCharactersEffectType/CapCutSpeechToSongEffectType；剪映环境支持AudioSceneEffectType/ToneEffectType/SpeechToSongType"},
                 "effect_params": {"type": "array", "description": "音效参数数组。参数的具体含义和数量取决于effect_type。格式：List[Optional[float]]。例如：某些效果可能需要[0.5, 1.0]"},
+                "audio_name": {"type": "string", "description": "音频素材名称"}
             },
             "required": ["audio_url", "draft_id", "start", "target_start"]
         }
@@ -309,7 +312,8 @@ TOOLS = [
                             "end": {"type": ["number", "null"], "default": None, "description": "到音频素材第几秒结束截取（None=到末尾）"},
                             "target_start": {"type": "number", "default": 0, "description": "该片段在时间线上的起始位置"},
                             "speed": {"type": "number", "default": 1.0, "description": "播放速度"},
-                            "duration": {"type": ["number", "null"], "default": None, "description": "音频素材总时长（秒）"}
+                            "duration": {"type": ["number", "null"], "default": None, "description": "音频素材总时长（秒）"},
+                            "audio_name": {"type": "string", "description": "音频素材名称"}
                         },
                         "required": ["audio_url", "start", "target_start", "end", "speed", "duration"]
                     }
