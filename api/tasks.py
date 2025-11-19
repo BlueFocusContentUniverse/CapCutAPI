@@ -1,7 +1,9 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from db import get_session
@@ -9,39 +11,40 @@ from logging_utils import api_endpoint_logger
 from models import VideoTask
 
 logger = logging.getLogger(__name__)
-bp = Blueprint("tasks", __name__)
+router = APIRouter(tags=["tasks"])
 
 
-@bp.route("/tasks", methods=["POST"])
+class CreateTaskRequest(BaseModel):
+    task_id: str
+    draft_id: str
+    extra: Optional[Dict[str, Any]] = None
+
+
+@router.post("/tasks")
 @api_endpoint_logger
-def create_task():
-    data = request.get_json() or {}
-    task_id = data.get("task_id")
-    draft_id = data.get("draft_id")
-    extra = data.get("extra")
-
-    if not task_id or not draft_id:
-        return jsonify({"success": False, "error": "task_id and draft_id are required"}), 400
+def create_task(request: CreateTaskRequest):
+    if not request.task_id or not request.draft_id:
+        return JSONResponse(status_code=400, content={"success": False, "error": "task_id and draft_id are required"})
 
     with get_session() as session:
-        existing = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
+        existing = session.execute(select(VideoTask).where(VideoTask.task_id == request.task_id)).scalar_one_or_none()
         if existing:
-            return jsonify({"success": True, "output": {"task_id": existing.task_id}})
+            return {"success": True, "output": {"task_id": existing.task_id}}
 
-        row = VideoTask(task_id=task_id, draft_id=draft_id, status="initialized", extra=extra)
+        row = VideoTask(task_id=request.task_id, draft_id=request.draft_id, status="initialized", extra=request.extra)
         session.add(row)
 
-    return jsonify({"success": True, "output": {"task_id": task_id}})
+    return {"success": True, "output": {"task_id": request.task_id}}
 
 
-@bp.route("/tasks/<task_id>", methods=["GET"])
+@router.get("/tasks/{task_id}")
 @api_endpoint_logger
 def get_task(task_id: str):
     with get_session() as session:
         row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
         if not row:
-            return jsonify({"success": False, "error": "not_found"}), 404
-        return jsonify({
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found"})
+        return {
             "success": True,
             "output": {
                 "task_id": row.task_id,
@@ -52,39 +55,46 @@ def get_task(task_id: str):
                 "message": row.message,
                 "extra": row.extra,
             }
-        })
+        }
 
 
-@bp.route("/tasks/<task_id>", methods=["PATCH"])
+class UpdateTaskRequest(BaseModel):
+    status: Optional[str] = None
+    progress: Optional[int] = None
+    message: Optional[str] = None
+    extra: Optional[Dict[str, Any]] = None
+
+
+@router.patch("/tasks/{task_id}")
 @api_endpoint_logger
-def update_task(task_id: str):
-    data: Dict[str, Any] = request.get_json() or {}
+def update_task(task_id: str, request: UpdateTaskRequest):
     with get_session() as session:
         row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
         if not row:
-            return jsonify({"success": False, "error": "not_found"}), 404
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found"})
 
+        data = request.dict(exclude_unset=True)
         allowed = {"status", "progress", "message", "extra"}
         for key, value in data.items():
             if key in allowed:
                 setattr(row, key, value)
 
-    return jsonify({"success": True, "output": {"task_id": task_id}})
+    return {"success": True, "output": {"task_id": task_id}}
 
 
-@bp.route("/tasks/by_draft/<draft_id>", methods=["PATCH"])
+@router.patch("/tasks/by_draft/{draft_id}")
 @api_endpoint_logger
-def update_tasks_by_draft(draft_id: str):
-    data: Dict[str, Any] = request.get_json() or {}
+def update_tasks_by_draft(draft_id: str, request: UpdateTaskRequest):
     with get_session() as session:
         rows = session.execute(select(VideoTask).where(VideoTask.draft_id == draft_id)).scalars().all()
         if not rows:
-            return jsonify({"success": False, "error": "not_found"}), 404
+            return JSONResponse(status_code=404, content={"success": False, "error": "not_found"})
 
+        data = request.dict(exclude_unset=True)
         allowed = {"status", "progress", "message", "extra"}
         updates = {k: v for k, v in data.items() if k in allowed}
         if not updates:
-            return jsonify({"success": False, "error": "no_valid_fields"}), 400
+            return JSONResponse(status_code=400, content={"success": False, "error": "no_valid_fields"})
 
         for row in rows:
             for key, value in updates.items():
@@ -92,13 +102,13 @@ def update_tasks_by_draft(draft_id: str):
 
         updated_task_ids = [row.task_id for row in rows]
 
-    return jsonify({
+    return {
         "success": True,
         "output": {
             "updated": len(updated_task_ids),
             "task_ids": updated_task_ids,
             "draft_id": draft_id
         }
-    })
+    }
 
 

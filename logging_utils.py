@@ -9,9 +9,10 @@ import functools
 import logging
 import time
 import traceback
+import inspect
 from typing import Any, Callable, Dict, Optional, ParamSpec, TypeVar
 
-from flask import Request, request
+from fastapi import Request, Response
 
 # Type variables for preserving function signatures
 P = ParamSpec("P")
@@ -42,32 +43,30 @@ def log_api_request(logger: logging.Logger, request_obj: Request) -> None:
     
     Args:
         logger: Logger instance
-        request_obj: Flask request object
+        request_obj: FastAPI request object
     """
     logger.info(
         f"API Request - Method: {request_obj.method}, "
-        f"Path: {request_obj.path}, "
-        f"Remote: {request_obj.remote_addr}"
+        f"Path: {request_obj.url.path}, "
+        f"Remote: {request_obj.client.host if request_obj.client else 'unknown'}"
     )
 
-    # Log request data (excluding sensitive information)
-    if request_obj.is_json:
-        data = request_obj.get_json()
-        # Sanitize data - remove potentially sensitive fields
-        sanitized_data = {k: v for k, v in data.items() if k not in ["password", "token", "secret"]}
-        logger.debug(f"Request Data: {sanitized_data}")
 
-
-def log_api_response(logger: logging.Logger, response: Dict[str, Any], duration: float) -> None:
+def log_api_response(logger: logging.Logger, response: Any, duration: float) -> None:
     """
     Log API response details.
     
     Args:
         logger: Logger instance
-        response: Response dictionary
+        response: Response object or dict
         duration: Request duration in seconds
     """
-    success = response.get("success", False)
+    success = False
+    if isinstance(response, dict):
+        success = response.get("success", False)
+    elif hasattr(response, "status_code"):
+        success = 200 <= response.status_code < 300
+    
     level = logging.INFO if success else logging.ERROR
 
     logger.log(
@@ -75,49 +74,65 @@ def log_api_response(logger: logging.Logger, response: Dict[str, Any], duration:
         f"API Response - Success: {success}, Duration: {duration:.3f}s"
     )
 
-    if not success and "error" in response:
+    if isinstance(response, dict) and not success and "error" in response:
         logger.error(f"Error Details: {response['error']}")
 
 
 def api_endpoint_logger(func: Callable[P, T]) -> Callable[P, T]:
     """
-    Decorator for Flask API endpoints to add comprehensive logging.
+    Decorator for FastAPI API endpoints to add comprehensive logging.
     
     Logs:
-    - Request details (method, path, remote IP)
-    - Request data (sanitized)
-    - Response status
+    - Request details (if Request object is present in args)
     - Execution time
     - Errors with stack traces
-    
-    Usage:
-        @bp.route("/endpoint", methods=["POST"])
-        @api_endpoint_logger
-        def my_endpoint():
-            ...
     """
     @functools.wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         logger = logging.getLogger(func.__module__)
         endpoint_name = func.__name__
 
         start_time = time.time()
 
         try:
-            # Log request
+            # Log request start
             logger.info(f"=== Starting API Endpoint: {endpoint_name} ===")
-            log_api_request(logger, request)
+            
+            # Try to find Request object in kwargs
+            request_obj = None
+            for arg in args:
+                if isinstance(arg, Request):
+                    request_obj = arg
+                    break
+            if not request_obj:
+                for key, value in kwargs.items():
+                    if isinstance(value, Request):
+                        request_obj = value
+                        break
+            
+            if request_obj:
+                log_api_request(logger, request_obj)
+            
+            # Log arguments (Pydantic models)
+            if kwargs:
+                sanitized_kwargs = {
+                    k: v for k, v in kwargs.items()
+                    if k not in ["password", "token", "secret"] and not isinstance(v, Request)
+                }
+                if sanitized_kwargs:
+                    logger.debug(f"Request Arguments: {sanitized_kwargs}")
 
             # Execute endpoint
-            response = func(*args, **kwargs)
+            if inspect.iscoroutinefunction(func):
+                response = await func(*args, **kwargs)
+            else:
+                response = func(*args, **kwargs)
 
             # Calculate duration
             duration = time.time() - start_time
 
             # Log response
-            if hasattr(response, "get_json"):
-                response_data = response.get_json()
-                log_api_response(logger, response_data, duration)
+            log_api_response(logger, response, duration)
 
             logger.info(f"=== Completed API Endpoint: {endpoint_name} in {duration:.3f}s ===")
 

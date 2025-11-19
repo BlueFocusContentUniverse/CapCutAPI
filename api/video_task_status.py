@@ -3,36 +3,34 @@ API endpoints for updating VideoTask status (intended for Celery workers).
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from models import VideoTaskStatus
 from repositories.video_task_repository import get_video_task_repository
-from util.auth import require_authentication
+from util.auth import verify_api_token
 
 logger = logging.getLogger(__name__)
 
-bp = Blueprint("video_task_status", __name__, url_prefix="/api/video-tasks")
+router = APIRouter(
+    prefix="/api/video-tasks",
+    tags=["video-tasks"],
+    dependencies=[Depends(verify_api_token)]
+)
 
+class UpdateTaskStatusRequest(BaseModel):
+    status: Optional[str] = None
+    render_status: Optional[str] = None
+    progress: Optional[float] = None
+    message: Optional[str] = None
+    video_id: Optional[str] = None
+    extra: Optional[Dict[str, Any]] = None
 
-@bp.before_request
-def _require_authentication():
-    """Protect all video task status endpoints with token authentication.
-
-    Configure one of the following env vars for valid tokens:
-      - DRAFT_API_TOKEN (single token)
-      - DRAFT_API_TOKENS (comma-separated list)
-    Fallbacks supported: API_TOKEN, AUTH_TOKEN
-
-    Client should send the token via:
-      - Authorization: Bearer <token>
-      - X-API-Token: <token> (or X-Auth-Token / X-Token)
-      - ?api_token=<token> (query param, not recommended)
-    """
-    return require_authentication(request, "Video task status API")
-
+class LinkVideoRequest(BaseModel):
+    video_id: str
 
 def _parse_render_status(status_str: str) -> VideoTaskStatus:
     """
@@ -58,9 +56,9 @@ def _parse_render_status(status_str: str) -> VideoTaskStatus:
         raise ValueError(f"Invalid render_status: {status_str}. Valid values: {[s.value for s in VideoTaskStatus]}") from None
 
 
-@bp.route("/<task_id>/status", methods=["PUT"])
+@router.put("/{task_id}/status")
 @api_endpoint_logger
-def update_task_status(task_id: str):
+def update_task_status(task_id: str, request: UpdateTaskStatusRequest, response: Response):
     """
     Update VideoTask status fields (for Celery workers).
 
@@ -90,80 +88,66 @@ def update_task_status(task_id: str):
         }
     """
     try:
-        data: Dict[str, Any] = request.get_json() or {}
-
-        # Extract and validate fields
-        status = data.get("status")
-        render_status_str = data.get("render_status")
-        progress = data.get("progress")
-        message = data.get("message")
-        video_id = data.get("video_id")
-        extra = data.get("extra")
-
         # Parse render_status if provided
         render_status = None
-        if render_status_str:
+        if request.render_status:
             try:
-                render_status = _parse_render_status(render_status_str)
+                render_status = _parse_render_status(request.render_status)
             except ValueError as e:
                 logger.warning(f"Invalid render_status for task {task_id}: {e}")
-                return jsonify({
+                response.status_code = 400
+                return {
                     "success": False,
                     "error": str(e)
-                }), 400
+                }
 
         # Validate progress if provided
-        if progress is not None:
-            try:
-                progress = float(progress)
-                if progress < 0.0 or progress > 100.0:
-                    logger.warning(f"Invalid progress value for task {task_id}: {progress}")
-                    return jsonify({
-                        "success": False,
-                        "error": "Progress must be between 0.0 and 100.0"
-                    }), 400
-            except (ValueError, TypeError):
-                logger.warning(f"Invalid progress type for task {task_id}: {progress}")
-                return jsonify({
+        if request.progress is not None:
+            if request.progress < 0.0 or request.progress > 100.0:
+                logger.warning(f"Invalid progress value for task {task_id}: {request.progress}")
+                response.status_code = 400
+                return {
                     "success": False,
-                    "error": "Progress must be a number"
-                }), 400
+                    "error": "Progress must be between 0.0 and 100.0"
+                }
 
         # Update task status
         repo = get_video_task_repository()
         success = repo.update_task_status(
             task_id=task_id,
-            status=status,
+            status=request.status,
             render_status=render_status,
-            progress=progress,
-            message=message,
-            video_id=video_id,
-            extra=extra,
+            progress=request.progress,
+            message=request.message,
+            video_id=request.video_id,
+            extra=request.extra,
         )
 
         if success:
             logger.info(f"Successfully updated VideoTask {task_id}")
-            return jsonify({
+            return {
                 "success": True,
                 "output": {"task_id": task_id}
-            })
+            }
         else:
-            return jsonify({
+            response.status_code = 404
+            return {
                 "success": False,
                 "error": "Task not found or update failed"
-            }), 404
+            }
 
     except Exception as e:
         logger.error(f"Error updating VideoTask {task_id}: {e}")
-        return jsonify({
+        response.status_code = 500
+        return {
             "success": False,
             "error": str(e)
-        }), 500
+        }
 
 
-@bp.route("/<task_id>", methods=["GET"])
+@router.get("/{task_id}")
 @api_endpoint_logger
-def get_task(task_id: str):
+def get_task(task_id: str, response: Response):
     """
     Get VideoTask details by task_id.
 
@@ -179,27 +163,29 @@ def get_task(task_id: str):
 
         if task is None:
             logger.warning(f"VideoTask {task_id} not found")
-            return jsonify({
+            response.status_code = 404
+            return {
                 "success": False,
                 "error": "Task not found"
-            }), 404
+            }
 
-        return jsonify({
+        return {
             "success": True,
             "output": task
-        })
+        }
 
     except Exception as e:
         logger.error(f"Error retrieving VideoTask {task_id}: {e}")
-        return jsonify({
+        response.status_code = 500
+        return {
             "success": False,
             "error": str(e)
-        }), 500
+        }
 
 
-@bp.route("/<task_id>/link-video", methods=["POST"])
+@router.post("/{task_id}/link-video")
 @api_endpoint_logger
-def link_video_to_task(task_id: str):
+def link_video_to_task(task_id: str, request: LinkVideoRequest, response: Response):
     """
     Link a video_id to a VideoTask.
 
@@ -215,38 +201,30 @@ def link_video_to_task(task_id: str):
         JSON response with success status
     """
     try:
-        data: Dict[str, Any] = request.get_json() or {}
-        video_id = data.get("video_id")
-
-        if not video_id:
-            logger.warning("Missing required field: video_id")
-            return jsonify({
-                "success": False,
-                "error": "Missing required field: video_id"
-            }), 400
-
         repo = get_video_task_repository()
-        success = repo.link_video_to_task(task_id, video_id)
+        success = repo.link_video_to_task(task_id, request.video_id)
 
         if success:
-            logger.info(f"Successfully linked video {video_id} to task {task_id}")
-            return jsonify({
+            logger.info(f"Successfully linked video {request.video_id} to task {task_id}")
+            return {
                 "success": True,
                 "output": {
                     "task_id": task_id,
-                    "video_id": video_id
+                    "video_id": request.video_id
                 }
-            })
+            }
         else:
-            return jsonify({
+            response.status_code = 404
+            return {
                 "success": False,
                 "error": "Task not found or link failed"
-            }), 404
+            }
 
     except Exception as e:
         logger.error(f"Error linking video to task {task_id}: {e}")
-        return jsonify({
+        response.status_code = 500
+        return {
             "success": False,
             "error": str(e)
-        }), 500
+        }
 

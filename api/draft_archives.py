@@ -3,51 +3,37 @@ API endpoints for managing draft archives stored in PostgreSQL.
 """
 
 import logging
+from typing import Optional, Dict, Any
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from repositories.draft_archive_repository import get_postgres_archive_storage
-from util.auth import require_authentication
+from util.auth import verify_api_token
 from util.cos_client import get_cos_client
 
 logger = logging.getLogger(__name__)
 
-# Create a blueprint for draft archive management
-archive_bp = Blueprint("draft_archives", __name__, url_prefix="/api/draft_archives")
+# Create a router for draft archive management
+router = APIRouter(
+    prefix="/api/draft_archives",
+    tags=["draft_archives"],
+    dependencies=[Depends(verify_api_token)]
+)
 
 
-@archive_bp.before_request
-def _require_authentication():
-    """Protect all draft archive endpoints with token authentication.
-
-    Configure one of the following env vars for valid tokens:
-      - DRAFT_API_TOKEN (single token)
-      - DRAFT_API_TOKENS (comma-separated list)
-    Fallbacks supported: API_TOKEN, AUTH_TOKEN
-
-    Client should send the token via:
-      - Authorization: Bearer <token>
-      - X-API-Token: <token> (or X-Auth-Token / X-Token)
-      - ?api_token=<token> (query param, not recommended)
-    """
-    return require_authentication(request, "Draft archives API")
-
-
-@archive_bp.route("/list", methods=["GET"])
+@router.get("/list")
 @api_endpoint_logger
-def list_archives():
+async def list_archives(
+    draft_id: Optional[str] = Query(None, description="Filter by draft_id"),
+    user_id: Optional[str] = Query(None, description="Filter by user_id"),
+    page: int = Query(1, description="Page number (1-indexed)"),
+    page_size: int = Query(100, description="Number of items per page")
+):
     """
     List draft archives with optional filtering and pagination
-
-    Query Parameters:
-        draft_id (str, optional): Filter by draft_id
-        user_id (str, optional): Filter by user_id
-        page (int): Page number (1-indexed, default: 1)
-        page_size (int): Number of items per page (default: 100, max: 1000)
-
-    Returns:
-        JSON response with archives array and pagination metadata
     """
     result = {
         "success": False,
@@ -56,12 +42,6 @@ def list_archives():
     }
 
     try:
-        # Get query parameters
-        draft_id = request.args.get("draft_id")
-        user_id = request.args.get("user_id")
-        page = int(request.args.get("page", 1))
-        page_size = int(request.args.get("page_size", 100))
-
         storage = get_postgres_archive_storage()
         archives_data = storage.list_archives(
             draft_id=draft_id,
@@ -73,28 +53,22 @@ def list_archives():
         result["success"] = True
         result["output"] = archives_data
         logger.info(f"Listed {len(archives_data['archives'])} archives")
-        return jsonify(result)
+        return result
 
     except ValueError as e:
         result["error"] = f"Invalid parameter value: {e!s}"
-        return jsonify(result), 400
+        return JSONResponse(status_code=400, content=result)
     except Exception as e:
         result["error"] = f"Failed to list archives: {e!s}"
         logger.error(f"Error listing archives: {e!s}", exc_info=True)
-        return jsonify(result), 500
+        return JSONResponse(status_code=500, content=result)
 
 
-@archive_bp.route("/get/<archive_id>", methods=["GET"])
+@router.get("/get/{archive_id}")
 @api_endpoint_logger
-def get_archive(archive_id: str):
+async def get_archive(archive_id: str):
     """
     Get a specific archive by archive_id
-
-    Path Parameters:
-        archive_id (str): The UUID of the archive
-
-    Returns:
-        JSON response with archive details
     """
     result = {
         "success": False,
@@ -108,31 +82,27 @@ def get_archive(archive_id: str):
 
         if archive is None:
             result["error"] = f"Archive {archive_id} not found"
-            return jsonify(result), 404
+            return JSONResponse(status_code=404, content=result)
 
         result["success"] = True
         result["output"] = archive
         logger.info(f"Retrieved archive {archive_id}")
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Failed to get archive: {e!s}"
         logger.error(f"Error getting archive {archive_id}: {e!s}", exc_info=True)
-        return jsonify(result), 500
+        return JSONResponse(status_code=500, content=result)
 
 
-@archive_bp.route("/get_by_draft", methods=["GET"])
+@router.get("/get_by_draft")
 @api_endpoint_logger
-def get_archive_by_draft():
+async def get_archive_by_draft(
+    draft_id: str = Query(..., description="The draft ID"),
+    draft_version: Optional[int] = Query(None, description="The draft version")
+):
     """
     Get archive by draft_id and optional draft_version
-
-    Query Parameters:
-        draft_id (str, required): The draft ID
-        draft_version (int, optional): The draft version
-
-    Returns:
-        JSON response with archive details
     """
     result = {
         "success": False,
@@ -141,55 +111,38 @@ def get_archive_by_draft():
     }
 
     try:
-        draft_id = request.args.get("draft_id")
-        if not draft_id:
-            result["error"] = "Parameter 'draft_id' is required"
-            return jsonify(result), 400
-
-        draft_version = request.args.get("draft_version")
-        if draft_version is not None:
-            try:
-                draft_version = int(draft_version)
-            except ValueError:
-                result["error"] = "Parameter 'draft_version' must be an integer"
-                return jsonify(result), 400
-
         storage = get_postgres_archive_storage()
         archive = storage.get_archive_by_draft(draft_id, draft_version)
 
         if archive is None:
             result["error"] = f"Archive not found for draft {draft_id} version {draft_version}"
-            return jsonify(result), 404
+            return JSONResponse(status_code=404, content=result)
 
         result["success"] = True
         result["output"] = archive
         logger.info(f"Retrieved archive for draft {draft_id} version {draft_version}")
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Failed to get archive: {e!s}"
         logger.error(f"Error getting archive by draft: {e!s}", exc_info=True)
-        return jsonify(result), 500
+        return JSONResponse(status_code=500, content=result)
 
 
-@archive_bp.route("/update/<archive_id>", methods=["PUT", "PATCH"])
+class UpdateArchiveRequest(BaseModel):
+    download_url: Optional[str] = None
+    total_files: Optional[int] = None
+    progress: Optional[float] = None
+    downloaded_files: Optional[int] = None
+    message: Optional[str] = None
+
+
+@router.put("/update/{archive_id}")
+@router.patch("/update/{archive_id}")
 @api_endpoint_logger
-def update_archive(archive_id: str):
+async def update_archive(archive_id: str, request: UpdateArchiveRequest):
     """
     Update archive fields
-
-    Path Parameters:
-        archive_id (str): The UUID of the archive
-
-    Request Body (JSON):
-        download_url (str, optional): Download URL
-        total_files (int, optional): Total number of files
-        progress (float, optional): Progress percentage (0-100)
-        downloaded_files (int, optional): Number of downloaded files
-        message (str, optional): Status or error message
-
-    Returns:
-        JSON response indicating success or failure
     """
     result = {
         "success": False,
@@ -198,48 +151,36 @@ def update_archive(archive_id: str):
     }
 
     try:
-        data = request.get_json()
-        if not data:
-            result["error"] = "Request body is required"
-            return jsonify(result), 400
-
         # Extract allowed fields
-        allowed_fields = ["download_url", "total_files", "progress", "downloaded_files", "message"]
-        update_data = {k: v for k, v in data.items() if k in allowed_fields}
+        update_data = request.dict(exclude_unset=True)
 
         if not update_data:
-            result["error"] = f"No valid fields to update. Allowed fields: {', '.join(allowed_fields)}"
-            return jsonify(result), 400
+            result["error"] = "No valid fields to update."
+            return JSONResponse(status_code=400, content=result)
 
         storage = get_postgres_archive_storage()
         success = storage.update_archive(archive_id, **update_data)
 
         if not success:
             result["error"] = f"Failed to update archive {archive_id}. Archive may not exist."
-            return jsonify(result), 404
+            return JSONResponse(status_code=404, content=result)
 
         result["success"] = True
         result["output"] = {"message": "Archive updated successfully", "archive_id": archive_id}
         logger.info(f"Updated archive {archive_id} with fields: {list(update_data.keys())}")
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Failed to update archive: {e!s}"
         logger.error(f"Error updating archive {archive_id}: {e!s}", exc_info=True)
-        return jsonify(result), 500
+        return JSONResponse(status_code=500, content=result)
 
 
-@archive_bp.route("/delete/<archive_id>", methods=["DELETE"])
+@router.delete("/delete/{archive_id}")
 @api_endpoint_logger
-def delete_archive(archive_id: str):
+async def delete_archive(archive_id: str):
     """
     Delete an archive
-
-    Path Parameters:
-        archive_id (str): The UUID of the archive
-
-    Returns:
-        JSON response indicating success or failure
     """
     result = {
         "success": False,
@@ -255,7 +196,7 @@ def delete_archive(archive_id: str):
 
         if not archive:
             result["error"] = f"Archive {archive_id} not found."
-            return jsonify(result), 404
+            return JSONResponse(status_code=404, content=result)
 
         # Delete object from COS if download_url exists
         download_url = archive.get("download_url")
@@ -278,31 +219,27 @@ def delete_archive(archive_id: str):
 
         if not success:
             result["error"] = f"Failed to delete archive {archive_id} from database."
-            return jsonify(result), 500
+            return JSONResponse(status_code=500, content=result)
 
         result["success"] = True
         result["output"] = {"message": "Archive deleted successfully", "archive_id": archive_id}
         logger.info(f"Deleted archive {archive_id} from database")
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Failed to delete archive: {e!s}"
         logger.error(f"Error deleting archive {archive_id}: {e!s}", exc_info=True)
-        return jsonify(result), 500
+        return JSONResponse(status_code=500, content=result)
 
 
-@archive_bp.route("/stats", methods=["GET"])
+@router.get("/stats")
 @api_endpoint_logger
-def get_stats():
+async def get_stats(
+    draft_id: Optional[str] = Query(None, description="Get stats for a specific draft"),
+    user_id: Optional[str] = Query(None, description="Get stats for a specific user")
+):
     """
     Get statistics about archives
-
-    Query Parameters:
-        draft_id (str, optional): Get stats for a specific draft
-        user_id (str, optional): Get stats for a specific user
-
-    Returns:
-        JSON response with statistics
     """
     result = {
         "success": False,
@@ -311,9 +248,6 @@ def get_stats():
     }
 
     try:
-        draft_id = request.args.get("draft_id")
-        user_id = request.args.get("user_id")
-
         storage = get_postgres_archive_storage()
         archives_data = storage.list_archives(
             draft_id=draft_id,
@@ -335,10 +269,10 @@ def get_stats():
         result["success"] = True
         result["output"] = stats
         logger.info(f"Retrieved archive stats: {stats}")
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Failed to get stats: {e!s}"
         logger.error(f"Error getting archive stats: {e!s}", exc_info=True)
-        return jsonify(result), 500
+        return JSONResponse(status_code=500, content=result)
 

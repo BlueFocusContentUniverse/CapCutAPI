@@ -1,97 +1,95 @@
-from flask import Blueprint, jsonify, request
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Response
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.add_image_impl import add_image_impl
 
-bp = Blueprint("image", __name__)
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["image"])
 
+class AddImageRequest(BaseModel):
+    draft_folder: Optional[str] = None
+    image_url: str
+    start: float = 0
+    end: float = 3.0
+    draft_id: Optional[str] = None
+    transform_y: float = 0
+    scale_x: float = 1
+    scale_y: float = 1
+    transform_x: float = 0
+    track_name: str = "image_main"
+    relative_index: int = 0
+    intro_animation: Optional[str] = None
+    intro_animation_duration: float = 0.5
+    outro_animation: Optional[str] = None
+    outro_animation_duration: float = 0.5
+    combo_animation: Optional[str] = None
+    combo_animation_duration: float = 0.5
+    transition: Optional[str] = None
+    transition_duration: float = 0.5
+    mask_type: Optional[str] = None
+    mask_center_x: float = 0.0
+    mask_center_y: float = 0.0
+    mask_size: float = 0.5
+    mask_rotation: float = 0.0
+    mask_feather: float = 0.0
+    mask_invert: bool = False
+    mask_rect_width: Optional[float] = None
+    mask_round_corner: Optional[float] = None
+    background_blur: Optional[int] = None
 
-@bp.route("/add_image", methods=["POST"])
+@router.post("/add_image")
 @api_endpoint_logger
-def add_image():
-    data = request.get_json()
-
-    draft_folder = data.get("draft_folder")
-    image_url = data.get("image_url")
-    start = data.get("start", 0)
-    end = data.get("end", 3.0)
-    draft_id = data.get("draft_id")
-    transform_y = data.get("transform_y", 0)
-    scale_x = data.get("scale_x", 1)
-    scale_y = data.get("scale_y", 1)
-    transform_x = data.get("transform_x", 0)
-    track_name = data.get("track_name", "image_main")
-    relative_index = data.get("relative_index", 0)
-    intro_animation = data.get("intro_animation")
-    intro_animation_duration = data.get("intro_animation_duration", 0.5)
-    outro_animation = data.get("outro_animation")
-    outro_animation_duration = data.get("outro_animation_duration", 0.5)
-    combo_animation = data.get("combo_animation")
-    combo_animation_duration = data.get("combo_animation_duration", 0.5)
-    transition = data.get("transition")
-    transition_duration = data.get("transition_duration", 0.5)
-
-    mask_type = data.get("mask_type")
-    mask_center_x = data.get("mask_center_x", 0.0)
-    mask_center_y = data.get("mask_center_y", 0.0)
-    mask_size = data.get("mask_size", 0.5)
-    mask_rotation = data.get("mask_rotation", 0.0)
-    mask_feather = data.get("mask_feather", 0.0)
-    mask_invert = data.get("mask_invert", False)
-    mask_rect_width = data.get("mask_rect_width")
-    mask_round_corner = data.get("mask_round_corner")
-
-    background_blur = data.get("background_blur")
-
+def add_image(request: AddImageRequest, response: Response):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not image_url:
-        result["error"] = "Hi, the required parameters 'image_url' are missing."
-        return jsonify(result), 400
-
     try:
         draft_result = add_image_impl(
-            draft_folder=draft_folder,
-            image_url=image_url,
-            start=start,
-            end=end,
-            draft_id=draft_id,
-            transform_y=transform_y,
-            scale_x=scale_x,
-            scale_y=scale_y,
-            transform_x=transform_x,
-            track_name=track_name,
-            relative_index=relative_index,
-            intro_animation=intro_animation,
-            intro_animation_duration=intro_animation_duration,
-            outro_animation=outro_animation,
-            outro_animation_duration=outro_animation_duration,
-            combo_animation=combo_animation,
-            combo_animation_duration=combo_animation_duration,
-            transition=transition,
-            transition_duration=transition_duration,
-            mask_type=mask_type,
-            mask_center_x=mask_center_x,
-            mask_center_y=mask_center_y,
-            mask_size=mask_size,
-            mask_rotation=mask_rotation,
-            mask_feather=mask_feather,
-            mask_invert=mask_invert,
-            mask_rect_width=mask_rect_width,
-            mask_round_corner=mask_round_corner,
-            background_blur=background_blur
+            draft_folder=request.draft_folder,
+            image_url=request.image_url,
+            start=request.start,
+            end=request.end,
+            draft_id=request.draft_id,
+            transform_y=request.transform_y,
+            scale_x=request.scale_x,
+            scale_y=request.scale_y,
+            transform_x=request.transform_x,
+            track_name=request.track_name,
+            relative_index=request.relative_index,
+            intro_animation=request.intro_animation,
+            intro_animation_duration=request.intro_animation_duration,
+            outro_animation=request.outro_animation,
+            outro_animation_duration=request.outro_animation_duration,
+            combo_animation=request.combo_animation,
+            combo_animation_duration=request.combo_animation_duration,
+            transition=request.transition,
+            transition_duration=request.transition_duration,
+            mask_type=request.mask_type,
+            mask_center_x=request.mask_center_x,
+            mask_center_y=request.mask_center_y,
+            mask_size=request.mask_size,
+            mask_rotation=request.mask_rotation,
+            mask_feather=request.mask_feather,
+            mask_invert=request.mask_invert,
+            mask_rect_width=request.mask_rect_width,
+            mask_round_corner=request.mask_round_corner,
+            background_blur=request.background_blur
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while processing image: {e!s}."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
 

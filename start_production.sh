@@ -14,16 +14,16 @@ fi
 
 # Set default values
 export PORT=${PORT:-9000}
-export WAITRESS_THREADS=${WAITRESS_THREADS:-8}
+export WORKERS=${WORKERS:-4}
 export LOG_LEVEL=${LOG_LEVEL:-info}
 
 # Create logs directory
 mkdir -p logs
 
-# Start Waitress
-echo "Starting Waitress with $WAITRESS_THREADS threads on port $PORT"
-exec waitress-serve \
-    --host=0.0.0.0 \
-    --port=$PORT \
-    --threads=$WAITRESS_THREADS \
-    wsgi:application
+# Start Uvicorn
+echo "Starting Uvicorn with $WORKERS workers on port $PORT"
+exec uvicorn main:app \
+    --host 0.0.0.0 \
+    --port $PORT \
+    --workers $WORKERS \
+    --log-level $LOG_LEVEL

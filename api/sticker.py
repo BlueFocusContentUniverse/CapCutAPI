@@ -1,77 +1,75 @@
+import logging
+from typing import Optional
+
 import requests
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Response
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.add_sticker_impl import add_sticker_impl
 
-bp = Blueprint("sticker", __name__)
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["sticker"])
 
+class AddStickerRequest(BaseModel):
+    sticker_id: str
+    start: float = 0
+    end: float = 5.0
+    draft_id: Optional[str] = None
+    transform_y: float = 0
+    transform_x: float = 0
+    alpha: float = 1.0
+    flip_horizontal: bool = False
+    flip_vertical: bool = False
+    rotation: float = 0.0
+    scale_x: float = 1.0
+    scale_y: float = 1.0
+    track_name: str = "sticker_main"
+    relative_index: int = 0
 
-@bp.route("/add_sticker", methods=["POST"])
+class SearchStickerRequest(BaseModel):
+    keywords: str
+
+@router.post("/add_sticker")
 @api_endpoint_logger
-def add_sticker():
-    data = request.get_json()
-
-    resource_id = data.get("sticker_id")
-    start = data.get("start", 0)
-    end = data.get("end", 5.0)
-    draft_id = data.get("draft_id")
-    transform_y = data.get("transform_y", 0)
-    transform_x = data.get("transform_x", 0)
-    alpha = data.get("alpha", 1.0)
-    flip_horizontal = data.get("flip_horizontal", False)
-    flip_vertical = data.get("flip_vertical", False)
-    rotation = data.get("rotation", 0.0)
-    scale_x = data.get("scale_x", 1.0)
-    scale_y = data.get("scale_y", 1.0)
-    track_name = data.get("track_name", "sticker_main")
-    relative_index = data.get("relative_index", 0)
-
+def add_sticker(request: AddStickerRequest, response: Response):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not resource_id:
-        result["error"] = "Hi, the required parameter 'sticker_id' is missing. Please add it and try again. "
-        return jsonify(result)
-
     try:
         draft_result = add_sticker_impl(
-            resource_id=resource_id,
-            start=start,
-            end=end,
-            draft_id=draft_id,
-            transform_y=transform_y,
-            transform_x=transform_x,
-            alpha=alpha,
-            flip_horizontal=flip_horizontal,
-            flip_vertical=flip_vertical,
-            rotation=rotation,
-            scale_x=scale_x,
-            scale_y=scale_y,
-            track_name=track_name,
-            relative_index=relative_index,
+            resource_id=request.sticker_id,
+            start=request.start,
+            end=request.end,
+            draft_id=request.draft_id,
+            transform_y=request.transform_y,
+            transform_x=request.transform_x,
+            alpha=request.alpha,
+            flip_horizontal=request.flip_horizontal,
+            flip_vertical=request.flip_vertical,
+            rotation=request.rotation,
+            scale_x=request.scale_x,
+            scale_y=request.scale_y,
+            track_name=request.track_name,
+            relative_index=request.relative_index,
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while adding sticker: {e!s}. "
-        return jsonify(result)
+        response.status_code = 400
+        return result
 
 
-
-@bp.route("/search_sticker", methods=["POST"])
+@router.post("/search_sticker")
 @api_endpoint_logger
-def search_sticker():
-    data = request.get_json() or {}
-
-    keywords = data.get("keywords")
-
+def search_sticker(request: SearchStickerRequest, response: Response):
     result = {
         "error": "",
         "output": {
@@ -82,10 +80,6 @@ def search_sticker():
         "success": False
     }
 
-    if not keywords:
-        result["error"] = "Hi, the required parameter 'keywords' is missing. Please add it and try again. "
-        return jsonify(result)
-
     try:
         # Call external search API
         url = "https://lv-api-sinfonlineb.ulikecam.com/artist/v1/effect/search?aid=3704"
@@ -94,7 +88,7 @@ def search_sticker():
             "effect_type": 2,
             "need_recommend": False,
             "offset": 0,
-            "query": keywords
+            "query": request.keywords
         }
         headers = {
             "Content-Type": "application/json"
@@ -148,7 +142,8 @@ def search_sticker():
         result["success"] = (ret_code == "0")
         if not result["success"] and not result["error"]:
             result["error"] = errmsg or "Search failed"
-        return jsonify(result)
+        return result
     except Exception as e:
         result["error"] = f"Error occurred while searching sticker: {e!s}. "
-        return jsonify(result)
+        response.status_code = 400
+        return result

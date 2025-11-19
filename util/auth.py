@@ -6,9 +6,9 @@ Provides token-based authentication using environment variables.
 import hmac
 import logging
 import os
-from typing import List, Optional
+from typing import List, Optional, Union
 
-from flask import Request, jsonify
+from fastapi import Request, HTTPException, status
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def extract_token_from_request(req: Request) -> Optional[str]:
     """Extract bearer/API token from request headers or query params.
 
     Args:
-        req: Flask request object
+        req: FastAPI request object
 
     Returns:
         Extracted token string or None if not found
@@ -67,7 +67,7 @@ def extract_token_from_request(req: Request) -> Optional[str]:
             return header_val.strip()
 
     # Optional fallback to query params for convenience
-    token_param = req.args.get("api_token") or req.args.get("token")
+    token_param = req.query_params.get("api_token") or req.query_params.get("token")
     if token_param:
         return token_param.strip()
 
@@ -94,43 +94,29 @@ def verify_token(provided_token: Optional[str], expected_tokens: List[str]) -> b
     return False
 
 
-def require_authentication(req: Request, api_name: str = "API"):
-    """Protect API endpoints with token authentication.
-
-    Configure one of the following env vars for valid tokens:
-      - DRAFT_API_TOKEN (single token)
-      - DRAFT_API_TOKENS (comma-separated list)
-    Fallbacks supported: API_TOKEN, AUTH_TOKEN
-
-    Client should send the token via:
-      - Authorization: Bearer <token>
-      - X-API-Token: <token> (or X-Auth-Token / X-Token)
-      - ?api_token=<token> (query param, not recommended)
-
-    Args:
-        req: Flask request object
-        api_name: Name of the API for logging purposes
-
-    Returns:
-        None if authentication succeeds, or a Flask JSON response with error (401)
-    """
+async def verify_api_token(request: Request):
+    """FastAPI dependency for token authentication."""
     expected_tokens = get_configured_tokens()
     if not expected_tokens:
-        logger.error(f"{api_name} token not configured. Set DRAFT_API_TOKEN or DRAFT_API_TOKENS.")
-        return jsonify({
-            "success": False,
-            "error": "Unauthorized: server missing token configuration"
-        }), 401
+        logger.error("API token not configured. Set DRAFT_API_TOKEN or DRAFT_API_TOKENS.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: server missing token configuration"
+        )
 
-    provided_token = extract_token_from_request(req)
+    provided_token = extract_token_from_request(request)
     if not provided_token:
-        logger.warning(f"{api_name} request missing authentication token")
-        return jsonify({"success": False, "error": "Unauthorized: missing token"}), 401
+        logger.warning("Request missing authentication token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: missing token"
+        )
 
     if not verify_token(provided_token, expected_tokens):
-        logger.warning(f"{api_name} request with invalid token")
-        return jsonify({"success": False, "error": "Unauthorized: invalid token"}), 401
-
-    # Authentication successful
-    return None
+        logger.warning("Request with invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: invalid token"
+        )
+    return provided_token
 

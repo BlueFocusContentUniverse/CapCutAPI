@@ -1,17 +1,17 @@
 from datetime import datetime
 
-from flask import Blueprint, jsonify
+from fastapi import APIRouter, Response
 from sqlalchemy import text
 
 from db import get_engine
 from logging_utils import api_endpoint_logger
 
-bp = Blueprint("health", __name__)
+router = APIRouter(tags=["health"])
 
 
-@bp.route("/health", methods=["GET"])
+@router.get("/health")
 @api_endpoint_logger
-def health_check():
+def health_check(response: Response):
     try:
         db_status = "unknown"
         try:
@@ -30,10 +30,11 @@ def health_check():
             "services": {"postgres": db_status, "api": "healthy"},
         }
 
-        return jsonify(health_info), 200
+        return health_info
 
     except Exception as e:
         error_info = {"status": "unhealthy", "timestamp": datetime.now().isoformat(), "error": str(e)}
-        return jsonify(error_info), 503
+        response.status_code = 503
+        return error_info
 
 

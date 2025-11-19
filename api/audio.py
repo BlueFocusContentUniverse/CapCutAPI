@@ -1,35 +1,56 @@
 import logging
+from typing import List, Optional, Any, Tuple
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Response
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.add_audio_track import add_audio_track, batch_add_audio_track
 
 logger = logging.getLogger(__name__)
-bp = Blueprint("audio", __name__)
+router = APIRouter(tags=["audio"])
 
+class AddAudioRequest(BaseModel):
+    audio_url: str
+    audio_name: Optional[str] = None
+    start: float = 0
+    end: Optional[float] = None
+    draft_id: Optional[str] = None
+    volume: float = 1.0
+    target_start: float = 0
+    speed: float = 1.0
+    track_name: str = "audio_main"
+    duration: Optional[float] = None
+    effect_type: Optional[str] = None
+    effect_params: Optional[List[float]] = None
 
-@bp.route("/add_audio", methods=["POST"])
+class AudioItem(BaseModel):
+    audio_url: str
+    start: float = 0
+    end: Optional[float] = None
+    target_start: float = 0
+    speed: float = 1.0
+    duration: Optional[float] = None
+    audio_name: Optional[str] = None
+
+class BatchAddAudiosRequest(BaseModel):
+    draft_folder: Optional[str] = None
+    draft_id: Optional[str] = None
+    audios: List[AudioItem]
+    
+    # Common parameters
+    volume: float = 1.0
+    track_name: str = "audio_main"
+    speed: float = 1.0
+    effect_type: Optional[str] = None
+    effect_params: Optional[List[float]] = None
+
+@router.post("/add_audio")
 @api_endpoint_logger
-def add_audio():
-    data = request.get_json()
-
-    audio_url = data.get("audio_url")
-    audio_name = data.get("audio_name")
-    start = data.get("start", 0)
-    end = data.get("end", None)
-    draft_id = data.get("draft_id")
-    volume = data.get("volume", 1.0)
-    target_start = data.get("target_start", 0)
-    speed = data.get("speed", 1.0)
-    track_name = data.get("track_name", "audio_main")
-    duration = data.get("duration", None)
-    effect_type = data.get("effect_type", None)
-    effect_params = data.get("effect_params", None)
-
+def add_audio(request: AddAudioRequest, response: Response):
     sound_effects = None
-    if effect_type is not None:
-        sound_effects = [(effect_type, effect_params)]
+    if request.effect_type is not None:
+        sound_effects = [(request.effect_type, request.effect_params)]
 
     result = {
         "success": False,
@@ -37,51 +58,37 @@ def add_audio():
         "error": ""
     }
 
-    if not audio_url:
-        result["error"] = "Hi, the required parameters 'audio_url' are missing."
-        return jsonify(result), 400
-
     try:
         draft_result = add_audio_track(
-            audio_url=audio_url,
-            start=start,
-            end=end,
-            target_start=target_start,
-            draft_id=draft_id,
-            volume=volume,
-            track_name=track_name,
-            speed=speed,
+            audio_url=request.audio_url,
+            start=request.start,
+            end=request.end,
+            target_start=request.target_start,
+            draft_id=request.draft_id,
+            volume=request.volume,
+            track_name=request.track_name,
+            speed=request.speed,
             sound_effects=sound_effects,
-            audio_name=audio_name,
-            duration=duration
+            audio_name=request.audio_name,
+            duration=request.duration
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while processing audio: {e!s}."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
 
-@bp.route("/batch_add_audios", methods=["POST"])
+@router.post("/batch_add_audios")
 @api_endpoint_logger
-def batch_add_audios():
-    data = request.get_json()
-
-    draft_id = data.get("draft_id")
-    audios = data.get("audios", [])
-
-    # Common parameters that apply to all audios
-    volume = data.get("volume", 1.0)
-    track_name = data.get("track_name", "audio_main")
-    effect_type = data.get("effect_type", None)
-    effect_params = data.get("effect_params", None)
-
+def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
     sound_effects = None
-    if effect_type is not None:
-        sound_effects = [(effect_type, effect_params)]
+    if request.effect_type is not None:
+        sound_effects = [(request.effect_type, request.effect_params)]
 
     result = {
         "success": False,
@@ -89,18 +96,22 @@ def batch_add_audios():
         "error": ""
     }
 
-    if not audios:
+    if not request.audios:
         result["error"] = "Hi, the required parameter 'audios' is missing or empty."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
     try:
+        # Convert Pydantic models to dicts for the service function
+        audios_data = [a.dict() for a in request.audios]
+        
         batch_result = batch_add_audio_track(
-            audios=audios,
-            draft_folder=data.get("draft_folder"),
-            draft_id=draft_id,
-            volume=volume,
-            track_name=track_name,
-            speed=data.get("speed", 1.0),
+            audios=audios_data,
+            draft_folder=request.draft_folder,
+            draft_id=request.draft_id,
+            volume=request.volume,
+            track_name=request.track_name,
+            speed=request.speed,
             sound_effects=sound_effects,
         )
 
@@ -113,12 +124,14 @@ def batch_add_audios():
             ]
             result["error"] = f"Skipped audios: {skipped_descriptions}"
             result["success"] = False
-            return jsonify(result), 400
-        return jsonify(result)
+            response.status_code = 400
+            return result
+        return result
 
     except Exception as e:
         logger.error(f"Error occurred while processing batch audios: {e!s}", exc_info=True)
         result["error"] = f"Error occurred while processing batch audios: {e!s}."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
 

@@ -1,106 +1,140 @@
-from flask import Blueprint, jsonify, request
+import logging
+from typing import List, Optional, Any, Dict
+
+from fastapi import APIRouter, Response
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from pyJianYingDraft.text_segment import Text_border, Text_style, TextStyleRange
 from services.add_text_impl import add_text_impl
 from util.helpers import hex_to_rgb
 
-bp = Blueprint("text", __name__)
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["text"])
 
+class TextStyleModel(BaseModel):
+    size: Optional[float] = None
+    bold: Optional[bool] = None
+    italic: Optional[bool] = None
+    underline: Optional[bool] = None
+    color: Optional[str] = None
+    alpha: Optional[float] = None
+    align: Optional[int] = None
+    vertical: Optional[bool] = None
+    letter_spacing: Optional[float] = None
+    line_spacing: Optional[float] = None
 
-@bp.route("/add_text", methods=["POST"])
+class TextBorderModel(BaseModel):
+    width: float = 0
+    alpha: Optional[float] = None
+    color: Optional[str] = None
+
+class TextStyleRangeItem(BaseModel):
+    start: int = 0
+    end: int = 0
+    style: Optional[TextStyleModel] = None
+    border: Optional[TextBorderModel] = None
+    font: Optional[str] = None
+
+class AddTextRequest(BaseModel):
+    text: str
+    start: float = 0
+    end: float = 5
+    draft_id: Optional[str] = None
+    transform_y: float = 0
+    transform_x: float = 0
+    font: str = "文轩体"
+    font_color: Optional[str] = None
+    color: Optional[str] = None # Alias for font_color
+    font_size: Optional[float] = None
+    size: Optional[float] = None # Alias for font_size
+    track_name: str = "text_main"
+    align: int = 1
+    vertical: bool = False
+    font_alpha: Optional[float] = None
+    alpha: Optional[float] = None # Alias for font_alpha
+    
+    fixed_width: float = -1
+    fixed_height: float = -1
+
+    border_alpha: float = 1.0
+    border_color: str = "#000000"
+    border_width: float = 0.0
+
+    background_color: str = "#000000"
+    background_style: int = 0
+    background_alpha: float = 0.0
+    background_round_radius: float = 0.0
+    background_height: float = 0.14
+    background_width: float = 0.14
+    background_horizontal_offset: float = 0.5
+    background_vertical_offset: float = 0.5
+
+    shadow_enabled: bool = False
+    shadow_alpha: float = 0.9
+    shadow_angle: float = -45.0
+    shadow_color: str = "#000000"
+    shadow_distance: float = 5.0
+    shadow_smoothing: float = 0.15
+
+    bubble_effect_id: Optional[str] = None
+    bubble_resource_id: Optional[str] = None
+    effect_effect_id: Optional[str] = None
+
+    intro_animation: Optional[str] = None
+    intro_duration: float = 0.5
+
+    outro_animation: Optional[str] = None
+    outro_duration: float = 0.5
+
+    bold: Optional[bool] = None
+    italic: Optional[bool] = None
+    underline: Optional[bool] = None
+
+    text_styles: List[TextStyleRangeItem] = []
+
+@router.post("/add_text")
 @api_endpoint_logger
-def add_text():
-    data = request.get_json()
+def add_text(request: AddTextRequest, response: Response):
+    # Handle aliases
+    font_color = request.color if request.color is not None else (request.font_color if request.font_color is not None else "#FF0000")
+    font_size = request.size if request.size is not None else (request.font_size if request.font_size is not None else 8.0)
+    font_alpha = request.alpha if request.alpha is not None else (request.font_alpha if request.font_alpha is not None else 1.0)
 
-    text = data.get("text")
-    start = data.get("start", 0)
-    end = data.get("end", 5)
-    draft_id = data.get("draft_id")
-    transform_y = data.get("transform_y", 0)
-    transform_x = data.get("transform_x", 0)
-    font = data.get("font", "文轩体")
-    font_color = data.get("color", data.get("font_color", "#FF0000"))
-    font_size = data.get("size", data.get("font_size", 8.0))
-    track_name = data.get("track_name", "text_main")
-    align = data.get("align", 1)
-    vertical = data.get("vertical", False)
-    font_alpha = data.get("alpha", data.get("font_alpha", 1.0))
-    outro_animation = data.get("outro_animation", None)
-    outro_duration = data.get("outro_duration", 0.5)
-
-    fixed_width = data.get("fixed_width", -1)
-    fixed_height = data.get("fixed_height", -1)
-
-    border_alpha = data.get("border_alpha", 1.0)
-    border_color = data.get("border_color", "#000000")
-    border_width = data.get("border_width", 0.0)
-
-    background_color = data.get("background_color", "#000000")
-    background_style = data.get("background_style", 0)
-    background_alpha = data.get("background_alpha", 0.0)
-    background_round_radius = data.get("background_round_radius", 0.0)
-    background_height = data.get("background_height", 0.14)
-    background_width = data.get("background_width", 0.14)
-    background_horizontal_offset = data.get("background_horizontal_offset", 0.5)
-    background_vertical_offset = data.get("background_vertical_offset", 0.5)
-
-    shadow_enabled = data.get("shadow_enabled", False)
-    shadow_alpha = data.get("shadow_alpha", 0.9)
-    shadow_angle = data.get("shadow_angle", -45.0)
-    shadow_color = data.get("shadow_color", "#000000")
-    shadow_distance = data.get("shadow_distance", 5.0)
-    shadow_smoothing = data.get("shadow_smoothing", 0.15)
-
-    bubble_effect_id = data.get("bubble_effect_id")
-    bubble_resource_id = data.get("bubble_resource_id")
-    effect_effect_id = data.get("effect_effect_id")
-
-    intro_animation = data.get("intro_animation")
-    intro_duration = data.get("intro_duration", 0.5)
-
-    outro_animation = data.get("outro_animation")
-    outro_duration = data.get("outro_duration", 0.5)
-
-    bold = data.get("bold", None)
-    italic = data.get("italic", None)
-    underline = data.get("underline", None)
-
-    text_styles_data = data.get("text_styles", [])
     text_styles = None
-    if text_styles_data:
+    if request.text_styles:
         text_styles = []
-        for style_data in text_styles_data:
-            start_pos = style_data.get("start", 0)
-            end_pos = style_data.get("end", 0)
-
+        for style_data in request.text_styles:
+            style_model = style_data.style or TextStyleModel()
+            
             style = Text_style(
-                size=style_data.get("style", {}).get("size", font_size),
-                bold=style_data.get("style", {}).get("bold", False),
-                italic=style_data.get("style", {}).get("italic", False),
-                underline=style_data.get("style", {}).get("underline", False),
-                color=hex_to_rgb(style_data.get("style", {}).get("color", font_color)),
-                alpha=style_data.get("style", {}).get("alpha", font_alpha),
-                align=style_data.get("style", {}).get("align", 1),
-                vertical=style_data.get("style", {}).get("vertical", vertical),
-                letter_spacing=style_data.get("style", {}).get("letter_spacing", 0),
-                line_spacing=style_data.get("style", {}).get("line_spacing", 0)
+                size=style_model.size if style_model.size is not None else font_size,
+                bold=style_model.bold if style_model.bold is not None else False,
+                italic=style_model.italic if style_model.italic is not None else False,
+                underline=style_model.underline if style_model.underline is not None else False,
+                color=hex_to_rgb(style_model.color if style_model.color is not None else font_color),
+                alpha=style_model.alpha if style_model.alpha is not None else font_alpha,
+                align=style_model.align if style_model.align is not None else 1,
+                vertical=style_model.vertical if style_model.vertical is not None else request.vertical,
+                letter_spacing=style_model.letter_spacing if style_model.letter_spacing is not None else 0,
+                line_spacing=style_model.line_spacing if style_model.line_spacing is not None else 0
             )
 
             border = None
-            if style_data.get("border", {}).get("width", 0) > 0:
+            border_model = style_data.border
+            if border_model and border_model.width > 0:
                 border = Text_border(
-                    alpha=style_data.get("border", {}).get("alpha", border_alpha),
-                    color=hex_to_rgb(style_data.get("border", {}).get("color", border_color)),
-                    width=style_data.get("border", {}).get("width", border_width)
+                    alpha=border_model.alpha if border_model.alpha is not None else request.border_alpha,
+                    color=hex_to_rgb(border_model.color if border_model.color is not None else request.border_color),
+                    width=border_model.width
                 )
 
             style_range = TextStyleRange(
-                start=start_pos,
-                end=end_pos,
+                start=style_data.start,
+                end=style_data.end,
                 style=style,
                 border=border,
-                font_str=style_data.get("font", font)
+                font_str=style_data.font if style_data.font is not None else request.font
             )
 
             text_styles.append(style_range)
@@ -111,63 +145,59 @@ def add_text():
         "error": ""
     }
 
-    if not text or start is None or end is None:
-        result["error"] = "Hi, the required parameters 'text', 'start' or 'end' are missing. "
-        return jsonify(result)
-
     try:
         draft_result = add_text_impl(
-            text=text,
-            start=start,
-            end=end,
-            draft_id=draft_id,
-            transform_y=transform_y,
-            transform_x=transform_x,
-            font=font,
+            text=request.text,
+            start=request.start,
+            end=request.end,
+            draft_id=request.draft_id,
+            transform_y=request.transform_y,
+            transform_x=request.transform_x,
+            font=request.font,
             font_color=font_color,
             font_size=font_size,
-            track_name=track_name,
-            align=align,
-            vertical=vertical,
+            track_name=request.track_name,
+            align=request.align,
+            vertical=request.vertical,
             font_alpha=font_alpha,
-            border_alpha=border_alpha,
-            border_color=border_color,
-            border_width=border_width,
-            background_color=background_color,
-            background_style=background_style,
-            background_alpha=background_alpha,
-            background_round_radius=background_round_radius,
-            background_height=background_height,
-            background_width=background_width,
-            background_horizontal_offset=background_horizontal_offset,
-            background_vertical_offset=background_vertical_offset,
-            shadow_enabled=shadow_enabled,
-            shadow_alpha=shadow_alpha,
-            shadow_angle=shadow_angle,
-            shadow_color=shadow_color,
-            shadow_distance=shadow_distance,
-            shadow_smoothing=shadow_smoothing,
-            bubble_effect_id=bubble_effect_id,
-            bubble_resource_id=bubble_resource_id,
-            effect_effect_id=effect_effect_id,
-            intro_animation=intro_animation,
-            intro_duration=intro_duration,
-            outro_animation=outro_animation,
-            outro_duration=outro_duration,
-            fixed_width=fixed_width,
-            fixed_height=fixed_height,
+            border_alpha=request.border_alpha,
+            border_color=request.border_color,
+            border_width=request.border_width,
+            background_color=request.background_color,
+            background_style=request.background_style,
+            background_alpha=request.background_alpha,
+            background_round_radius=request.background_round_radius,
+            background_height=request.background_height,
+            background_width=request.background_width,
+            background_horizontal_offset=request.background_horizontal_offset,
+            background_vertical_offset=request.background_vertical_offset,
+            shadow_enabled=request.shadow_enabled,
+            shadow_alpha=request.shadow_alpha,
+            shadow_angle=request.shadow_angle,
+            shadow_color=request.shadow_color,
+            shadow_distance=request.shadow_distance,
+            shadow_smoothing=request.shadow_smoothing,
+            bubble_effect_id=request.bubble_effect_id,
+            bubble_resource_id=request.bubble_resource_id,
+            effect_effect_id=request.effect_effect_id,
+            intro_animation=request.intro_animation,
+            intro_duration=request.intro_duration,
+            outro_animation=request.outro_animation,
+            outro_duration=request.outro_duration,
+            fixed_width=request.fixed_width,
+            fixed_height=request.fixed_height,
             text_styles=text_styles,
-            bold=bold,
-            italic=italic,
-            underline=underline
+            bold=request.bold,
+            italic=request.italic,
+            underline=request.underline
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while processing text: {e!s}."
-        return jsonify(result)
+        return result
 
 

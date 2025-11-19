@@ -1,6 +1,8 @@
 import logging
+from typing import Optional, Any, Dict
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.create_draft import DraftFramerate, create_draft
@@ -10,24 +12,21 @@ from services.save_draft_impl import (
     save_draft_impl,
 )
 
-# from util.helpers import generate_draft_url as utilgenerate_draft_url
-
-
-bp = Blueprint("drafts", __name__)
+router = APIRouter(tags=["drafts"])
 logger = logging.getLogger(__name__)
 
 
-@bp.route("/create_draft", methods=["POST"])
+class CreateDraftRequest(BaseModel):
+    width: int = 1080
+    height: int = 1920
+    framerate: int = DraftFramerate.FR_30.value
+    name: str = "draft"
+    resource: Optional[str] = None  # 'api' or 'mcp'
+
+
+@router.post("/create_draft")
 @api_endpoint_logger
-def create_draft_service():
-    data = request.get_json()
-
-    width = data.get("width", 1080)
-    height = data.get("height", 1920)
-    framerate = data.get("framerate", DraftFramerate.FR_30.value)
-    name = data.get("name", "draft")
-    resource = data.get("resource")  # 'api' or 'mcp'
-
+async def create_draft_service(request: CreateDraftRequest):
     result = {
         "success": False,
         "output": "",
@@ -35,134 +34,141 @@ def create_draft_service():
     }
 
     try:
-        _script, draft_id = create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
+        _script, draft_id = create_draft(
+            width=request.width,
+            height=request.height,
+            framerate=request.framerate,
+            name=request.name,
+            resource=request.resource
+        )
 
         result["success"] = True
         result["output"] = {"draft_id": draft_id}
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while creating draft: {e!s}."
-        return jsonify(result)
+        return result
 
 
-@bp.route("/query_script", methods=["POST"])
+class QueryScriptRequest(BaseModel):
+    draft_id: str
+    force_update: bool = True
+
+
+@router.post("/query_script")
 @api_endpoint_logger
-def query_script():
-    data = request.get_json()
-
-    draft_id = data.get("draft_id")
-    force_update = data.get("force_update", True)
-
+async def query_script(request: QueryScriptRequest):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not draft_id:
+    if not request.draft_id:
         result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
     try:
-        script = query_script_impl(draft_id=draft_id, force_update=force_update)
+        script = query_script_impl(draft_id=request.draft_id, force_update=request.force_update)
 
         if script is None:
-            result["error"] = f"Draft {draft_id} does not exist in cache."
-            return jsonify(result)
+            result["error"] = f"Draft {request.draft_id} does not exist in cache."
+            return result
 
         script_str = script.dumps()
 
         result["success"] = True
         result["output"] = script_str
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while querying script: {e!s}. "
-        return jsonify(result)
+        return result
 
 
-@bp.route("/save_draft", methods=["POST"])
+class SaveDraftRequest(BaseModel):
+    draft_id: str
+    draft_folder: Optional[str] = None
+    draft_version: Optional[int] = None
+    user_id: Optional[str] = None
+    user_name: Optional[str] = None
+    archive_name: Optional[str] = None
+
+
+@router.post("/save_draft")
 @api_endpoint_logger
-def save_draft():
-    data = request.get_json()
-
-    draft_id = data.get("draft_id")
-    draft_folder = data.get("draft_folder")
-    draft_version = data.get("draft_version")
-    user_id = data.get("user_id")
-    user_name = data.get("user_name")
-    archive_name = data.get("archive_name")
-
+async def save_draft(request: SaveDraftRequest):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not draft_id:
+    if not request.draft_id:
         result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
     try:
         draft_result = save_draft_impl(
-            draft_id=draft_id,
-            draft_folder=draft_folder,
-            draft_version=draft_version,
-            user_id=user_id,
-            user_name=user_name,
-            archive_name=archive_name
+            draft_id=request.draft_id,
+            draft_folder=request.draft_folder,
+            draft_version=request.draft_version,
+            user_id=request.user_id,
+            user_name=request.user_name,
+            archive_name=request.archive_name
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while saving draft: {e!s}. "
-        return jsonify(result)
+        return result
 
-@bp.route("/query_draft_status", methods=["POST"])
+
+class QueryDraftStatusRequest(BaseModel):
+    task_id: str
+
+
+@router.post("/query_draft_status")
 @api_endpoint_logger
-def query_draft_status_api():
-    data = request.get_json()
-
-    task_id = data.get("task_id")
-
+async def query_draft_status_api(request: QueryDraftStatusRequest):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not task_id:
+    if not request.task_id:
         result["error"] = "Hi, the required parameter 'task_id' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
     try:
-        task_status = query_task_status(task_id)
+        task_status = query_task_status(request.task_id)
 
         if task_status["status"] == "not_found":
-            result["error"] = f"Task with ID {task_id} not found. Please check if the task ID is correct."
-            return jsonify(result)
+            result["error"] = f"Task with ID {request.task_id} not found. Please check if the task ID is correct."
+            return result
 
         result["success"] = True
         result["output"] = task_status
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while querying task status: {e!s}."
-        return jsonify(result)
+        return result
 
 
-@bp.route("/generate_draft_url", methods=["POST"])
+class GenerateDraftUrlRequest(BaseModel):
+    draft_id: str
+
+
+@router.post("/generate_draft_url")
 @api_endpoint_logger
-def generate_draft_url():
+async def generate_draft_url(request: GenerateDraftUrlRequest):
     from settings.local import DRAFT_DOMAIN, PREVIEW_ROUTER
-
-    data = request.get_json()
-
-    draft_id = data.get("draft_id")
 
     result = {
         "success": False,
@@ -170,19 +176,20 @@ def generate_draft_url():
         "error": ""
     }
 
-    if not draft_id:
+    if not request.draft_id:
         result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
     try:
-        draft_result = {"draft_url": f"{DRAFT_DOMAIN}{PREVIEW_ROUTER}?={draft_id}"}
+        draft_result = {"draft_url": f"{DRAFT_DOMAIN}{PREVIEW_ROUTER}?={request.draft_id}"}
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while saving draft: {e!s}."
-        return jsonify(result)
+        return result
+
 
 

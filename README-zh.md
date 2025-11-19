@@ -53,8 +53,7 @@ source venv-capcut/bin/activate  # Linux/macOS
 # 或 venv-capcut\Scripts\activate  # Windows
 
 # 3. 安装依赖
-pip install -r requirements.txt      # HTTP API 基础依赖
-pip install -r requirements-mcp.txt  # MCP 协议支持 (可选)
+pip install .               # 安装依赖 (从 pyproject.toml)
 
 # 4. 配置文件
 cp config.json.example config.json
@@ -64,9 +63,7 @@ cp config.json.example config.json
 ### 3. 启动服务
 
 ```bash
-python capcut_server.py # 启动HTTP API服务器, 默认端口: 9001
-
-python mcp_server.py # 启动 MCP 协议服务，支持 stdio 通信
+python main.py # 启动HTTP API服务器, 默认端口: 9001
 ```
 
 ## MCP 集成指南
@@ -91,18 +88,6 @@ python mcp_server.py # 启动 MCP 协议服务，支持 stdio 通信
     }
   }
 }
-```
-
-### 2. 连接测试
-
-```bash
-# 测试 MCP 连接
-python test_mcp_client.py
-
-# 预期输出
-✅ MCP 服务器启动成功
-✅ 获取到 11 个可用工具
-✅ 草稿创建测试通过
 ```
 
 ## 使用示例

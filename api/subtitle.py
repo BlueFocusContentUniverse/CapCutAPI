@@ -1,93 +1,92 @@
-from flask import Blueprint, jsonify, request
+from typing import Optional
+
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.add_subtitle_impl import add_subtitle_impl
 
-bp = Blueprint("subtitle", __name__)
+router = APIRouter(tags=["subtitle"])
 
 
-@bp.route("/add_subtitle", methods=["POST"])
+class AddSubtitleRequest(BaseModel):
+    srt: str
+    draft_id: Optional[str] = None
+    time_offset: float = 0.0
+    font: str = "思源粗宋"
+    font_size: float = 5.0
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+    font_color: str = "#FFFFFF"
+    align: int = 1
+    vertical: bool = False
+    alpha: float = 1.0
+    border_alpha: float = 1.0
+    border_color: str = "#000000"
+    border_width: float = 0.0
+    background_color: str = "#000000"
+    background_style: int = 0
+    background_alpha: float = 0.0
+    transform_x: float = 0.0
+    transform_y: float = -0.8
+    scale_x: float = 1.0
+    scale_y: float = 1.0
+    rotation: float = 0.0
+    track_name: str = "subtitle"
+    width: int = 1080
+    height: int = 1920
+
+
+@router.post("/add_subtitle")
 @api_endpoint_logger
-def add_subtitle():
-    data = request.get_json()
-
-    srt = data.get("srt")
-    draft_id = data.get("draft_id")
-    time_offset = data.get("time_offset", 0.0)
-
-    font = data.get("font", "思源粗宋")
-    font_size = data.get("font_size", 5.0)
-    bold = data.get("bold", False)
-    italic = data.get("italic", False)
-    underline = data.get("underline", False)
-    font_color = data.get("font_color", "#FFFFFF")
-    align = data.get("align", 1)
-    vertical = data.get("vertical", False)
-    alpha = data.get("alpha", 1)
-
-    border_alpha = data.get("border_alpha", 1.0)
-    border_color = data.get("border_color", "#000000")
-    border_width = data.get("border_width", 0.0)
-
-    background_color = data.get("background_color", "#000000")
-    background_style = data.get("background_style", 0)
-    background_alpha = data.get("background_alpha", 0.0)
-
-    transform_x = data.get("transform_x", 0.0)
-    transform_y = data.get("transform_y", -0.8)
-    scale_x = data.get("scale_x", 1.0)
-    scale_y = data.get("scale_y", 1.0)
-    rotation = data.get("rotation", 0.0)
-    track_name = data.get("track_name", "subtitle")
-    width = data.get("width", 1080)
-    height = data.get("height", 1920)
-
+async def add_subtitle(request: AddSubtitleRequest):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not srt:
+    if not request.srt:
         result["error"] = "Hi, the required parameters 'srt' are missing."
-        return jsonify(result)
+        return result
 
     try:
         draft_result = add_subtitle_impl(
-            srt_path=srt,
-            draft_id=draft_id,
-            track_name=track_name,
-            time_offset=time_offset,
-            font=font,
-            font_size=font_size,
-            bold=bold,
-            italic=italic,
-            underline=underline,
-            font_color=font_color,
-            align=align,
-            vertical=vertical,
-            alpha=alpha,
-            border_alpha=border_alpha,
-            border_color=border_color,
-            border_width=border_width,
-            background_color=background_color,
-            background_style=background_style,
-            background_alpha=background_alpha,
-            transform_x=transform_x,
-            transform_y=transform_y,
-            scale_x=scale_x,
-            scale_y=scale_y,
-            rotation=rotation,
-            width=width,
-            height=height
+            srt_path=request.srt,
+            draft_id=request.draft_id,
+            track_name=request.track_name,
+            time_offset=request.time_offset,
+            font=request.font,
+            font_size=request.font_size,
+            bold=request.bold,
+            italic=request.italic,
+            underline=request.underline,
+            font_color=request.font_color,
+            align=request.align,
+            vertical=request.vertical,
+            alpha=request.alpha,
+            border_alpha=request.border_alpha,
+            border_color=request.border_color,
+            border_width=request.border_width,
+            background_color=request.background_color,
+            background_style=request.background_style,
+            background_alpha=request.background_alpha,
+            transform_x=request.transform_x,
+            transform_y=request.transform_y,
+            scale_x=request.scale_x,
+            scale_y=request.scale_y,
+            rotation=request.rotation,
+            width=request.width,
+            height=request.height
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while processing subtitle: {e!s}."
-        return jsonify(result)
+        return result
 
 

@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import mcp.types as types
 from dotenv import load_dotenv
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from db import init_db
 from logging_utils import mcp_tool_logger
@@ -35,18 +35,9 @@ from services.get_font_types_impl import get_font_types_impl
 from services.segment_management import delete_segment, get_segment_details
 from services.track_management import delete_track, get_track_details, get_tracks
 
-# Load environment variables from .env file
-env_file = Path(__file__).parent / ".env"
 logger = logging.getLogger(__name__)
 if not logging.getLogger().hasHandlers():
     logging.basicConfig(level=logging.INFO)
-if env_file.exists():
-    load_dotenv(env_file)
-    logger.info(f"Loaded environment from: {env_file}")
-else:
-    logger.warning(f"Environment file not found: {env_file}")
-    logger.info("Using default environment variables")
-
 
 # Manual tool handlers with flattened parameters (required first)
 @mcp_tool_logger("create_draft")
@@ -617,84 +608,84 @@ def tool_delete_segment(
 
 def _register_tools(app: FastMCP) -> None:
     """Register tools with explicit flat-parameter handlers."""
-    app.add_tool(
+    app.tool(
         tool_create_draft, name="create_draft", description="创建新的CapCut草稿"
     )
-    app.add_tool(
+    app.tool(
         tool_batch_add_videos,
         name="batch_add_videos",
         description="批量添加多个视频到草稿，每个视频可独立设置video_url、start、end、target_start、speed，其他参数共享",
     )
-    app.add_tool(
+    app.tool(
         tool_add_video,
         name="add_video",
         description="添加视频到草稿，支持转场、蒙版、背景模糊等效果",
     )
-    app.add_tool(
+    app.tool(
         tool_add_audio, name="add_audio", description="添加音频到草稿，支持音效处理"
     )
-    app.add_tool(
+    app.tool(
         tool_batch_add_audios,
         name="batch_add_audios",
         description="批量添加多个音频到草稿，每个音频可独立设置audio_url、start、end、target_start、speed、duration，其他参数共享",
     )
-    app.add_tool(
+    app.tool(
         tool_add_image,
         name="add_image",
         description="添加图片到草稿，支持动画、转场、蒙版等效果",
     )
-    app.add_tool(
+    app.tool(
         tool_add_text,
         name="add_text",
         description="添加文本到草稿，支持文本多样式、文字阴影和文字背景",
     )
-    app.add_tool(
+    app.tool(
         tool_add_subtitle,
         name="add_subtitle",
         description="添加字幕到草稿，支持SRT文件和样式设置",
     )
-    app.add_tool(tool_add_effect, name="add_effect", description="添加特效到草稿")
-    app.add_tool(tool_add_sticker, name="add_sticker", description="添加贴纸到草稿")
-    app.add_tool(
+    app.tool(tool_add_effect, name="add_effect", description="添加特效到草稿")
+    app.tool(tool_add_sticker, name="add_sticker", description="添加贴纸到草稿")
+    app.tool(
         tool_add_video_keyframe,
         name="add_video_keyframe",
         description="添加视频关键帧，支持属性动画",
     )
-    app.add_tool(tool_generate_video, name="generate_video", description="生成渲染视频")
-    app.add_tool(
+    app.tool(tool_generate_video, name="generate_video", description="生成渲染视频")
+    app.tool(
         tool_get_video_task_status,
         name="get_video_task_status",
         description="查询视频渲染任务状态"
     )
-    app.add_tool(
+    app.tool(
         tool_get_font_types, name="get_font_types", description="获取字体类型列表"
     )
-    app.add_tool(
+    app.tool(
         tool_get_audio_effect_types,
         name="get_audio_effect_types",
         description="获取音频特效类型列表",
     )
-    app.add_tool(
+    app.tool(
         tool_get_tracks,
         name="get_tracks",
         description="获取草稿中的所有轨道信息",
     )
-    app.add_tool(
+    app.tool(
         tool_delete_track,
         name="delete_track",
         description="从草稿中删除指定的轨道",
     )
-    app.add_tool(
+    app.tool(
         tool_get_track_details,
         name="get_track_details",
         description="获取指定轨道的详细信息",
     )
-    app.add_tool(
+    app.tool(
         tool_get_segment_details,
         name="get_segment_details",
         description="获取指定片段的详细信息",
     )
-    app.add_tool(
+    app.tool(
         tool_delete_segment,
         name="delete_segment",
         description="从轨道中删除指定的片段",
@@ -760,14 +751,14 @@ def _register_resources(app: FastMCP) -> None:
         }"""
 
 
-# def create_fastmcp_app(host: str = "127.0.0.1", port: int = 3333, path: str = "/mcp") -> FastMCP:
-#     """Factory to create a FastMCP app with tools registered and list_tools overridden."""
-#     app = FastMCP("capcut-api", host=host, port=port, streamable_http_path=path)
-#     _register_tools(app)
-#     _override_list_tools(app)
-#     _register_prompts(app)
-#     _register_resources(app)
-#     return app
+def create_fastmcp_app() -> FastMCP:
+    """Factory to create a FastMCP app with tools registered and list_tools overridden."""
+    app = FastMCP("capcut-api")
+    _register_tools(app)
+    _override_list_tools(app)
+    _register_prompts(app)
+    _register_resources(app)
+    return app
 
 
 def main() -> None:

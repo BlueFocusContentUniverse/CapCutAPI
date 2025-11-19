@@ -3,177 +3,127 @@ API endpoints for track management in drafts
 """
 import logging
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.track_management import delete_track, get_track_details, get_tracks
 
 logger = logging.getLogger(__name__)
-bp = Blueprint("tracks", __name__)
+router = APIRouter(tags=["tracks"])
 
 
-@bp.route("/get_tracks", methods=["POST"])
+class GetTracksRequest(BaseModel):
+    draft_id: str
+
+
+@router.post("/get_tracks")
 @api_endpoint_logger
-def get_tracks_api():
+async def get_tracks_api(request: GetTracksRequest):
     """
     Get all tracks from a draft
-
-    Request body:
-    {
-        "draft_id": str (required)
-    }
-
-    Response:
-    {
-        "success": bool,
-        "output": {
-            "tracks": [...],
-            "imported_tracks": [...],
-            "total_tracks": int
-        },
-        "error": str
-    }
     """
-    data = request.get_json()
-    draft_id = data.get("draft_id")
-
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not draft_id:
+    if not request.draft_id:
         result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
     try:
-        tracks_info = get_tracks(draft_id)
+        tracks_info = get_tracks(request.draft_id)
 
         result["success"] = True
         result["output"] = tracks_info
-        return jsonify(result)
+        return result
 
     except ValueError as e:
         result["error"] = str(e)
-        return jsonify(result)
+        return result
     except Exception as e:
         result["error"] = f"Error occurred while getting tracks: {e!s}"
-        return jsonify(result)
+        return result
 
 
-@bp.route("/delete_track", methods=["POST"])
+class DeleteTrackRequest(BaseModel):
+    draft_id: str
+    track_name: str
+
+
+@router.post("/delete_track")
 @api_endpoint_logger
-def delete_track_api():
+async def delete_track_api(request: DeleteTrackRequest):
     """
     Delete a track from a draft by name
-
-    Request body:
-    {
-        "draft_id": str (required),
-        "track_name": str (required)
-    }
-
-    Response:
-    {
-        "success": bool,
-        "output": {
-            "deleted_track": str,
-            "remaining_tracks": int,
-            "new_duration": int
-        },
-        "error": str
-    }
     """
-    data = request.get_json()
-    draft_id = data.get("draft_id")
-    track_name = data.get("track_name")
-
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not draft_id:
+    if not request.draft_id:
         result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
-    if not track_name:
+    if not request.track_name:
         result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
     try:
-        deletion_result = delete_track(draft_id, track_name)
+        deletion_result = delete_track(request.draft_id, request.track_name)
 
         result["success"] = True
         result["output"] = deletion_result
-        return jsonify(result)
+        return result
 
     except ValueError as e:
         result["error"] = str(e)
-        return jsonify(result)
+        return result
     except Exception as e:
         result["error"] = f"Error occurred while deleting track: {e!s}"
-        return jsonify(result)
+        return result
 
 
-@bp.route("/get_track_details", methods=["POST"])
+class GetTrackDetailsRequest(BaseModel):
+    draft_id: str
+    track_name: str
+
+
+@router.post("/get_track_details")
 @api_endpoint_logger
-def get_track_details_api():
+async def get_track_details_api(request: GetTrackDetailsRequest):
     """
     Get detailed information about a specific track
-
-    Request body:
-    {
-        "draft_id": str (required),
-        "track_name": str (required)
-    }
-
-    Response:
-    {
-        "success": bool,
-        "output": {
-            "name": str,
-            "type": str,
-            "render_index": int,
-            "mute": bool,
-            "segment_count": int,
-            "end_time": int,
-            "segments": [...]
-        },
-        "error": str
-    }
     """
-    data = request.get_json()
-    draft_id = data.get("draft_id")
-    track_name = data.get("track_name")
-
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not draft_id:
+    if not request.draft_id:
         result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
-    if not track_name:
+    if not request.track_name:
         result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
-        return jsonify(result)
+        return result
 
     try:
-        track_details = get_track_details(draft_id, track_name)
+        track_details = get_track_details(request.draft_id, request.track_name)
 
         result["success"] = True
         result["output"] = track_details
-        return jsonify(result)
+        return result
 
     except ValueError as e:
         result["error"] = str(e)
-        return jsonify(result)
+        return result
     except Exception as e:
         result["error"] = f"Error occurred while getting track details: {e!s}"
-        return jsonify(result)
+        return result
 

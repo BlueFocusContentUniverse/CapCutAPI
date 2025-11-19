@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "capcut-api"
+version = "1.5.0"
+description = "CapCut API Service"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "imageio",
+    "requests",
+    "fastapi",
+    "pydantic>=2.12.1",
+    "uvicorn[standard]>=0.38",
+    "numpy>=2.3.3",
+    "celery>=5.5",
+    "python-dotenv>=1.2.0",
+    "redis>=7.0.0",
+    "SQLAlchemy>=2.0.44",
+    "psycopg2-binary>=2.9.11",
+    "alembic>=1.17",
+    "cos-python-sdk-v5>=1.9.38",
+    "fastmcp==2.13.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*", "tmp*", "logs*"]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.14.0"
+]

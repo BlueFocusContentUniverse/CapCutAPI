@@ -1,210 +1,231 @@
 import logging
+from typing import List, Optional, Any
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException, Response
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.add_video_keyframe_impl import add_video_keyframe_impl
 from services.add_video_track import add_video_track, batch_add_video_track
 
 logger = logging.getLogger(__name__)
-bp = Blueprint("video", __name__)
+router = APIRouter(tags=["video"])
 
+class AddVideoRequest(BaseModel):
+    draft_folder: Optional[str] = None
+    video_url: str
+    video_name: Optional[str] = None
+    start: float = 0
+    end: float = 0
+    mode: str = "cover"
+    target_duration: Optional[float] = None
+    draft_id: Optional[str] = None
+    transform_y: float = 0
+    scale_x: float = 1
+    scale_y: float = 1
+    transform_x: float = 0
+    speed: float = 1.0
+    target_start: float = 0
+    track_name: str = "video_main"
+    relative_index: int = 0
+    duration: Optional[float] = None
+    transition: Optional[str] = None
+    transition_duration: float = 0.5
+    volume: float = 1.0
+    intro_animation: Optional[str] = None
+    intro_animation_duration: float = 0.5
+    outro_animation: Optional[str] = None
+    outro_animation_duration: float = 0.5
+    combo_animation: Optional[str] = None
+    combo_animation_duration: float = 0.5
+    mask_type: Optional[str] = None
+    mask_center_x: float = 0.5
+    mask_center_y: float = 0.5
+    mask_size: float = 1.0
+    mask_rotation: float = 0.0
+    mask_feather: float = 0.0
+    mask_invert: bool = False
+    mask_rect_width: Optional[float] = None
+    mask_round_corner: Optional[float] = None
+    filter_type: Optional[str] = None
+    filter_intensity: float = 100.0
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
+    background_blur: Optional[int] = None
 
-@bp.route("/add_video", methods=["POST"])
+class VideoItem(BaseModel):
+    video_url: str
+    start: float = 0
+    end: float = 0
+    target_start: float = 0
+    speed: float = 1.0
+    mode: str = "cover"
+    target_duration: Optional[float] = None
+    duration: Optional[float] = None
+    video_name: Optional[str] = None
+
+class BatchAddVideosRequest(BaseModel):
+    draft_folder: Optional[str] = None
+    draft_id: Optional[str] = None
+    videos: List[VideoItem]
+    
+    # Common parameters
+    transform_y: float = 0
+    scale_x: float = 1
+    scale_y: float = 1
+    transform_x: float = 0
+    track_name: str = "video_main"
+    relative_index: int = 0
+    transition: Optional[str] = None
+    transition_duration: float = 0.5
+    volume: float = 1.0
+    intro_animation: Optional[str] = None
+    intro_animation_duration: float = 0.5
+    outro_animation: Optional[str] = None
+    outro_animation_duration: float = 0.5
+    combo_animation: Optional[str] = None
+    combo_animation_duration: float = 0.5
+    mask_type: Optional[str] = None
+    mask_center_x: float = 0.5
+    mask_center_y: float = 0.5
+    mask_size: float = 1.0
+    mask_rotation: float = 0.0
+    mask_feather: float = 0.0
+    mask_invert: bool = False
+    mask_rect_width: Optional[float] = None
+    mask_round_corner: Optional[float] = None
+    filter_type: Optional[str] = None
+    filter_intensity: float = 100.0
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
+    background_blur: Optional[int] = None
+    mode: str = "cover"
+
+class AddVideoKeyframeRequest(BaseModel):
+    draft_id: Optional[str] = None
+    track_name: str = "video_main"
+    property_type: str = "alpha"
+    time: float = 0.0
+    value: str = "1.0"
+    property_types: Optional[List[str]] = None
+    times: Optional[List[float]] = None
+    values: Optional[List[Any]] = None
+
+@router.post("/add_video")
 @api_endpoint_logger
-def add_video():
-    data = request.get_json()
-
-    draft_folder = data.get("draft_folder")
-    video_url = data.get("video_url")
-    video_name = data.get("video_name")
-    start = data.get("start", 0)
-    end = data.get("end", 0)
-    mode = data.get("mode", "cover")
-    target_duration = data.get("target_duration")
-    draft_id = data.get("draft_id")
-    transform_y = data.get("transform_y", 0)
-    scale_x = data.get("scale_x", 1)
-    scale_y = data.get("scale_y", 1)
-    transform_x = data.get("transform_x", 0)
-    speed = data.get("speed", 1.0)
-    target_start = data.get("target_start", 0)
-    track_name = data.get("track_name", "video_main")
-    relative_index = data.get("relative_index", 0)
-    duration = data.get("duration")
-    transition = data.get("transition")
-    transition_duration = data.get("transition_duration", 0.5)
-    volume = data.get("volume", 1.0)
-    intro_animation = data.get("intro_animation")
-    intro_animation_duration = data.get("intro_animation_duration", 0.5)
-    outro_animation = data.get("outro_animation")
-    outro_animation_duration = data.get("outro_animation_duration", 0.5)
-    combo_animation = data.get("combo_animation")
-    combo_animation_duration = data.get("combo_animation_duration", 0.5)
-    mask_type = data.get("mask_type")
-    mask_center_x = data.get("mask_center_x", 0.5)
-    mask_center_y = data.get("mask_center_y", 0.5)
-    mask_size = data.get("mask_size", 1.0)
-    mask_rotation = data.get("mask_rotation", 0.0)
-    mask_feather = data.get("mask_feather", 0.0)
-    mask_invert = data.get("mask_invert", False)
-    mask_rect_width = data.get("mask_rect_width")
-    mask_round_corner = data.get("mask_round_corner")
-    filter_type = data.get("filter_type")
-    filter_intensity = data.get("filter_intensity", 100.0)
-    fade_in_duration = data.get("fade_in_duration", 0.0)
-    fade_out_duration = data.get("fade_out_duration", 0.0)
-
-    background_blur = data.get("background_blur")
-
+def add_video(request: AddVideoRequest, response: Response):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not video_url:
-        result["error"] = "Hi, the required parameters 'video_url' are missing."
-        return jsonify(result), 400
-
     try:
         draft_result = add_video_track(
-            draft_folder=draft_folder,
-            video_url=video_url,
-            start=start,
-            end=end,
-            mode=mode,
-            target_duration=target_duration,
-            target_start=target_start,
-            draft_id=draft_id,
-            transform_y=transform_y,
-            scale_x=scale_x,
-            scale_y=scale_y,
-            transform_x=transform_x,
-            speed=speed,
-            track_name=track_name,
-            relative_index=relative_index,
-            duration=duration,
-            intro_animation=intro_animation,
-            intro_animation_duration=intro_animation_duration,
-            outro_animation=outro_animation,
-            outro_animation_duration=outro_animation_duration,
-            combo_animation=combo_animation,
-            combo_animation_duration=combo_animation_duration,
-            video_name=video_name,
-            transition=transition,
-            transition_duration=transition_duration,
-            volume=volume,
-            mask_type=mask_type,
-            mask_center_x=mask_center_x,
-            mask_center_y=mask_center_y,
-            mask_size=mask_size,
-            mask_rotation=mask_rotation,
-            mask_feather=mask_feather,
-            mask_invert=mask_invert,
-            mask_rect_width=mask_rect_width,
-            mask_round_corner=mask_round_corner,
-            filter_type=filter_type,
-            filter_intensity=filter_intensity,
-            fade_in_duration=fade_in_duration,
-            fade_out_duration=fade_out_duration,
-            background_blur=background_blur
+            draft_folder=request.draft_folder,
+            video_url=request.video_url,
+            start=request.start,
+            end=request.end,
+            mode=request.mode,
+            target_duration=request.target_duration,
+            target_start=request.target_start,
+            draft_id=request.draft_id,
+            transform_y=request.transform_y,
+            scale_x=request.scale_x,
+            scale_y=request.scale_y,
+            transform_x=request.transform_x,
+            speed=request.speed,
+            track_name=request.track_name,
+            relative_index=request.relative_index,
+            duration=request.duration,
+            intro_animation=request.intro_animation,
+            intro_animation_duration=request.intro_animation_duration,
+            outro_animation=request.outro_animation,
+            outro_animation_duration=request.outro_animation_duration,
+            combo_animation=request.combo_animation,
+            combo_animation_duration=request.combo_animation_duration,
+            video_name=request.video_name,
+            transition=request.transition,
+            transition_duration=request.transition_duration,
+            volume=request.volume,
+            mask_type=request.mask_type,
+            mask_center_x=request.mask_center_x,
+            mask_center_y=request.mask_center_y,
+            mask_size=request.mask_size,
+            mask_rotation=request.mask_rotation,
+            mask_feather=request.mask_feather,
+            mask_invert=request.mask_invert,
+            mask_rect_width=request.mask_rect_width,
+            mask_round_corner=request.mask_round_corner,
+            filter_type=request.filter_type,
+            filter_intensity=request.filter_intensity,
+            fade_in_duration=request.fade_in_duration,
+            fade_out_duration=request.fade_out_duration,
+            background_blur=request.background_blur
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while processing video: {e!s}."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
 
-@bp.route("/batch_add_videos", methods=["POST"])
+@router.post("/batch_add_videos")
 @api_endpoint_logger
-def batch_add_videos():
-    data = request.get_json()
-
-    draft_folder = data.get("draft_folder")
-    draft_id = data.get("draft_id")
-    videos = data.get("videos", [])
-
-    # Common parameters that apply to all videos
-    transform_y = data.get("transform_y", 0)
-    scale_x = data.get("scale_x", 1)
-    scale_y = data.get("scale_y", 1)
-    transform_x = data.get("transform_x", 0)
-    track_name = data.get("track_name", "video_main")
-    relative_index = data.get("relative_index", 0)
-    transition = data.get("transition")
-    transition_duration = data.get("transition_duration", 0.5)
-    volume = data.get("volume", 1.0)
-    intro_animation = data.get("intro_animation")
-    intro_animation_duration = data.get("intro_animation_duration", 0.5)
-    outro_animation = data.get("outro_animation")
-    outro_animation_duration = data.get("outro_animation_duration", 0.5)
-    combo_animation = data.get("combo_animation")
-    combo_animation_duration = data.get("combo_animation_duration", 0.5)
-    mask_type = data.get("mask_type")
-    mask_center_x = data.get("mask_center_x", 0.5)
-    mask_center_y = data.get("mask_center_y", 0.5)
-    mask_size = data.get("mask_size", 1.0)
-    mask_rotation = data.get("mask_rotation", 0.0)
-    mask_feather = data.get("mask_feather", 0.0)
-    mask_invert = data.get("mask_invert", False)
-    mask_rect_width = data.get("mask_rect_width")
-    mask_round_corner = data.get("mask_round_corner")
-    filter_type = data.get("filter_type")
-    filter_intensity = data.get("filter_intensity", 100.0)
-    fade_in_duration = data.get("fade_in_duration", 0.0)
-    fade_out_duration = data.get("fade_out_duration", 0.0)
-    background_blur = data.get("background_blur")
-
+def batch_add_videos(request: BatchAddVideosRequest, response: Response):
     result = {
         "success": False,
         "output": [],
         "error": ""
     }
 
-    if not videos:
+    if not request.videos:
         result["error"] = "Hi, the required parameter 'videos' is missing or empty."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
     try:
+        # Convert Pydantic models to dicts for the service function
+        videos_data = [v.dict() for v in request.videos]
+        
         batch_result = batch_add_video_track(
-            videos=videos,
-            draft_folder=draft_folder,
-            draft_id=draft_id,
-            transform_y=transform_y,
-            scale_x=scale_x,
-            scale_y=scale_y,
-            transform_x=transform_x,
-            track_name=track_name,
-            relative_index=relative_index,
-            transition=transition,
-            transition_duration=transition_duration,
-            volume=volume,
-            intro_animation=intro_animation,
-            intro_animation_duration=intro_animation_duration,
-            outro_animation=outro_animation,
-            outro_animation_duration=outro_animation_duration,
-            combo_animation=combo_animation,
-            combo_animation_duration=combo_animation_duration,
-            mask_type=mask_type,
-            mask_center_x=mask_center_x,
-            mask_center_y=mask_center_y,
-            mask_size=mask_size,
-            mask_rotation=mask_rotation,
-            mask_feather=mask_feather,
-            mask_invert=mask_invert,
-            mask_rect_width=mask_rect_width,
-            mask_round_corner=mask_round_corner,
-            filter_type=filter_type,
-            filter_intensity=filter_intensity,
-            fade_in_duration=fade_in_duration,
-            fade_out_duration=fade_out_duration,
-            background_blur=background_blur,
-            default_mode=data.get("mode", "cover"),
+            videos=videos_data,
+            draft_folder=request.draft_folder,
+            draft_id=request.draft_id,
+            transform_y=request.transform_y,
+            scale_x=request.scale_x,
+            scale_y=request.scale_y,
+            transform_x=request.transform_x,
+            track_name=request.track_name,
+            relative_index=request.relative_index,
+            transition=request.transition,
+            transition_duration=request.transition_duration,
+            volume=request.volume,
+            intro_animation=request.intro_animation,
+            intro_animation_duration=request.intro_animation_duration,
+            outro_animation=request.outro_animation,
+            outro_animation_duration=request.outro_animation_duration,
+            combo_animation=request.combo_animation,
+            combo_animation_duration=request.combo_animation_duration,
+            mask_type=request.mask_type,
+            mask_center_x=request.mask_center_x,
+            mask_center_y=request.mask_center_y,
+            mask_size=request.mask_size,
+            mask_rotation=request.mask_rotation,
+            mask_feather=request.mask_feather,
+            mask_invert=request.mask_invert,
+            mask_rect_width=request.mask_rect_width,
+            mask_round_corner=request.mask_round_corner,
+            filter_type=request.filter_type,
+            filter_intensity=request.filter_intensity,
+            fade_in_duration=request.fade_in_duration,
+            fade_out_duration=request.fade_out_duration,
+            background_blur=request.background_blur,
+            default_mode=request.mode,
         )
 
         result["success"] = True
@@ -216,31 +237,20 @@ def batch_add_videos():
             ]
             result["error"] = f"Skipped videos: {skipped_descriptions}"
             result["success"] = False
-            return jsonify(result), 400
-        return jsonify(result)
+            response.status_code = 400
+            return result
+        return result
 
     except Exception as e:
         logger.error(f"Error occurred while processing batch videos: {e!s}", exc_info=True)
         result["error"] = f"Error occurred while processing batch videos: {e!s}."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
 
-@bp.route("/add_video_keyframe", methods=["POST"])
+@router.post("/add_video_keyframe")
 @api_endpoint_logger
-def add_video_keyframe():
-    data = request.get_json()
-
-    draft_id = data.get("draft_id")
-    track_name = data.get("track_name", "video_main")
-
-    property_type = data.get("property_type", "alpha")
-    time = data.get("time", 0.0)
-    value = data.get("value", "1.0")
-
-    property_types = data.get("property_types")
-    times = data.get("times")
-    values = data.get("values")
-
+def add_video_keyframe(request: AddVideoKeyframeRequest, response: Response):
     result = {
         "success": False,
         "output": "",
@@ -249,22 +259,23 @@ def add_video_keyframe():
 
     try:
         draft_result = add_video_keyframe_impl(
-            draft_id=draft_id,
-            track_name=track_name,
-            property_type=property_type,
-            time=time,
-            value=value,
-            property_types=property_types,
-            times=times,
-            values=values
+            draft_id=request.draft_id,
+            track_name=request.track_name,
+            property_type=request.property_type,
+            time=request.time,
+            value=request.value,
+            property_types=request.property_types,
+            times=request.times,
+            values=request.values
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while adding keyframe: {e!s}."
-        return jsonify(result), 400
+        response.status_code = 400
+        return result
 
 

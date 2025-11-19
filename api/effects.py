@@ -1,51 +1,51 @@
-from flask import Blueprint, jsonify, request
+import logging
+from typing import Optional, List
+
+from fastapi import APIRouter, Response
+from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from services.add_effect_impl import add_effect_impl
 
-bp = Blueprint("effects", __name__)
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["effects"])
 
+class AddEffectRequest(BaseModel):
+    effect_type: str
+    start: float = 0
+    effect_category: str = "scene"
+    end: float = 3.0
+    draft_id: Optional[str] = None
+    track_name: str = "effect_01"
+    params: Optional[List[float]] = None
 
-@bp.route("/add_effect", methods=["POST"])
+@router.post("/add_effect")
 @api_endpoint_logger
-def add_effect():
-    data = request.get_json()
-
-    effect_type = data.get("effect_type")
-    start = data.get("start", 0)
-    effect_category = data.get("effect_category", "scene")
-    end = data.get("end", 3.0)
-    draft_id = data.get("draft_id")
-    track_name = data.get("track_name", "effect_01")
-    params = data.get("params")
-
+def add_effect(request: AddEffectRequest, response: Response):
     result = {
         "success": False,
         "output": "",
         "error": ""
     }
 
-    if not effect_type:
-        result["error"] = "Hi, the required parameters 'effect_type' are missing. Please add them and try again."
-        return jsonify(result)
-
     try:
         draft_result = add_effect_impl(
-            effect_type=effect_type,
-            effect_category=effect_category,
-            start=start,
-            end=end,
-            draft_id=draft_id,
-            track_name=track_name,
-            params=params,
+            effect_type=request.effect_type,
+            effect_category=request.effect_category,
+            start=request.start,
+            end=request.end,
+            draft_id=request.draft_id,
+            track_name=request.track_name,
+            params=request.params,
         )
 
         result["success"] = True
         result["output"] = draft_result
-        return jsonify(result)
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while adding effect: {e!s}. "
-        return jsonify(result)
+        response.status_code = 400
+        return result
 
 

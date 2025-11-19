@@ -56,7 +56,7 @@ source venv-capcut/bin/activate  # Linux/macOS
 # or venv-capcut\Scripts\activate  # Windows
 
 # 3. Install dependencies
-pip install -r requirements.txt      # HTTP API basic dependencies
+pip install .                        # Install dependencies from pyproject.toml
 pip install -r requirements-mcp.txt  # MCP protocol support (optional)
 
 # 4. Configuration file

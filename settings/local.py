@@ -4,7 +4,7 @@
 
 import os
 
-import json5  # 替换原来的json模块
+import json  # 替换原来的json模块
 
 # 配置文件路径
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
@@ -31,8 +31,7 @@ MP4_OSS_CONFIG=[]
 if os.path.exists(CONFIG_FILE_PATH):
     try:
         with open(CONFIG_FILE_PATH, encoding="utf-8") as f:
-            # 使用json5.load替代json.load
-            local_config = json5.load(f)
+            local_config = json.load(f)
 
             # 更新是否是国际版
             if "is_capcut_env" in local_config:

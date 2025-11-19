@@ -19,14 +19,12 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy requirement files first for better caching
-COPY requirements.txt ./
-
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
-
 # Copy the rest of the source code
 COPY . .
+
+# Install dependencies and the application from pyproject.toml
+RUN pip install --upgrade pip \
+    && pip install .
 
 # Copy production environment file (create from .env.prod.example if needed)
 COPY .env.prod* ./
@@ -35,16 +33,15 @@ RUN if [ -f .env.prod ]; then cp .env.prod .env; else echo "Warning: .env.prod n
 # Create logs directory
 RUN mkdir -p logs
 
-# Default Flask port from settings/local.py
+# Default Port
 EXPOSE 9000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:9000/health || exit 1
 
-# Run with Waitress in production
-# Use environment variables for configuration
-CMD ["sh", "-c", "waitress-serve --host=0.0.0.0 --port=${PORT:-9000} --threads=${WAITRESS_THREADS:-8} wsgi:application"]
+# Run with Uvicorn in production
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-9000} --workers ${WORKERS:-4}"]
 
 
 

@@ -1,44 +1,48 @@
-from flask import Flask
+from fastapi import APIRouter
 
 
-def register_blueprints(app: Flask) -> None:
-    """Register all API blueprints on the given Flask app."""
-    from .audio import bp as audio_bp
-    from .draft_archives import archive_bp as draft_archives_bp
-    from .draft_management_api import draft_bp as draft_management_bp
-    from .drafts import bp as drafts_bp
-    from .effects import bp as effects_bp
-    from .generate import bp as generate_bp
-    from .health import bp as health_bp
-    from .image import bp as image_bp
-    from .metadata import bp as metadata_bp
-    from .segments import bp as segments_bp
-    from .sticker import bp as sticker_bp
-    from .subtitle import bp as subtitle_bp
-    from .tasks import bp as tasks_bp
-    from .text import bp as text_bp
-    from .tracks import bp as tracks_bp
-    from .video import bp as video_bp
-    from .video_task_status import bp as video_task_status_bp
-    from .videos import bp as videos_bp
+def get_api_router() -> APIRouter:
+    """Get the main API router with all sub-routers included."""
+    router = APIRouter()
+    
+    from .audio import router as audio_router
+    from .draft_archives import router as draft_archives_router
+    from .draft_management_api import router as draft_management_router
+    from .drafts import router as drafts_router
+    from .effects import router as effects_router
+    from .generate import router as generate_router
+    from .health import router as health_router
+    from .image import router as image_router
+    from .metadata import router as metadata_router
+    from .segments import router as segments_router
+    from .sticker import router as sticker_router
+    from .subtitle import router as subtitle_router
+    from .tasks import router as tasks_router
+    from .text import router as text_router
+    from .tracks import router as tracks_router
+    from .video import router as video_router
+    from .video_task_status import router as video_task_status_router
+    from .videos import router as videos_router
 
-    # No url_prefix to preserve existing routes
-    app.register_blueprint(video_bp)
-    app.register_blueprint(audio_bp)
-    app.register_blueprint(image_bp)
-    app.register_blueprint(text_bp)
-    app.register_blueprint(subtitle_bp)
-    app.register_blueprint(sticker_bp)
-    app.register_blueprint(effects_bp)
-    app.register_blueprint(drafts_bp)
-    app.register_blueprint(metadata_bp)
-    app.register_blueprint(generate_bp)
-    app.register_blueprint(health_bp)
-    app.register_blueprint(tasks_bp)
-    app.register_blueprint(draft_management_bp)
-    app.register_blueprint(draft_archives_bp)
-    app.register_blueprint(tracks_bp)
-    app.register_blueprint(segments_bp)
-    app.register_blueprint(videos_bp)
-    app.register_blueprint(video_task_status_bp)
+    # No prefix to preserve existing routes
+    router.include_router(video_router)
+    router.include_router(audio_router)
+    router.include_router(image_router)
+    router.include_router(text_router)
+    router.include_router(subtitle_router)
+    router.include_router(sticker_router)
+    router.include_router(effects_router)
+    router.include_router(drafts_router)
+    router.include_router(metadata_router)
+    router.include_router(generate_router)
+    router.include_router(health_router)
+    router.include_router(tasks_router)
+    router.include_router(draft_management_router)
+    router.include_router(draft_archives_router)
+    router.include_router(tracks_router)
+    router.include_router(segments_router)
+    router.include_router(videos_router)
+    router.include_router(video_task_status_router)
+    
+    return router
 
