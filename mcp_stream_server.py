@@ -530,7 +530,7 @@ def tool_add_video_keyframe(
 @mcp_tool_logger("generate_video")
 def tool_generate_video(
     draft_id: str,
-    resolution: str = "1080p",
+    resolution: str = "1080P",
     framerate: str = "30fps",
     name: Optional[str] = None,
 ) -> Dict[str, Any]:

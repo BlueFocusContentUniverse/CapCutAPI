@@ -5,11 +5,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastmcp.server.http import create_streamable_http_app
 
 from api import get_api_router
 from db import init_db
 from logging_utils import setup_logging
+
+# from fastmcp.server.http import create_streamable_http_app
+from mcp_server_fix import create_distributed_streamable_http_app
 from mcp_stream_server import create_fastmcp_app
 from redis_event_store import RedisEventStore
 
@@ -36,7 +38,7 @@ except Exception as e:
 
 # Create ASGI app from MCP server with Redis event store
 if event_store:
-    mcp_app = create_streamable_http_app(
+    mcp_app = create_distributed_streamable_http_app(
         server=mcp_server,
         streamable_http_path="/mcp",
         event_store=event_store,

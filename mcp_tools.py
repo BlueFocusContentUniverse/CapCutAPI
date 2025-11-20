@@ -511,9 +511,9 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "draft_id": {"type": "string", "description": "要导出的草稿的唯一标识符"},
-                "resolution": {"type": "string", "enum": ["1080P", "2K", "4K"], "description": "导出视频分辨率。1080P=1920×1080，2K=2560×1440，4K=3840×2160", "default": "1080P"},
-                "framerate": {"type": "string", "enum": ["30fps", "50fps", "60fps"], "description": "导出视频帧率。30fps适合常规视频，50/60fps适合高动态画面", "default": "30fps"},
+                "draft_id": {"type": "string", "description": "草稿的唯一标识符"},
+                "resolution": {"type": "string", "enum": ["720P", "1080P", "2K", "4K"], "description": "导出视频分辨率。1080P=1920×1080，2K=2560×1440，4K=3840×2160", "default": "720P"},
+                "framerate": {"type": "string", "enum": ["30fps", "50fps", "60fps"], "description": "导出视频帧率", "default": "30fps"},
                 "name": {"type": "string", "description": "导出视频的文件名称（不含扩展名）"}
             },
             "required": ["draft_id", "name"]
@@ -525,7 +525,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "task_id": {"type": "string", "description": "视频任务的唯一标识符。由generate_video返回的final_task_id"}
+                "task_id": {"type": "string", "description": "视频任务的唯一标识符。由generate_video返回的task_id"}
             },
             "required": ["task_id"]
         }

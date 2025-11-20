@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
@@ -13,8 +13,8 @@ router = APIRouter(tags=["generate"])
 
 class GenerateVideoRequest(BaseModel):
     draft_id: str
-    resolution: Optional[str] = None
-    framerate: Optional[float] = None
+    resolution: Optional[Literal["720P", "1080P", "2K", "4K"]] = "720P"
+    framerate: Optional[Literal["30fps", "50fps", "60fps"]] = "30fps"
     name: Optional[str] = None
 
 @router.get("/video_task_status")
@@ -43,8 +43,8 @@ def generate_video_api(request: GenerateVideoRequest, response: Response):
     Request Body:
         {
             "draft_id": str (required) - The draft identifier to render,
-            "resolution": str (optional) - Target resolution (e.g., "1080p", "720p"),
-            "framerate": float (optional) - Target framerate (e.g., 30.0, 60.0),
+            "resolution": str (optional) - Target resolution ("720P", "1080P", "2K", "4K"),
+            "framerate": str (optional) - Target framerate ("30fps", "50fps", "60fps"),
             "name": str (optional) - Override for the draft/video name
         }
 

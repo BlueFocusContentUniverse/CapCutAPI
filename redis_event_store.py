@@ -82,3 +82,10 @@ class RedisEventStore(EventStore):
                     continue
 
         return stream_id
+
+    async def session_exists(self, stream_id: StreamId) -> bool:
+        """
+        Check if a session stream exists in Redis.
+        """
+        stream_key = f"mcp:stream:{stream_id}"
+        return bool(await self.redis.exists(stream_key))

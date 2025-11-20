@@ -1,7 +1,7 @@
 import logging
 import os
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from sqlalchemy import select
 
@@ -11,19 +11,21 @@ from services.save_draft_impl import query_script_impl
 
 logger = logging.getLogger(__name__)
 
+ResolutionType = Literal["720P", "1080P", "2K", "4K"]
+FramerateType = Literal["30fps", "50fps", "60fps"]
 
 def generate_video_impl(
     draft_id: str,
-    resolution: Optional[str] = None,
-    framerate: Optional[float] = None,
+    resolution: Optional[ResolutionType] = "1080P",
+    framerate: Optional[FramerateType] = "30fps",
     name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Kick off Celery pipeline to generate a video for a given draft.
 
     Args:
         draft_id: The draft identifier to render.
-        resolution: Target resolution label (e.g., "1080p", "720p"). If omitted, worker default is used.
-        framerate: Target framerate (e.g., 30.0, 60.0). If omitted, worker default is used.
+        resolution: Target resolution label ("720P", "1080P", "2K", "4K").
+        framerate: Target framerate ("30fps", "50fps", "60fps").
         name: Optional override for the draft/video name embedded in content.
 
     Returns:
@@ -37,6 +39,28 @@ def generate_video_impl(
     if not draft_id:
         result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
         return result
+
+    # Validate resolution
+    valid_resolutions = ["720P", "1080P", "2K", "4K"]
+    if resolution and resolution not in valid_resolutions:
+        result["error"] = f"Invalid resolution '{resolution}'. Must be one of: {', '.join(valid_resolutions)}"
+        return result
+
+    # Validate framerate
+    valid_framerates = ["30fps", "50fps", "60fps"]
+    if framerate and framerate not in valid_framerates:
+        result["error"] = f"Invalid framerate '{framerate}'. Must be one of: {', '.join(valid_framerates)}"
+        return result
+
+    # Convert framerate to float for backend processing if needed
+    # Assuming the runner expects a number based on previous type hint
+    framerate_val = None
+    if framerate:
+        try:
+            framerate_val = float(framerate.replace("fps", ""))
+        except ValueError:
+            # Should be caught by validation above, but safe fallback
+            framerate_val = 30.0
 
     try:
         import json
@@ -113,7 +137,7 @@ def generate_video_impl(
                 "draft_content": draft_content,
                 "basePath": None,
                 "resolution": resolution,
-                "framerate": framerate,
+                "framerate": framerate_val,
             },
             queue="default",
         ).set(task_id=final_task_id)
