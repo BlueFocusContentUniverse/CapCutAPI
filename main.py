@@ -9,9 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from api import get_api_router
 from db import init_db
 from logging_utils import setup_logging
-
-# from fastmcp.server.http import create_streamable_http_app
-from mcp_server_fix import create_distributed_streamable_http_app
 from mcp_stream_server import create_fastmcp_app
 from redis_event_store import RedisEventStore
 
@@ -36,16 +33,7 @@ except Exception as e:
     logger.warning(f"Failed to initialize RedisEventStore: {e}. Falling back to in-memory session storage (single worker only).")
     event_store = None
 
-# Create ASGI app from MCP server with Redis event store
-if event_store:
-    mcp_app = create_distributed_streamable_http_app(
-        server=mcp_server,
-        streamable_http_path="/mcp",
-        event_store=event_store,
-        auth=mcp_server.auth,
-    )
-else:
-    mcp_app = mcp_server.http_app(path="/mcp")
+mcp_app = mcp_server.http_app(path="/mcp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,7 +49,7 @@ async def lifespan(app: FastAPI):
         yield
     # Shutdown
 
-app = FastAPI(lifespan=lifespan, title="CapCut API Service", version="1.6.1")
+app = FastAPI(lifespan=lifespan, title="CapCut API Service", version="1.6.3")
 
 # Configure CORS
 app.add_middleware(

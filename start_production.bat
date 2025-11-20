@@ -5,7 +5,7 @@ echo Starting CapCut API in production mode...
 
 REM Set default values
 if not defined PORT set PORT=9000
-if not defined WORKERS set WORKERS=2
+if not defined WORKERS set WORKERS=1
 if not defined LOG_LEVEL set LOG_LEVEL=info
 
 REM Create logs directory

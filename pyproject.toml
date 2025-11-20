@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "capcut-api"
-version = "1.6.1"
+version = "1.6.3"
 description = "CapCut API Service"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "imageio",
     "requests",
