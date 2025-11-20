@@ -5,11 +5,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastmcp.server.http import create_streamable_http_app
 
 from api import get_api_router
 from db import init_db
 from logging_utils import setup_logging
 from mcp_stream_server import create_fastmcp_app
+from redis_event_store import RedisEventStore
 
 # Load environment variables
 env_file = Path(__file__).parent / ".env"
@@ -22,8 +24,26 @@ logger = logging.getLogger(__name__)
 
 # Create MCP server instance
 mcp_server = create_fastmcp_app()
-# Create ASGI app from MCP server
-mcp_app = mcp_server.http_app(path="/mcp")
+
+# Create Redis Event Store for session persistence
+# This allows the MCP server to work with multiple workers
+try:
+    event_store = RedisEventStore()
+    logger.info("Initialized RedisEventStore for MCP session persistence")
+except Exception as e:
+    logger.warning(f"Failed to initialize RedisEventStore: {e}. Falling back to in-memory session storage (single worker only).")
+    event_store = None
+
+# Create ASGI app from MCP server with Redis event store
+if event_store:
+    mcp_app = create_streamable_http_app(
+        server=mcp_server,
+        streamable_http_path="/mcp",
+        event_store=event_store,
+        auth=mcp_server.auth,
+    )
+else:
+    mcp_app = mcp_server.http_app(path="/mcp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,7 +59,7 @@ async def lifespan(app: FastAPI):
         yield
     # Shutdown
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, title="CapCut API Service", version="1.6.1")
 
 # Configure CORS
 app.add_middleware(

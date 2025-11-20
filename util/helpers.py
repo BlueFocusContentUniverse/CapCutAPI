@@ -3,8 +3,10 @@ Helper utility functions for CapCut API.
 Includes color conversion, path handling, hashing, timing, and draft URL generation.
 """
 
+import asyncio
 import functools
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -96,4 +98,52 @@ def timing_decorator(func_name):
 
 def generate_draft_url(draft_id):
     return f"{DRAFT_DOMAIN}{PREVIEW_ROUTER}?draft_id={draft_id}&is_capcut={1 if IS_CAPCUT_ENV else 0}"
+
+async def get_ffprobe_info(media_path: str, select_streams: str = "v:0", show_entries: list = None) -> dict:
+    """
+    Run ffprobe to get media information asynchronously.
+
+    Args:
+        media_path: Path to the media file or URL
+        select_streams: Stream selection specifier (default: "v:0" for first video stream)
+        show_entries: List of entries to show (default: entries for video info)
+
+    Returns:
+        Parsed JSON output from ffprobe
+    """
+    if show_entries is None:
+        show_entries = ["stream=width,height,duration,codec_type", "format=duration,format_name"]
+
+    args = [
+        "-v", "error",
+        "-select_streams", select_streams,
+        "-of", "json",
+        media_path
+    ]
+
+    for entry in show_entries:
+        args.extend(["-show_entries", entry])
+
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "ffprobe",
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            raise ValueError(f"ffprobe failed with error: {stderr.decode('utf-8')}")
+
+        result_str = stdout.decode("utf-8")
+        # 查找JSON开始位置（第一个'{'）
+        json_start = result_str.find("{")
+        if json_start != -1:
+            json_str = result_str[json_start:]
+            return json.loads(json_str)
+        else:
+            raise ValueError(f"无法在输出中找到JSON数据: {result_str}")
+    except Exception as e:
+        raise ValueError(f"处理文件 {media_path} 时出错: {e}") from e
 

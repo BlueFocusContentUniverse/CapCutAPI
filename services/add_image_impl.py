@@ -1,18 +1,38 @@
+import asyncio
+import logging
 import os
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import pyJianYingDraft as draft
 from draft_cache import update_cache
 from pyJianYingDraft import ClipSettings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
-from util.helpers import is_windows_path, url_to_hash
+from util.helpers import get_ffprobe_info, is_windows_path, url_to_hash
 
 from .create_draft import get_draft
 
+logger = logging.getLogger(__name__)
 
-def add_image_impl(
+
+async def _get_image_metadata(image_url: str) -> Tuple[int, int]:
+    try:
+        info = await get_ffprobe_info(image_url)
+        if "streams" in info and len(info["streams"]) > 0:
+            stream = info["streams"][0]
+            width = int(stream.get("width", 0))
+            height = int(stream.get("height", 0))
+            return width, height
+        else:
+            return 0, 0
+    except Exception as e:
+        logger.warning(f"Failed to get image metadata for {image_url}: {e}")
+        return 0, 0
+
+
+async def add_image_impl(
     image_url: str,
+    image_name: Optional[str] = None,
     draft_folder: Optional[str] = None,
     start: float = 0,
     end: float = 3.0,  # Default display time: 3 seconds
@@ -57,6 +77,7 @@ def add_image_impl(
     :param transition_duration: Transition duration (seconds), default 0.5 seconds
     :param draft_folder: Draft folder path, optional parameter
     :param image_url: Image URL
+    :param image_name: Image material name, optional parameter
     :param start: Start time (seconds), default 0
     :param end: End time (seconds), default 3 seconds
     :param draft_id: Draft ID, if None or corresponding zip file not found, a new draft will be created
@@ -102,7 +123,7 @@ def add_image_impl(
         script.add_track(draft.TrackType.video, relative_index=relative_index)
 
     # Generate material_name but don't download the image
-    material_name = f"image_{url_to_hash(image_url)}.png"
+    material_name = image_name if image_name else f"image_{url_to_hash(image_url)}.png"
 
     # Build draft_image_path
     draft_image_path = None
@@ -122,11 +143,32 @@ def add_image_impl(
         # Print path information
         print("replace_path:", draft_image_path)
 
+    width, height = await _get_image_metadata(image_url)
+    # Default duration for photo is 3 hours (10800000000 microseconds)
+    default_duration = 10800000000
+
     # Create image material
     if draft_image_path:
-        image_material = draft.VideoMaterial(path=None, material_type="photo", replace_path=draft_image_path, remote_url=image_url, material_name=material_name)
+        image_material = draft.VideoMaterial(
+            path=None,
+            material_type="photo",
+            replace_path=draft_image_path,
+            remote_url=image_url,
+            material_name=material_name,
+            duration=default_duration,
+            width=width,
+            height=height
+        )
     else:
-        image_material = draft.VideoMaterial(path=None, material_type="photo", remote_url=image_url, material_name=material_name)
+        image_material = draft.VideoMaterial(
+            path=None,
+            material_type="photo",
+            remote_url=image_url,
+            material_name=material_name,
+            duration=default_duration,
+            width=width,
+            height=height
+        )
 
     # Create target_timerange (image)
     duration = end - start

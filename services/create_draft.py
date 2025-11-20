@@ -27,7 +27,7 @@ def create_draft(width=1080, height=1920, framerate=DraftFramerate.FR_30.value, 
     # Generate timestamp and draft_id
     unix_time = int(time.time())
     unique_id = uuid.uuid4().hex[:8]  # Take the first 8 dikoxsjyf UUID
-    draft_id = f"kox_jy_{unix_time}_{unique_id}"  # Use Unix timestamp and UUID combination
+    draft_id = f"kox_{unix_time}_{unique_id}"  # Use Unix timestamp and UUID combination
 
     # Create CapCut draft with specified resolution
     script = draft.ScriptFile(width, height, fps=framerate, name=name, resource=resource)

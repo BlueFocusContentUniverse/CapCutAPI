@@ -1,14 +1,15 @@
+import asyncio
 import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pyJianYingDraft as draft
 from draft_cache import update_draft_with_retry
 from pyJianYingDraft import ClipSettings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
-from util.helpers import is_windows_path, url_to_hash
+from util.helpers import get_ffprobe_info, is_windows_path, url_to_hash
 
 from .create_draft import get_draft
 
@@ -60,6 +61,8 @@ def _prepare_video_segment_payload(
     combo_animation_duration: float,
     video_name: Optional[str],
     duration: Optional[float],
+    width: int,
+    height: int,
     transition: Optional[str],
     transition_duration: Optional[float],
     filter_type: Optional[str],
@@ -98,15 +101,12 @@ def _prepare_video_segment_payload(
         raise ValueError(f"❌ 参数错误：start={start}秒不能为负数")
 
     # 2. 确定视频总时长
+    video_duration = -1  # 默认0
     if duration is not None:
         if duration <= 0:
             raise ValueError(f"❌ 参数错误：duration={duration}秒必须为正数")
         video_duration = duration
         print(f"✅ 使用提供的视频时长: {video_duration}秒")
-    else:
-        # 使用-1标记"未知时长"，后续在save_draft_impl中获取
-        video_duration = -1.0
-        print("⚠️  警告：未提供duration参数，视频时长将在下载时自动获取（可能耗时较长）")
 
     if video_name:
         material_name = video_name
@@ -131,14 +131,9 @@ def _prepare_video_segment_payload(
 
     # 3. 确定裁剪终点
     if end is None or end <= 0:
-        if video_duration == -1.0:
-            video_end = 0
-            source_duration = 0
-            print(f"📹 裁剪模式：从{start}秒截取到视频末尾（时长待获取）")
-        else:
-            video_end = video_duration
-            source_duration = video_end - start
-            print(f"📹 裁剪模式：从{start}秒截取到{video_end}秒（共{source_duration}秒）")
+        video_end = video_duration
+        source_duration = video_end - start
+        print(f"📹 裁剪模式：从{start}秒截取到{video_end}秒（共{source_duration}秒）")
     else:
         video_end = end
         source_duration = video_end - start
@@ -207,18 +202,18 @@ def _prepare_video_segment_payload(
             replace_path=draft_video_path,
             remote_url=video_url,
             material_name=material_name,
-            duration=video_duration,
-            width=0,
-            height=0,
+            duration=int(video_duration * 1e6),
+            width=width,
+            height=height
         )
     else:
         video_material = draft.VideoMaterial(
             material_type="video",
             remote_url=video_url,
             material_name=material_name,
-            duration=video_duration,
-            width=0,
-            height=0,
+            duration=int(video_duration * 1e6),
+            width=width,
+            height=height
         )
 
     source_timerange = trange(f"{start}s", f"{source_duration}s")
@@ -398,7 +393,7 @@ def _apply_video_segment_to_script(
     logger.debug("Added video segment to track")
 
 
-def add_video_track(
+async def add_video_track(
     video_url: str,
     draft_folder: Optional[str] = None,
     start: float = 0,
@@ -447,6 +442,14 @@ def add_video_track(
     draft_id, _ = get_draft(draft_id=draft_id)
     logger.info(f"Starting video track addition to draft {draft_id}")
 
+    width = 0
+    height = 0
+    if duration is None:
+        duration, width, height = await _get_video_metadata(video_url)
+    else:
+        # If duration is provided, we still need width and height
+        _, width, height = await _get_video_metadata(video_url)
+
     payload = _prepare_video_segment_payload(
         draft_id=draft_id,
         video_url=video_url,
@@ -471,6 +474,8 @@ def add_video_track(
         combo_animation_duration=combo_animation_duration,
         video_name=video_name,
         duration=duration,
+        width=width,
+        height=height,
         transition=transition,
         transition_duration=transition_duration,
         filter_type=filter_type,
@@ -513,7 +518,7 @@ def add_video_track(
     }
 
 
-def batch_add_video_track(
+async def batch_add_video_track(
     videos: List[Dict[str, Any]],
     draft_folder: Optional[str] = None,
     draft_id: Optional[str] = None,
@@ -560,6 +565,17 @@ def batch_add_video_track(
     payloads: List[VideoSegmentPayload] = []
     skipped: List[Dict[str, Any]] = []
 
+    # Gather metadata for all videos concurrently
+    metadata_tasks = []
+    for video in videos:
+        video_url = video.get("video_url")
+        if video_url:
+            metadata_tasks.append(_get_video_metadata(video_url))
+        else:
+            metadata_tasks.append(asyncio.sleep(0, result=(0.0, 0, 0))) # Dummy task
+
+    metadatas = await asyncio.gather(*metadata_tasks)
+
     for idx, video in enumerate(videos):
         video_url = video.get("video_url")
         if not video_url:
@@ -571,6 +587,11 @@ def batch_add_video_track(
                 }
             )
             continue
+
+        duration, width, height = metadatas[idx]
+        # If duration is provided in video dict, use it, but we still need width/height
+        if video.get("duration") is not None:
+            duration = video.get("duration")
 
         try:
             payload = _prepare_video_segment_payload(
@@ -596,7 +617,9 @@ def batch_add_video_track(
                 combo_animation=video.get("combo_animation", combo_animation),
                 combo_animation_duration=video.get("combo_animation_duration", combo_animation_duration),
                 video_name=video.get("video_name"),
-                duration=video.get("duration"),
+                duration=duration,
+                width=width,
+                height=height,
                 transition=video.get("transition", transition),
                 transition_duration=video.get("transition_duration", transition_duration),
                 filter_type=video.get("filter_type", filter_type),
@@ -674,3 +697,20 @@ def batch_add_video_track(
         "outputs": outputs,
         "skipped": skipped,
     }
+
+
+async def _get_video_metadata(video_url: str) -> Tuple[float, int, int]:
+    try:
+        info = await get_ffprobe_info(video_url)
+        if "streams" in info and len(info["streams"]) > 0:
+            stream = info["streams"][0]
+            width = int(stream.get("width", 0))
+            height = int(stream.get("height", 0))
+            duration_str = stream.get("duration") or info["format"].get("duration", "0")
+            duration = float(duration_str)
+            return duration, width, height
+        else:
+            return 0.0, 0, 0
+    except Exception as e:
+        logger.warning(f"Failed to get video metadata for {video_url}: {e}")
+        return 0.0, 0, 0

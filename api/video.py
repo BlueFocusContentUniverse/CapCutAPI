@@ -1,7 +1,7 @@
 import logging
-from typing import List, Optional, Any
+from typing import Any, List, Optional
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
@@ -68,7 +68,7 @@ class BatchAddVideosRequest(BaseModel):
     draft_folder: Optional[str] = None
     draft_id: Optional[str] = None
     videos: List[VideoItem]
-    
+
     # Common parameters
     transform_y: float = 0
     scale_x: float = 1
@@ -113,7 +113,7 @@ class AddVideoKeyframeRequest(BaseModel):
 
 @router.post("/add_video")
 @api_endpoint_logger
-def add_video(request: AddVideoRequest, response: Response):
+async def add_video(request: AddVideoRequest, response: Response):
     result = {
         "success": False,
         "output": "",
@@ -121,7 +121,7 @@ def add_video(request: AddVideoRequest, response: Response):
     }
 
     try:
-        draft_result = add_video_track(
+        draft_result = await add_video_track(
             draft_folder=request.draft_folder,
             video_url=request.video_url,
             start=request.start,
@@ -176,7 +176,7 @@ def add_video(request: AddVideoRequest, response: Response):
 
 @router.post("/batch_add_videos")
 @api_endpoint_logger
-def batch_add_videos(request: BatchAddVideosRequest, response: Response):
+async def batch_add_videos(request: BatchAddVideosRequest, response: Response):
     result = {
         "success": False,
         "output": [],
@@ -191,8 +191,8 @@ def batch_add_videos(request: BatchAddVideosRequest, response: Response):
     try:
         # Convert Pydantic models to dicts for the service function
         videos_data = [v.dict() for v in request.videos]
-        
-        batch_result = batch_add_video_track(
+
+        batch_result = await batch_add_video_track(
             videos=videos_data,
             draft_folder=request.draft_folder,
             draft_id=request.draft_id,

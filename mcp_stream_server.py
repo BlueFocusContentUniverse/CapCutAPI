@@ -7,18 +7,13 @@ This server reuses the tool registry and execution logic defined in
 which supports stdio and SSE (HTTP) transports.
 """
 
-import argparse
 import json
 import logging
-import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import mcp.types as types
-from dotenv import load_dotenv
 from fastmcp import FastMCP
 
-from db import init_db
 from logging_utils import mcp_tool_logger
 
 # pydantic is intentionally not required here for flat handlers
@@ -307,6 +302,7 @@ def tool_batch_add_audios(
 @mcp_tool_logger("add_image")
 def tool_add_image(
     image_url: str,
+    image_name: str,
     draft_id: str,
     start: float = 0,
     end: float = 3.0,
@@ -322,6 +318,7 @@ def tool_add_image(
 ) -> Dict[str, Any]:
     arguments: Dict[str, Any] = {
         "image_url": image_url,
+        "image_name": image_name,
         "draft_id": draft_id,
         "start": start,
         "end": end,
@@ -753,44 +750,9 @@ def _register_resources(app: FastMCP) -> None:
 
 def create_fastmcp_app() -> FastMCP:
     """Factory to create a FastMCP app with tools registered and list_tools overridden."""
-    app = FastMCP("capcut-api")
+    app = FastMCP("capcut-api", version="1.6.1")
     _register_tools(app)
     _override_list_tools(app)
     _register_prompts(app)
     _register_resources(app)
     return app
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Streaming-capable MCP server for CapCut API"
-    )
-    parser.add_argument(
-        "--host", default="127.0.0.1", help="streamable host (default: 127.0.0.1)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=3333, help="streamable port (default: 3333)"
-    )
-    args = parser.parse_args()
-
-    try:
-        init_db()
-        logger.info("Database initialization successful")
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
-
-    app = FastMCP("capcut-api", host=args.host, port=args.port)
-    _register_tools(app)
-    _override_list_tools(app)
-    _register_prompts(app)
-    _register_resources(app)
-
-    print(
-        f"Starting CapCut FastMCP SSE server on http://{args.host}:{args.port}",
-        file=sys.stderr,
-    )
-    app.run(transport="streamable-http", mount_path="/streamable")
-
-
-if __name__ == "__main__":
-    main()

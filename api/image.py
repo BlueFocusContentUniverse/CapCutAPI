@@ -13,6 +13,7 @@ router = APIRouter(tags=["image"])
 class AddImageRequest(BaseModel):
     draft_folder: Optional[str] = None
     image_url: str
+    image_name: Optional[str] = None
     start: float = 0
     end: float = 3.0
     draft_id: Optional[str] = None
@@ -43,7 +44,7 @@ class AddImageRequest(BaseModel):
 
 @router.post("/add_image")
 @api_endpoint_logger
-def add_image(request: AddImageRequest, response: Response):
+async def add_image(request: AddImageRequest, response: Response):
     result = {
         "success": False,
         "output": "",
@@ -51,9 +52,10 @@ def add_image(request: AddImageRequest, response: Response):
     }
 
     try:
-        draft_result = add_image_impl(
+        draft_result = await add_image_impl(
             draft_folder=request.draft_folder,
             image_url=request.image_url,
+            image_name=request.image_name,
             start=request.start,
             end=request.end,
             draft_id=request.draft_id,

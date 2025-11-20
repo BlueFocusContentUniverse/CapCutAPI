@@ -36,12 +36,8 @@ RUN mkdir -p logs
 # Default Port
 EXPOSE 9000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:9000/health || exit 1
-
 # Run with Uvicorn in production
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-9000} --workers ${WORKERS:-4}"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-9000} --workers ${WORKERS:-2}"]
 
 
 

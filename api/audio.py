@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Any, Tuple
+from typing import List, Optional
 
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
@@ -37,7 +37,7 @@ class BatchAddAudiosRequest(BaseModel):
     draft_folder: Optional[str] = None
     draft_id: Optional[str] = None
     audios: List[AudioItem]
-    
+
     # Common parameters
     volume: float = 1.0
     track_name: str = "audio_main"
@@ -47,7 +47,7 @@ class BatchAddAudiosRequest(BaseModel):
 
 @router.post("/add_audio")
 @api_endpoint_logger
-def add_audio(request: AddAudioRequest, response: Response):
+async def add_audio(request: AddAudioRequest, response: Response):
     sound_effects = None
     if request.effect_type is not None:
         sound_effects = [(request.effect_type, request.effect_params)]
@@ -59,7 +59,7 @@ def add_audio(request: AddAudioRequest, response: Response):
     }
 
     try:
-        draft_result = add_audio_track(
+        draft_result = await add_audio_track(
             audio_url=request.audio_url,
             start=request.start,
             end=request.end,
@@ -85,7 +85,7 @@ def add_audio(request: AddAudioRequest, response: Response):
 
 @router.post("/batch_add_audios")
 @api_endpoint_logger
-def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
+async def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
     sound_effects = None
     if request.effect_type is not None:
         sound_effects = [(request.effect_type, request.effect_params)]
@@ -104,8 +104,8 @@ def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
     try:
         # Convert Pydantic models to dicts for the service function
         audios_data = [a.dict() for a in request.audios]
-        
-        batch_result = batch_add_audio_track(
+
+        batch_result = await batch_add_audio_track(
             audios=audios_data,
             draft_folder=request.draft_folder,
             draft_id=request.draft_id,

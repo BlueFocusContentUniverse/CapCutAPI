@@ -14,7 +14,7 @@ fi
 
 # Set default values
 export PORT=${PORT:-9000}
-export WORKERS=${WORKERS:-4}
+export WORKERS=${WORKERS:-2}
 export LOG_LEVEL=${LOG_LEVEL:-info}
 
 # Create logs directory
