@@ -9,7 +9,12 @@ import pyJianYingDraft as draft
 from draft_cache import update_draft_with_retry
 from pyJianYingDraft import ClipSettings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
-from util.helpers import get_ffprobe_info, is_windows_path, url_to_hash
+from util.helpers import (
+    get_extension_from_format,
+    get_ffprobe_info,
+    is_windows_path,
+    url_to_hash,
+)
 
 from .create_draft import get_draft
 
@@ -80,6 +85,7 @@ def _prepare_video_segment_payload(
     mask_round_corner: Optional[float],
     volume: float,
     background_blur: Optional[int],
+    extension: str = ".mp4",
 ) -> VideoSegmentPayload:
     # ========== Mode validation and speed calculation ==========
     if mode not in ["cover", "fill"]:
@@ -113,7 +119,7 @@ def _prepare_video_segment_payload(
         logger.debug(f"Using custom video_name '{video_name}' for URL {video_url}")
     else:
         # Generate local filename
-        material_name = f"video_{url_to_hash(video_url)}.mp4"
+        material_name = f"video_{url_to_hash(video_url)}{extension}"
 
     # Build draft_video_path
     draft_video_path = None
@@ -444,11 +450,19 @@ async def add_video_track(
 
     width = 0
     height = 0
+    detected_format = None
     if duration is None:
-        duration, width, height = await _get_video_metadata(video_url)
+        duration, width, height, detected_format = await _get_video_metadata(video_url)
     else:
         # If duration is provided, we still need width and height
-        _, width, height = await _get_video_metadata(video_url)
+        _, width, height, detected_format = await _get_video_metadata(video_url)
+
+    ext = get_extension_from_format(detected_format, ".mp4")
+
+    if video_name:
+        _, name_ext = os.path.splitext(video_name)
+        if not name_ext:
+            video_name += ext
 
     payload = _prepare_video_segment_payload(
         draft_id=draft_id,
@@ -493,6 +507,7 @@ async def add_video_track(
         mask_round_corner=mask_round_corner,
         volume=volume,
         background_blur=background_blur,
+        extension=ext,
     )
 
     def modify_draft(script):
@@ -572,7 +587,7 @@ async def batch_add_video_track(
         if video_url:
             metadata_tasks.append(_get_video_metadata(video_url))
         else:
-            metadata_tasks.append(asyncio.sleep(0, result=(0.0, 0, 0))) # Dummy task
+            metadata_tasks.append(asyncio.sleep(0, result=(0.0, 0, 0, None))) # Dummy task
 
     metadatas = await asyncio.gather(*metadata_tasks)
 
@@ -588,10 +603,18 @@ async def batch_add_video_track(
             )
             continue
 
-        duration, width, height = metadatas[idx]
+        duration, width, height, detected_format = metadatas[idx]
+        ext = get_extension_from_format(detected_format, ".mp4")
+
         # If duration is provided in video dict, use it, but we still need width/height
         if video.get("duration") is not None:
             duration = video.get("duration")
+
+        video_name = video.get("video_name")
+        if video_name:
+            _, name_ext = os.path.splitext(video_name)
+            if not name_ext:
+                video_name += ext
 
         try:
             payload = _prepare_video_segment_payload(
@@ -616,7 +639,7 @@ async def batch_add_video_track(
                 outro_animation_duration=video.get("outro_animation_duration", outro_animation_duration),
                 combo_animation=video.get("combo_animation", combo_animation),
                 combo_animation_duration=video.get("combo_animation_duration", combo_animation_duration),
-                video_name=video.get("video_name"),
+                video_name=video_name,
                 duration=duration,
                 width=width,
                 height=height,
@@ -637,6 +660,7 @@ async def batch_add_video_track(
                 mask_round_corner=video.get("mask_round_corner", mask_round_corner),
                 volume=video.get("volume", volume),
                 background_blur=video.get("background_blur", background_blur),
+                extension=ext,
             )
             payloads.append(payload)
         except Exception as exc:
@@ -699,18 +723,23 @@ async def batch_add_video_track(
     }
 
 
-async def _get_video_metadata(video_url: str) -> Tuple[float, int, int]:
+async def _get_video_metadata(video_url: str) -> Tuple[float, int, int, Optional[str]]:
     try:
         info = await get_ffprobe_info(video_url)
+
+        format_name = None
+        if "format" in info:
+             format_name = info["format"].get("format_name")
+
         if "streams" in info and len(info["streams"]) > 0:
             stream = info["streams"][0]
             width = int(stream.get("width", 0))
             height = int(stream.get("height", 0))
             duration_str = stream.get("duration") or info["format"].get("duration", "0")
             duration = float(duration_str)
-            return duration, width, height
+            return duration, width, height, format_name
         else:
-            return 0.0, 0, 0
+            return 0.0, 0, 0, format_name
     except Exception as e:
         logger.warning(f"Failed to get video metadata for {video_url}: {e}")
-        return 0.0, 0, 0
+        return 0.0, 0, 0, None

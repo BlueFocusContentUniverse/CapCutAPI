@@ -147,3 +147,41 @@ async def get_ffprobe_info(media_path: str, select_streams: str = "v:0", show_en
     except Exception as e:
         raise ValueError(f"处理文件 {media_path} 时出错: {e}") from e
 
+
+def get_extension_from_format(format_name: str, default: str) -> str:
+    """
+    Get file extension from ffprobe format name.
+    """
+    if not format_name:
+        return default
+
+    format_name = format_name.lower()
+
+    # Common video formats
+    if "mp4" in format_name: return ".mp4"
+    if "mov" in format_name: return ".mov"
+    if "avi" in format_name: return ".avi"
+    if "webm" in format_name: return ".webm"
+    if "mkv" in format_name or "matroska" in format_name: return ".mkv"
+
+    # Common audio formats
+    if "mp3" in format_name: return ".mp3"
+    if "wav" in format_name: return ".wav"
+    if "aac" in format_name: return ".aac"
+    if "m4a" in format_name: return ".m4a"
+    if "flac" in format_name: return ".flac"
+    if "ogg" in format_name: return ".ogg"
+
+    # Common image formats
+    if "png" in format_name: return ".png"
+    if "jpeg" in format_name or "jpg" in format_name: return ".jpg"
+    if "gif" in format_name: return ".gif"
+    if "webp" in format_name: return ".webp"
+
+    # Fallback: use the first format name as extension if it looks like one
+    first = format_name.split(",")[0].strip()
+    if first and len(first) < 5:
+        return f".{first}"
+
+    return default
+

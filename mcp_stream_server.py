@@ -37,7 +37,7 @@ if not logging.getLogger().hasHandlers():
 # Manual tool handlers with flattened parameters (required first)
 @mcp_tool_logger("create_draft")
 def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 30.0, name: str = "mcp_draft", resource: str = "mcp") -> Dict[str, Any]:
-    _, draft_id =  create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
+    _, draft_id = create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
     return {
         "draft_id": draft_id,
     }

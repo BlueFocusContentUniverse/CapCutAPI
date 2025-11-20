@@ -19,7 +19,12 @@ from pyJianYingDraft import (
     trange,
 )
 from settings.local import IS_CAPCUT_ENV
-from util.helpers import get_ffprobe_info, is_windows_path, url_to_hash
+from util.helpers import (
+    get_extension_from_format,
+    get_ffprobe_info,
+    is_windows_path,
+    url_to_hash,
+)
 
 from .create_draft import get_draft
 
@@ -214,8 +219,21 @@ async def add_audio_track(
     draft_id, _ = get_draft(draft_id=draft_id)
     logger.info(f"Starting audio track addition to draft {draft_id}")
 
+    detected_format = None
     if duration is None:
-        duration = await _get_audio_metadata(audio_url)
+        duration, detected_format = await _get_audio_metadata(audio_url)
+
+    if audio_name:
+        _, ext = os.path.splitext(audio_name)
+        if not ext:
+            if not detected_format:
+                # If duration was provided, we might not have probed yet.
+                # Probe now to get the format.
+                _, detected_format = await _get_audio_metadata(audio_url)
+
+            ext = get_extension_from_format(detected_format, ".mp3")
+            audio_name += ext
+            logger.info(f"Appended extension {ext} to audio_name: {audio_name}")
 
     payload = _prepare_audio_segment_payload(
         draft_id=draft_id,
@@ -279,9 +297,9 @@ async def batch_add_audio_track(
         if audio_url:
             metadata_tasks.append(_get_audio_metadata(audio_url))
         else:
-            metadata_tasks.append(asyncio.sleep(0, result=0.0)) # Dummy task
+            metadata_tasks.append(asyncio.sleep(0, result=(0.0, None))) # Dummy task
 
-    durations = await asyncio.gather(*metadata_tasks)
+    metadata_results = await asyncio.gather(*metadata_tasks)
 
     for idx, audio in enumerate(audios):
         audio_url = audio.get("audio_url")
@@ -290,9 +308,16 @@ async def batch_add_audio_track(
             skipped.append({"index": idx, "reason": "missing_audio_url"})
             continue
 
-        duration = durations[idx]
+        duration, detected_format = metadata_results[idx]
         if audio.get("duration") is not None:
             duration = audio.get("duration")
+
+        audio_name = audio.get("audio_name")
+        if audio_name:
+            _, ext = os.path.splitext(audio_name)
+            if not ext:
+                ext = get_extension_from_format(detected_format, ".mp3")
+                audio_name += ext
 
         try:
             payload = _prepare_audio_segment_payload(
@@ -306,7 +331,7 @@ async def batch_add_audio_track(
                 track_name=audio.get("track_name", track_name),
                 speed=audio.get("speed", speed),
                 sound_effects=audio.get("sound_effects", sound_effects),
-                audio_name=audio.get("audio_name"),
+                audio_name=audio_name,
                 duration=duration,
             )
             payloads.append(payload)
@@ -365,19 +390,24 @@ async def batch_add_audio_track(
     }
 
 
-async def _get_audio_metadata(audio_url: str) -> float:
+async def _get_audio_metadata(audio_url: str) -> Tuple[float, Optional[str]]:
     try:
         info = await get_ffprobe_info(
             audio_url,
             select_streams="a:0",
-            show_entries=["stream=duration", "format=duration"]
+            show_entries=["stream=duration", "format=duration,format_name"]
         )
+
+        format_name = None
+        if "format" in info:
+             format_name = info["format"].get("format_name")
+
         if "streams" in info and len(info["streams"]) > 0:
             stream = info["streams"][0]
             duration_str = stream.get("duration") or info["format"].get("duration", "0")
-            return float(duration_str)
+            return float(duration_str), format_name
         else:
-            return 0.0
+            return 0.0, format_name
     except Exception as e:
         logger.warning(f"Failed to get audio metadata for {audio_url}: {e}")
-        return 0.0
+        return 0.0, None

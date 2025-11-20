@@ -52,16 +52,6 @@ def generate_video_impl(
         result["error"] = f"Invalid framerate '{framerate}'. Must be one of: {', '.join(valid_framerates)}"
         return result
 
-    # Convert framerate to float for backend processing if needed
-    # Assuming the runner expects a number based on previous type hint
-    framerate_val = None
-    if framerate:
-        try:
-            framerate_val = float(framerate.replace("fps", ""))
-        except ValueError:
-            # Should be caught by validation above, but safe fallback
-            framerate_val = 30.0
-
     try:
         import json
 
@@ -137,7 +127,7 @@ def generate_video_impl(
                 "draft_content": draft_content,
                 "basePath": None,
                 "resolution": resolution,
-                "framerate": framerate_val,
+                "framerate": framerate,
             },
             queue="default",
         ).set(task_id=final_task_id)

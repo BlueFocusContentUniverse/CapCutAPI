@@ -8,9 +8,7 @@ import string
 import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Literal, Optional
-
-import imageio.v2 as imageio
+from typing import Dict, Literal, Optional, Tuple
 
 import pyJianYingDraft as draft
 from downloader import download_file
@@ -47,6 +45,39 @@ def format_seconds(microseconds: int) -> str:
 
 # Define task status enumeration type
 TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_found"]
+
+
+def _get_image_metadata(remote_url: str) -> Tuple[int, int]:
+    try:
+        command = [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "json",
+            remote_url,
+        ]
+        result = subprocess.check_output(command, stderr=subprocess.STDOUT)
+        result_str = result.decode("utf-8")
+        json_start = result_str.find("{")
+        if json_start == -1:
+            raise ValueError("ffprobe did not return JSON output")
+
+        info = json.loads(result_str[json_start:])
+        streams = info.get("streams") or []
+        if streams:
+            stream = streams[0]
+            width = int(stream.get("width", 0) or 0)
+            height = int(stream.get("height", 0) or 0)
+            return width, height
+        return 0, 0
+    except Exception as e:
+        logger.warning(f"Failed to get photo metadata for {remote_url}: {e}")
+        return 0, 0
 
 def build_asset_path(draft_folder: str, draft_id: str, asset_type: str, material_name: str) -> str:
     """
@@ -521,15 +552,18 @@ def update_media_metadata(script, task_id=None):
                 continue
 
             if video.material_type == "photo":
-                # Use imageio to get image width/height and set it
                 try:
                     if task_id:
                         update_task_field(task_id, "message", f"Processing image metadata: {material_name}")
-                    img = imageio.imread(remote_url)
-                    video.height, video.width = img.shape[:2]
+                    width, height = _get_image_metadata(remote_url)
+                    video.width = width or 1920
+                    video.height = height or 1080
                     logger.info(f"Successfully set image {material_name} dimensions: {video.width}x{video.height}.")
                 except Exception as e:
-                    logger.error(f"Failed to set image {material_name} dimensions: {e!s}, using default values 1920x1080.", exc_info=True)
+                    logger.error(
+                        f"Failed to set image {material_name} dimensions using ffprobe: {e!s}, using default values 1920x1080.",
+                        exc_info=True,
+                    )
                     video.width = 1920
                     video.height = 1080
 

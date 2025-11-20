@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import re
@@ -8,26 +7,36 @@ import pyJianYingDraft as draft
 from draft_cache import update_cache
 from pyJianYingDraft import ClipSettings, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
-from util.helpers import get_ffprobe_info, is_windows_path, url_to_hash
+from util.helpers import (
+    get_extension_from_format,
+    get_ffprobe_info,
+    is_windows_path,
+    url_to_hash,
+)
 
 from .create_draft import get_draft
 
 logger = logging.getLogger(__name__)
 
 
-async def _get_image_metadata(image_url: str) -> Tuple[int, int]:
+async def _get_image_metadata(image_url: str) -> Tuple[int, int, Optional[str]]:
     try:
         info = await get_ffprobe_info(image_url)
+
+        format_name = None
+        if "format" in info:
+             format_name = info["format"].get("format_name")
+
         if "streams" in info and len(info["streams"]) > 0:
             stream = info["streams"][0]
             width = int(stream.get("width", 0))
             height = int(stream.get("height", 0))
-            return width, height
+            return width, height, format_name
         else:
-            return 0, 0
+            return 0, 0, format_name
     except Exception as e:
         logger.warning(f"Failed to get image metadata for {image_url}: {e}")
-        return 0, 0
+        return 0, 0, None
 
 
 async def add_image_impl(
@@ -122,8 +131,17 @@ async def add_image_impl(
     else:
         script.add_track(draft.TrackType.video, relative_index=relative_index)
 
+    width, height, detected_format = await _get_image_metadata(image_url)
+
     # Generate material_name but don't download the image
-    material_name = image_name if image_name else f"image_{url_to_hash(image_url)}.png"
+    if image_name:
+        material_name = image_name
+        _, ext = os.path.splitext(material_name)
+        if not ext:
+            ext = get_extension_from_format(detected_format, ".png")
+            material_name += ext
+    else:
+        material_name = f"image_{url_to_hash(image_url)}.png"
 
     # Build draft_image_path
     draft_image_path = None
@@ -142,8 +160,6 @@ async def add_image_impl(
 
         # Print path information
         print("replace_path:", draft_image_path)
-
-    width, height = await _get_image_metadata(image_url)
     # Default duration for photo is 3 hours (10800000000 microseconds)
     default_duration = 10800000000
 
