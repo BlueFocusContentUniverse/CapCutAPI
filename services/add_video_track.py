@@ -741,5 +741,5 @@ async def _get_video_metadata(video_url: str) -> Tuple[float, int, int, Optional
         else:
             return 0.0, 0, 0, format_name
     except Exception as e:
-        logger.warning(f"Failed to get video metadata for {video_url}: {e}")
-        return 0.0, 0, 0, None
+        logger.error(f"Failed to get video metadata for {video_url}: {e}")
+        raise ValueError(f"Failed to get video metadata for {video_url}. Please check if the URL is valid and accessible.") from e

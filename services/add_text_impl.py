@@ -53,7 +53,7 @@ def add_text_impl(
     intro_duration: float = 0.5,
     outro_animation: str | None = None,
     outro_duration: float = 0.5,
-    fixed_width: float = 0.7,  # Text fixed width ratio, default 0.7 means 70% of video width
+    fixed_width: float = 0.9,  # Text fixed width ratio, default 0.9 means 90% of video width
     fixed_height: float = -1,  # Text fixed height ratio, default -1 means not fixed
     # 多样式文本参数
     text_styles: Optional[List[TextStyleRange]] = None,  # 文本的不同部分的样式列表
@@ -118,8 +118,7 @@ def add_text_impl(
         try:
             font_type = getattr(FontType, font)
         except Exception:
-            available_fonts = [attr for attr in dir(FontType) if not attr.startswith("_")]
-            raise ValueError(f"Unsupported font: {font}, please use one of the fonts in Font_type: {available_fonts}")
+            raise ValueError(f"Unsupported font: {font}, please get suported fonts from [get_font_types]")
 
     # Validate alpha value range
     if not 0.0 <= font_alpha <= 1.0:
@@ -204,9 +203,9 @@ def add_text_impl(
     pixel_fixed_width = -1
     pixel_fixed_height = -1
     if fixed_width > 0:
-        pixel_fixed_width = int(fixed_width * script.width)
+        pixel_fixed_width = int(fixed_width * 720) # 720 is capcut fixed width number
     if fixed_height > 0:
-        pixel_fixed_height = int(fixed_height * script.height)
+        pixel_fixed_height = int(fixed_height * (script.height / script.width) * 720)
 
     # Create text segment (using configurable parameters)
     text_segment = draft.Text_segment(
@@ -280,5 +279,4 @@ def add_text_impl(
 
     return {
         "draft_id": draft_id,
-        # "draft_url": generate_draft_url(draft_id)
     }

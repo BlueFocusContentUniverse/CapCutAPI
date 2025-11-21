@@ -50,8 +50,6 @@ def add_subtitle_impl(
     align: int = 1,
     vertical: bool = True,  # New parameter: whether to display vertically
     alpha: float = 0.4,
-    width: int = 1080,  # New parameter
-    height: int = 1920  # New parameter
 ):
     """
     Add subtitles to draft

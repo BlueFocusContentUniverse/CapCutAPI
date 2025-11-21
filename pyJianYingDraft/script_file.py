@@ -685,11 +685,7 @@ class ScriptFile:
             lines = srt_content.splitlines()
 
         def __add_text_segment(text: str, t_range: Timerange) -> None:
-            fixed_width = -1
-            if self.width < self.height:  # 竖屏
-                fixed_width = int(1080 * 0.6)
-            else:  # 横屏
-                fixed_width = int(1920 * 0.7)
+            fixed_width = int(720 * 0.9)
 
             if style_reference:
                 seg = Text_segment.create_from_template(text, t_range, style_reference)

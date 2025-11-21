@@ -35,8 +35,8 @@ async def _get_image_metadata(image_url: str) -> Tuple[int, int, Optional[str]]:
         else:
             return 0, 0, format_name
     except Exception as e:
-        logger.warning(f"Failed to get image metadata for {image_url}: {e}")
-        return 0, 0, None
+        logger.error(f"Failed to get image metadata for {image_url}: {e}")
+        raise ValueError(f"Failed to get image metadata for {image_url}. Please check if the URL is valid and accessible.") from e
 
 
 async def add_image_impl(

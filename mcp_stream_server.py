@@ -353,7 +353,7 @@ def tool_add_text(
     font: Optional[str] = None,
     font_color: str = "#ffffff",
     font_size: int = 24,
-    fixed_width: float = 0.7,
+    fixed_width: float = 0.9,
     fixed_height: float = -1,
     align: int = 1,
     border_width: float = 0.0,
@@ -375,6 +375,13 @@ def tool_add_text(
     background_alpha: float = 1.0,
     background_style: int = 0,
     background_round_radius: float = 0.0,
+    background_height: float = None,
+    background_width: float = None,
+    background_horizontal_offset: float = None,
+    background_vertical_offset: float = 0.0,
+    italic: bool = False,
+    bold: bool = False,
+    underline: bool = False,
     text_styles: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     return add_text_impl(
@@ -408,9 +415,16 @@ def tool_add_text(
         background_alpha=background_alpha,
         background_style=background_style,
         background_round_radius=background_round_radius,
+        background_height=background_height,
+        background_width=background_width,
+        background_horizontal_offset=background_horizontal_offset,
+        background_vertical_offset=background_vertical_offset,
         text_styles=text_styles,
         fixed_width=fixed_width,
         fixed_height=fixed_height,
+        italic=italic,
+        bold=bold,
+        underline=underline,
     )
 
 
