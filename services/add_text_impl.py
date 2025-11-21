@@ -14,7 +14,7 @@ def add_text_impl(
     text: str,
     start: float,
     end: float,
-    draft_id: str | None = None,  # Python 3.10+ 新语法
+    draft_id: str | None = None,
     transform_y: float = -0.8,
     transform_x: float = 0,
     font: Optional[str] = None,
@@ -53,7 +53,7 @@ def add_text_impl(
     intro_duration: float = 0.5,
     outro_animation: str | None = None,
     outro_duration: float = 0.5,
-    fixed_width: float = -1,  # Text fixed width ratio, default -1 means not fixed
+    fixed_width: float = 0.7,  # Text fixed width ratio, default 0.7 means 70% of video width
     fixed_height: float = -1,  # Text fixed height ratio, default -1 means not fixed
     # 多样式文本参数
     text_styles: Optional[List[TextStyleRange]] = None,  # 文本的不同部分的样式列表

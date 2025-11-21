@@ -97,7 +97,7 @@ class AddTextRequest(BaseModel):
 @api_endpoint_logger
 def add_text(request: AddTextRequest, response: Response):
     # Handle aliases
-    font_color = request.color if request.color is not None else (request.font_color if request.font_color is not None else "#FF0000")
+    font_color = request.color if request.color is not None else (request.font_color if request.font_color is not None else "#FFFFFF")
     font_size = request.size if request.size is not None else (request.font_size if request.font_size is not None else 8.0)
     font_alpha = request.alpha if request.alpha is not None else (request.font_alpha if request.font_alpha is not None else 1.0)
 
@@ -106,7 +106,7 @@ def add_text(request: AddTextRequest, response: Response):
         text_styles = []
         for style_data in request.text_styles:
             style_model = style_data.style or TextStyleModel()
-            
+
             style = Text_style(
                 size=style_model.size if style_model.size is not None else font_size,
                 bold=style_model.bold if style_model.bold is not None else False,

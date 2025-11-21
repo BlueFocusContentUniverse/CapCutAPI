@@ -19,8 +19,9 @@ from logging_utils import mcp_tool_logger
 # pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
 from mcp_tools import TOOLS, execute_tool
-from services.add_audio_track import batch_add_audio_track
+from services.add_audio_track import add_audio_track, batch_add_audio_track
 from services.add_effect_impl import add_effect_impl
+from services.add_image_impl import add_image_impl
 from services.add_text_impl import add_text_impl
 from services.add_video_track import add_video_track, batch_add_video_track
 from services.create_draft import create_draft
@@ -43,7 +44,7 @@ def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 3
     }
 
 @mcp_tool_logger("batch_add_videos")
-def tool_batch_add_videos(
+async def tool_batch_add_videos(
     videos: List[Dict[str, Any]],
     draft_id: Optional[str] = None,
     transform_x: float = 0,
@@ -83,7 +84,7 @@ def tool_batch_add_videos(
         raise RuntimeError(json.dumps(error_obj))
 
     try:
-        batch_result = batch_add_video_track(
+        batch_result = await batch_add_video_track(
             videos=videos,
             draft_folder=None,
             draft_id=draft_id,
@@ -151,7 +152,7 @@ def tool_batch_add_videos(
 
 
 @mcp_tool_logger("add_video")
-def tool_add_video(
+async def tool_add_video(
     video_url: str,
     draft_id: str,
     start: float = 0,
@@ -179,7 +180,7 @@ def tool_add_video(
     combo_animation: Optional[str] = None,
     combo_animation_duration: float = 0.5,
 ) -> Dict[str, str]:
-    return add_video_track(
+    return await add_video_track(
         video_url=video_url,
         draft_id=draft_id,
         start=start,
@@ -210,7 +211,7 @@ def tool_add_video(
 
 
 @mcp_tool_logger("add_audio")
-def tool_add_audio(
+async def tool_add_audio(
     audio_url: str,
     draft_id: str,
     start: float = 0,
@@ -221,25 +222,31 @@ def tool_add_audio(
     audio_name: Optional[str] = None,
     track_name: str = "audio_main",
     duration: Optional[float] = None,
+    effect_type: Optional[str] = None,
+    effect_params: Optional[List[float]] = None,
 ) -> Dict[str, Any]:
-    arguments: Dict[str, Any] = {
-        "audio_url": audio_url,
-        "draft_id": draft_id,
-        "start": start,
-        "end": end,
-        "target_start": target_start,
-        "volume": volume,
-        "speed": speed,
-        "audio_name": audio_name,
-        "track_name": track_name,
-        "duration": duration,
-    }
-    arguments = {k: v for k, v in arguments.items() if v is not None}
-    return execute_tool("add_audio", arguments)
+    sound_effects = []
+    if effect_type:
+        params = effect_params if effect_params is not None else []
+        sound_effects.append((effect_type, params))
+
+    return await add_audio_track(
+        audio_url=audio_url,
+        draft_id=draft_id,
+        start=start,
+        end=end,
+        target_start=target_start,
+        volume=volume,
+        speed=speed,
+        track_name=track_name,
+        duration=duration,
+        sound_effects=sound_effects if sound_effects else None,
+        audio_name=audio_name,
+    )
 
 
 @mcp_tool_logger("batch_add_audios")
-def tool_batch_add_audios(
+async def tool_batch_add_audios(
     audios: List[Dict[str, Any]],
     draft_id: Optional[str] = None,
     volume: float = 1.0,
@@ -258,7 +265,7 @@ def tool_batch_add_audios(
         sound_effects = [(effect_type, effect_params)]
 
     try:
-        batch_result = batch_add_audio_track(
+        batch_result = await batch_add_audio_track(
             audios=audios,
             draft_folder=None,
             draft_id=draft_id,
@@ -300,7 +307,7 @@ def tool_batch_add_audios(
 
 
 @mcp_tool_logger("add_image")
-def tool_add_image(
+async def tool_add_image(
     image_url: str,
     image_name: str,
     draft_id: str,
@@ -316,24 +323,22 @@ def tool_add_image(
     transition: Optional[str] = None,
     mask_type: Optional[str] = None,
 ) -> Dict[str, Any]:
-    arguments: Dict[str, Any] = {
-        "image_url": image_url,
-        "image_name": image_name,
-        "draft_id": draft_id,
-        "start": start,
-        "end": end,
-        "transform_x": transform_x,
-        "transform_y": transform_y,
-        "scale_x": scale_x,
-        "scale_y": scale_y,
-        "track_name": track_name,
-        "intro_animation": intro_animation,
-        "outro_animation": outro_animation,
-        "transition": transition,
-        "mask_type": mask_type,
-    }
-    arguments = {k: v for k, v in arguments.items() if v is not None}
-    return execute_tool("add_image", arguments)
+    return await add_image_impl(
+        image_url=image_url,
+        image_name=image_name,
+        draft_id=draft_id,
+        start=start,
+        end=end,
+        transform_x=transform_x,
+        transform_y=transform_y,
+        scale_x=scale_x,
+        scale_y=scale_y,
+        track_name=track_name,
+        intro_animation=intro_animation,
+        outro_animation=outro_animation,
+        transition=transition,
+        mask_type=mask_type,
+    )
 
 
 @mcp_tool_logger("add_text")

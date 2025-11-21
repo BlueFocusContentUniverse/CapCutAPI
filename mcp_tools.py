@@ -18,8 +18,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # 导入CapCut API功能
 try:
     from pyJianYingDraft.text_segment import Text_border, Text_style, TextStyleRange
-    from services.add_audio_track import add_audio_track
-    from services.add_image_impl import add_image_impl
     from services.add_sticker_impl import add_sticker_impl
     from services.add_subtitle_impl import add_subtitle_impl
     from services.add_video_keyframe_impl import add_video_keyframe_impl
@@ -48,7 +46,6 @@ TOOLS = [
     {
         "name": "batch_add_videos",
         "description": """批量添加多个视频素材到track。适用于需要连续添加多个视频的场景。每个视频可以独立设置video_url、start、end、target_start、speed参数，其他参数（如转场、蒙版、缩放等）在所有视频间共享。
-        
         【使用场景】
         • 视频拼接：将多个视频片段按顺序拼接成完整视频
         • 批量导入：一次性导入多个视频素材
@@ -271,8 +268,8 @@ TOOLS = [
                 "speed": {"type": "number", "default": 1.0, "description": "音频播放速率。范围：0.1-100（理论值）。1.0为正常速度，2.0为2倍速（加速），0.5为0.5倍速（减速）。影响最终片段时长：target_duration = source_duration / speed"},
                 "track_name": {"type": "string", "default": "audio_main", "description": "音频轨道名称标识。建议命名：audio_main（主背景音乐）、audio_voice（人声配音）、audio_sfx（音效轨）。会自动创建不存在的轨道"},
                 "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始音频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示使用默认值0.0，实际时长在下载时获取"},
-                "effect_type": {"type": "string", "description": "音效处理类型名称。根据IS_CAPCUT_ENV自动选择：CapCut环境支持CapCutVoiceFiltersEffectType/CapCutVoiceCharactersEffectType/CapCutSpeechToSongEffectType；剪映环境支持AudioSceneEffectType/ToneEffectType/SpeechToSongType"},
-                "effect_params": {"type": "array", "description": "音效参数数组。参数的具体含义和数量取决于effect_type。格式：List[Optional[float]]。例如：某些效果可能需要[0.5, 1.0]"},
+                # "effect_type": {"type": "string", "description": "音效处理类型名称。根据IS_CAPCUT_ENV自动选择：CapCut环境支持CapCutVoiceFiltersEffectType/CapCutVoiceCharactersEffectType/CapCutSpeechToSongEffectType；剪映环境支持AudioSceneEffectType/ToneEffectType/SpeechToSongType"},
+                # "effect_params": {"type": "array", "description": "音效参数数组。参数的具体含义和数量取决于effect_type。格式：List[Optional[float]]。例如：某些效果可能需要[0.5, 1.0]"},
                 "audio_name": {"type": "string", "description": "音频素材名称"}
             },
             "required": ["audio_url", "draft_id", "start", "target_start"]
@@ -281,11 +278,11 @@ TOOLS = [
     {
         "name": "batch_add_audios",
         "description": """批量添加多个音频素材到track。适用于需要连续添加多个音频的场景。每个音频可以独立设置audio_url、start、end、target_start、speed、duration参数，其他参数（如音量、音效等）在所有音频间共享。
-        
+
         【使用场景】
         • 音频拼接：将多个音频片段按顺序拼接成完整音轨
         • 批量导入：一次性导入多个音频素材
-        
+
         【audios数组说明】
         每个音频对象包含：
         • audio_url（必需）：音频素材URL或本地路径
@@ -373,8 +370,8 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "text": {"type": "string", "description": "文本内容。支持多行文本"},
-                "start": {"type": "number", "description": "【时间线位置-起点】文本在成片时间线上的起始时间点（秒）。对应trange的起始位置"},
-                "end": {"type": "number", "description": "【时间线位置-终点】文本在成片时间线上的结束时间点（秒）。对应trange的结束位置。文本显示时长 = end - start"},
+                "start": {"type": "number", "description": "文本在成片时间线上的起始时间点（秒）"},
+                "end": {"type": "number", "description": "文本在成片时间线上的结束时间点（秒）。文本显示时长 = end - start"},
                 "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
                 "track_name": {"type": "string", "default": "text_main", "description": "文本轨道名称标识。建议命名：text_main（主字幕轨）、text_title（标题轨）、text_caption（说明轨）。会自动创建不存在的轨道。必需参数"},
                 "font": {"type": "string", "description": "字体名称。必须是FontType中支持的字体。不设置则使用null（系统默认字体）。必需参数"},
@@ -710,25 +707,7 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         # ========== 原有的工具执行逻辑 ==========
         # 捕获标准输出，防止调试信息干扰
         with capture_stdout():
-            if tool_name == "add_audio":
-                # 将 effect_type/effect_params 映射为实现所需的 sound_effects
-                effect_type = arguments.pop("effect_type", None)
-                effect_params = arguments.pop("effect_params", None)
-                if effect_type:
-                    if effect_params is None:
-                        effect_params = []
-                    # 如果已存在 sound_effects，追加；否则创建
-                    existing_effects = arguments.get("sound_effects")
-                    if existing_effects:
-                        existing_effects.append((effect_type, effect_params))
-                    else:
-                        arguments["sound_effects"] = [(effect_type, effect_params)]
-                result = add_audio_track(**arguments)
-
-            elif tool_name == "add_image":
-                result = add_image_impl(**arguments)
-
-            elif tool_name == "add_subtitle":
+            if tool_name == "add_subtitle":
                 # 兼容字段：将 srt 映射为实现参数 srt_path
                 if "srt" in arguments and "srt_path" not in arguments:
                     arguments["srt_path"] = arguments.pop("srt")
@@ -739,11 +718,6 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
 
             elif tool_name == "add_video_keyframe":
                 result = add_video_keyframe_impl(**arguments)
-
-            elif tool_name == "get_video_task_status":
-                from services.get_video_task_status_impl import get_video_task_status_impl
-                result = get_video_task_status_impl(**arguments)
-                return result
 
             else:
                 return {"success": False, "error": f"Unknown tool: {tool_name}"}
