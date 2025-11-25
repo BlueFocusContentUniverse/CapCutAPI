@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Any, Dict
+from typing import List, Optional
 
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
@@ -53,7 +53,7 @@ class AddTextRequest(BaseModel):
     vertical: bool = False
     font_alpha: Optional[float] = None
     alpha: Optional[float] = None # Alias for font_alpha
-    
+
     fixed_width: float = -1
     fixed_height: float = -1
 
