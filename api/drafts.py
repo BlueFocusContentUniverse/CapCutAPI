@@ -1,7 +1,7 @@
 import logging
-from typing import Optional, Any, Dict
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
