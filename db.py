@@ -4,11 +4,6 @@ Reads DATABASE_URL from environment, provides Base, Session and init_db.
 
 Environment Variables for Database Configuration:
 - DATABASE_URL: Complete database connection string (overrides individual settings)
-- POSTGRES_USER: PostgreSQL username (default: postgres)
-- POSTGRES_PASSWORD: PostgreSQL password (default: postgres)
-- POSTGRES_HOST: PostgreSQL host (default: localhost)
-- POSTGRES_PORT: PostgreSQL port (default: 5432)
-- POSTGRES_DB: PostgreSQL database name (default: kox)
 
 Connection Pool Configuration (environment variables):
 - DB_POOL_SIZE: Number of persistent connections in pool (default: 10)
@@ -48,17 +43,15 @@ if _env_file.exists():
 
 def _database_url() -> str:
     url = os.getenv("DATABASE_URL")
-    logger.info(f"DATABASE_URL: {url}")
+    # Log the effective value (may be None) for debugging but avoid leaking secrets
+    logger.info("DATABASE_URL is set" if url else "DATABASE_URL is not set")
     if url:
         return url
-    # Fallback to individual parts if provided
-    user = os.getenv("POSTGRES_USER", "postgres")
-    password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    dbname = os.getenv("POSTGRES_DB", "kox")
-    logger.info(f"POSTGRES_USER: {user}, POSTGRES_PASSWORD: {password}, POSTGRES_HOST: {host}, POSTGRES_PORT: {port}, POSTGRES_DB: {dbname}")
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
+
+    # Fail fast with a clear error message when no database URL is configured
+    raise RuntimeError(
+        "DATABASE_URL environment variable is not set — a valid database URL must be provided."
+    )
 
 
 def _get_pool_config() -> dict:
