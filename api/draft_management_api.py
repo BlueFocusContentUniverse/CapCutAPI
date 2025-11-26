@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from draft_cache import get_cache_stats, remove_from_cache
 from logging_utils import api_endpoint_logger
 from repositories.draft_repository import get_postgres_storage
-from util.auth import verify_api_token
+from util.cognito_auth import verify_api_token
 
 logger = logging.getLogger(__name__)
 

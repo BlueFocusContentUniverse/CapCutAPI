@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from logging_utils import api_endpoint_logger
 from repositories.video_repository import get_video_repository
 from repositories.video_task_repository import get_video_task_repository
-from util.auth import verify_api_token
+from util.cognito_auth import verify_api_token
 
 logger = logging.getLogger(__name__)
 
