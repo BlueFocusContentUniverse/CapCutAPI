@@ -3,15 +3,15 @@ API endpoints for managing draft archives stored in PostgreSQL.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from repositories.draft_archive_repository import get_postgres_archive_storage
-from util.auth import verify_api_token
+from util.cognito_auth import verify_api_token
 from util.cos_client import get_cos_client
 
 logger = logging.getLogger(__name__)
