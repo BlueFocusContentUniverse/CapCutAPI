@@ -6,9 +6,9 @@ Provides token-based authentication using environment variables.
 import hmac
 import logging
 import os
-from typing import List, Optional, Union
+from typing import List, Optional
 
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
 
 logger = logging.getLogger(__name__)
 

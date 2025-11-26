@@ -2,9 +2,8 @@
 本地配置模块，用于从本地配置文件中加载配置
 """
 
-import os
-
 import json  # 替换原来的json模块
+import os
 
 # 配置文件路径
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")

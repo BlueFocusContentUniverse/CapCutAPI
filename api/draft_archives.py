@@ -3,9 +3,9 @@ API endpoints for managing draft archives stored in PostgreSQL.
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 

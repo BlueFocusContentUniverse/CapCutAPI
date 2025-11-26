@@ -50,7 +50,7 @@ TOOLS = [
         • 视频拼接：将多个视频片段按顺序拼接成完整视频
         • 批量导入：一次性导入多个视频素材
         • 幻灯片：制作图片或视频幻灯片效果
-        
+
         【videos数组说明】
         每个视频对象包含：
         • video_url（必需）：视频素材URL或本地路径
@@ -62,7 +62,7 @@ TOOLS = [
         • target_duration（默认None）：fill模式专用，素材在轨道上的目标时长（秒）
         • duration（默认None）：视频素材总时长（秒）
         • video_name（可选）：视频素材名称
-        
+
         【共享参数】
         其他参数（transform_x/y、scale_x/y、transition、mask_type等）在根级别设置，应用于所有视频
         """,
@@ -124,23 +124,7 @@ TOOLS = [
     },
     {
         "name": "add_video",
-        "description": """添加视频素材到track。支持素材裁剪、转场效果、蒙版遮罩、背景模糊等高级视频编辑功能。
-        1️⃣ 基础用法（截取部分片段）：
-        • start=10, end=20, duration=60 → 从60秒视频中截取第10-20秒
-
-        2️⃣ 截取到末尾用法：
-        • start=10, end=0, duration=60 → 截取第10秒到末尾（第60秒）✅ 最常用
-        • start=10, duration=60 → 同上（end可省略，默认为0）
-
-        3️⃣ 完整播放用法：
-        • duration=60 → 播放完整60秒视频（start和end可省略，默认为0）
-        • start=0, end=0, duration=60 → 同上（显式指定）
-
-        【关键约束】
-        ⚠️  当 end=0 或 end=None 时，必须提供 duration 参数，否则会导致黑屏
-        ⚠️  start 必须 < end（当end>0时）且 < duration（当提供duration时）
-        ✅  建议：始终提供 duration
-        """,
+        "description": "添加视频素材到track。支持素材裁剪、转场效果、蒙版遮罩、背景模糊等高级视频编辑功能。",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -180,7 +164,7 @@ TOOLS = [
                     "description": """速度计算模式。
                     • "cover"（默认）：使用speed参数控制播放速度
                     • "fill"：根据target_duration自动计算speed，使视频片段正好填充指定时长
-                    
+
                     示例：
                     • mode="cover", speed=2.0 → 视频以2倍速播放
                     • mode="fill", target_duration=10 → 自动调整速度使片段时长为10秒
@@ -190,12 +174,12 @@ TOOLS = [
                     "type": ["number", "null"],
                     "default": None,
                     "description": """【fill模式专用】成片目标时长（秒）。
-                    
+
                     当mode="fill"时必需：
                     • 系统会自动计算speed = source_duration / target_duration
                     • 例如：5秒素材，target_duration=10 → speed=0.5x（慢放）
                     • 例如：20秒素材，target_duration=10 → speed=2.0x（快放）
-                    
+
                     当mode="cover"时忽略此参数
                 """
                 },
@@ -291,7 +275,7 @@ TOOLS = [
         • target_start（可选，默认0）：该片段在时间线上的起始位置
         • speed（可选，默认1.0）：播放速度
         • duration（可选，默认None）：音频素材总时长
-        
+
         【共享参数】
         其他参数（volume、track_name、effect_type、effect_params等）在根级别设置，应用于所有音频
         """,
@@ -389,16 +373,16 @@ TOOLS = [
                 "border_width": {"type": "number", "default": 0.0, "description": "描边宽度。0.0表示无描边。大于0时会创建Text_border对象"},
                 "background_color": {"type": "string", "default": "#000000", "description": "背景颜色。十六进制格式：#RRGGBB"},
                 "background_style": {"type": "integer", "default": 1, "description": "背景样式类型。具体样式需与实现支持的样式匹配"},
-                "background_alpha": {"type": "number", "default": 0.0, "description": "背景透明度。范围：0.0-1.0。0.0为无背景（默认），1.0为完全不透明。大于0时会创建Text_background对象。有效性会被验证"},
+                "background_alpha": {"type": "number", "default": 0.0, "description": "背景透明度。范围：0.0-1.0。0.0为无背景（默认），1.0为完全不透明。大于0时会创建Text_background对象"},
                 "background_round_radius": {"type": "number", "default": 0.0, "description": "背景圆角半径。范围：0.0-1.0。0.0为直角，1.0为最圆"},
                 "background_height": {"type": "number", "default": 0.14, "description": "背景高度比例。范围：0.0-1.0（相对画布高度）"},
                 "background_width": {"type": "number", "default": 0.14, "description": "背景宽度比例。范围：0.0-1.0（相对画布宽度）"},
                 "background_horizontal_offset": {"type": "number", "default": 0.5, "description": "背景水平偏移。范围：0.0-1.0。0.5表示居中"},
                 "background_vertical_offset": {"type": "number", "default": 0.5, "description": "背景垂直偏移。范围：0.0-1.0。0.5表示居中"},
-                "shadow_enabled": {"type": "boolean", "default": False, "description": "是否启用阴影效果。true时会创建Text_shadow对象"},
+                "shadow_enabled": {"type": "boolean", "default": False, "description": "是否启用阴影效果, 为true时， ‘shadow_alpha’, ‘shadow_color’, ‘shadow_distance’, ‘shadow_smoothing’ 参数生效"},
                 "shadow_alpha": {"type": "number", "default": 0.9, "description": "阴影透明度。范围：0.0-1.0。建议值：0.7-0.9"},
-                "shadow_angle": {"type": "number", "default": -45.0, "description": "阴影投射角度。范围：-180.0至180.0（度）。-45表示左上方"},
-                "shadow_color": {"type": "string", "default": "#000000", "description": "阴影颜色。十六进制格式：#RRGGBB"},
+                "shadow_angle": {"type": "number", "default": 315, "description": "阴影投射角度。范围：-180.0至180.0（度）。315表示左上方"},
+                "shadow_color": {"type": "string", "default": "#000000", "description": "阴影颜色。十六进制格式"},
                 "shadow_distance": {"type": "number", "default": 5.0, "description": "阴影距离。数值越大阴影越远"},
                 "shadow_smoothing": {"type": "number", "default": 0.15, "description": "阴影平滑度（模糊程度）。范围：0.0-1.0。0.0为锐利，1.0为最柔和"},
                 "intro_animation": {"type": "string", "description": "入场动画类型名称。文本出现时的动画效果。根据IS_CAPCUT_ENV自动选择CapCutTextIntro或TextIntro"},
@@ -463,27 +447,27 @@ TOOLS = [
             "required": ["draft_id", "effect_type", "track_name", "start", "end"]
         }
     },
-    {
-        "name": "add_sticker",
-        "description": "添加贴纸到草稿时间线。支持位置、缩放、旋转、透明度、翻转等变换。适用于装饰、表情、图标等场景。",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "resource_id": {"type": "string", "description": "贴纸资源的唯一标识符。需要从系统资源库获取有效的resource_id"},
-                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
-                "start": {"type": "number", "description": "【时间线位置-起点】贴纸在成片时间线上的起始时间点（秒）。对应trange的起始位置"},
-                "end": {"type": "number", "description": "【时间线位置-终点】贴纸在成片时间线上的结束时间点（秒）。对应trange的结束位置。贴纸显示时长 = end - start"},
-                "transform_x": {"type": "number", "default": 0, "description": "【空间定位-X轴】贴纸在画布上的水平位置偏移。单位：半个画布宽度。0为画布中心，-1为向左偏移半个画布宽，1为向右偏移半个画布宽"},
-                "transform_y": {"type": "number", "default": 0, "description": "【空间定位-Y轴】贴纸在画布上的垂直位置偏移。单位：半个画布高度。0为画布中心，-1为向上偏移半个画布高，1为向下偏移半个画布高"},
-                "scale_x": {"type": "number", "default": 1.0, "description": "【缩放-X轴】水平缩放倍数。1.0为原始大小，0.5为缩小一半，2.0为放大两倍"},
-                "scale_y": {"type": "number", "default": 1.0, "description": "【缩放-Y轴】垂直缩放倍数。1.0为原始大小，0.5为缩小一半，2.0为放大两倍"},
-                "alpha": {"type": "number", "default": 1.0, "description": "贴纸透明度。范围：0.0-1.0。0.0为完全透明，1.0为完全不透明"},
-                "rotation": {"type": "number", "default": 0.0, "description": "贴纸旋转角度（度）。顺时针旋转，可以是正值或负值"},
-                "track_name": {"type": "string", "default": "sticker_main", "description": "贴纸轨道名称标识。建议命名：sticker_main、sticker_emoji、sticker_decoration。会自动创建不存在的轨道"},
-            },
-            "required": ["resource_id", "start", "end", "draft_id"]
-        }
-    },
+    # {
+    #     "name": "add_sticker",
+    #     "description": "添加贴纸到草稿时间线。支持位置、缩放、旋转、透明度、翻转等变换。适用于装饰、表情、图标等场景。",
+    #     "inputSchema": {
+    #         "type": "object",
+    #         "properties": {
+    #             "resource_id": {"type": "string", "description": "贴纸资源的唯一标识符。需要从系统资源库获取有效的resource_id"},
+    #             "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+    #             "start": {"type": "number", "description": "【时间线位置-起点】贴纸在成片时间线上的起始时间点（秒）。对应trange的起始位置"},
+    #             "end": {"type": "number", "description": "【时间线位置-终点】贴纸在成片时间线上的结束时间点（秒）。对应trange的结束位置。贴纸显示时长 = end - start"},
+    #             "transform_x": {"type": "number", "default": 0, "description": "【空间定位-X轴】贴纸在画布上的水平位置偏移。单位：半个画布宽度。0为画布中心，-1为向左偏移半个画布宽，1为向右偏移半个画布宽"},
+    #             "transform_y": {"type": "number", "default": 0, "description": "【空间定位-Y轴】贴纸在画布上的垂直位置偏移。单位：半个画布高度。0为画布中心，-1为向上偏移半个画布高，1为向下偏移半个画布高"},
+    #             "scale_x": {"type": "number", "default": 1.0, "description": "【缩放-X轴】水平缩放倍数。1.0为原始大小，0.5为缩小一半，2.0为放大两倍"},
+    #             "scale_y": {"type": "number", "default": 1.0, "description": "【缩放-Y轴】垂直缩放倍数。1.0为原始大小，0.5为缩小一半，2.0为放大两倍"},
+    #             "alpha": {"type": "number", "default": 1.0, "description": "贴纸透明度。范围：0.0-1.0。0.0为完全透明，1.0为完全不透明"},
+    #             "rotation": {"type": "number", "default": 0.0, "description": "贴纸旋转角度（度）。顺时针旋转，可以是正值或负值"},
+    #             "track_name": {"type": "string", "default": "sticker_main", "description": "贴纸轨道名称标识。建议命名：sticker_main、sticker_emoji、sticker_decoration。会自动创建不存在的轨道"},
+    #         },
+    #         "required": ["resource_id", "start", "end", "draft_id"]
+    #     }
+    # },
     {
         "name": "add_video_keyframe",
         "description": "添加视频关键帧动画。支持位置、缩放、旋转、透明度、饱和度、对比度、亮度、音量等属性的关键帧动画。可实现平滑的属性变化效果。",

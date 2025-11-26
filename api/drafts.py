@@ -8,7 +8,6 @@ from logging_utils import api_endpoint_logger
 from services.create_draft import DraftFramerate, create_draft
 from services.save_draft_impl import (
     query_script_impl,
-    query_task_status,
     save_draft_impl,
 )
 
@@ -126,70 +125,3 @@ async def save_draft(request: SaveDraftRequest):
     except Exception as e:
         result["error"] = f"Error occurred while saving draft: {e!s}. "
         return result
-
-
-class QueryDraftStatusRequest(BaseModel):
-    task_id: str
-
-
-@router.post("/query_draft_status")
-@api_endpoint_logger
-async def query_draft_status_api(request: QueryDraftStatusRequest):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
-
-    if not request.task_id:
-        result["error"] = "Hi, the required parameter 'task_id' is missing. Please add it and try again."
-        return result
-
-    try:
-        task_status = query_task_status(request.task_id)
-
-        if task_status["status"] == "not_found":
-            result["error"] = f"Task with ID {request.task_id} not found. Please check if the task ID is correct."
-            return result
-
-        result["success"] = True
-        result["output"] = task_status
-        return result
-
-    except Exception as e:
-        result["error"] = f"Error occurred while querying task status: {e!s}."
-        return result
-
-
-class GenerateDraftUrlRequest(BaseModel):
-    draft_id: str
-
-
-@router.post("/generate_draft_url")
-@api_endpoint_logger
-async def generate_draft_url(request: GenerateDraftUrlRequest):
-    from settings.local import DRAFT_DOMAIN, PREVIEW_ROUTER
-
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
-
-    if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
-        return result
-
-    try:
-        draft_result = {"draft_url": f"{DRAFT_DOMAIN}{PREVIEW_ROUTER}?={request.draft_id}"}
-
-        result["success"] = True
-        result["output"] = draft_result
-        return result
-
-    except Exception as e:
-        result["error"] = f"Error occurred while saving draft: {e!s}."
-        return result
-
-
-

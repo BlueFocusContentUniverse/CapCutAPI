@@ -15,10 +15,6 @@ from downloader import download_file
 from draft_cache import get_from_cache_with_version
 from repositories.draft_archive_repository import get_postgres_archive_storage
 from services.get_duration_impl import get_video_duration
-from services.save_task_cache import (
-    get_task_status,
-    update_task_field,
-)
 
 # Import configuration
 from settings import IS_CAPCUT_ENV
@@ -387,9 +383,6 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         logger.error(f"Saving draft {draft_id} archive {archive_id} failed: {e!s}", exc_info=True)
         return ""
 
-def query_task_status(task_id: str):
-    return get_task_status(task_id)
-
 def save_draft_impl(
     draft_id: str,
     draft_folder: Optional[str] = None,
@@ -502,8 +495,6 @@ def update_media_metadata(script, task_id=None):
             try:
                 duration_result = get_video_duration(remote_url)
                 if duration_result["success"]:
-                    if task_id:
-                        update_task_field(task_id, "message", f"Processing audio metadata: {material_name}")
                     # Convert seconds to microseconds
                     audio.duration = int(duration_result["output"] * 1000000)
                     logger.info(f"Successfully obtained audio {material_name} duration: {duration_result['output']:.2f} seconds ({audio.duration} microseconds).")
@@ -553,8 +544,6 @@ def update_media_metadata(script, task_id=None):
 
             if video.material_type == "photo":
                 try:
-                    if task_id:
-                        update_task_field(task_id, "message", f"Processing image metadata: {material_name}")
                     width, height = _get_image_metadata(remote_url)
                     video.width = width or 1920
                     video.height = height or 1080
@@ -570,8 +559,6 @@ def update_media_metadata(script, task_id=None):
             elif video.material_type == "video":
                 # Get video duration and width/height information
                 try:
-                    if task_id:
-                        update_task_field(task_id, "message", f"Processing video metadata: {material_name}")
                     # Use ffprobe to get video information
                     command = [
                         "ffprobe",

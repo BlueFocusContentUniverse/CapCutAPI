@@ -82,11 +82,11 @@ def get_tracks(draft_id: str) -> Dict[str, Any]:
 def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     """
     Delete a track from a draft by name
-    
+
     Args:
         draft_id: The draft ID to modify
         track_name: Name of the track to delete
-        
+
     Returns:
         Dictionary containing deletion result:
         {
@@ -94,7 +94,7 @@ def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
             "remaining_tracks": int,
             "new_duration": int (microseconds)
         }
-        
+
     Raises:
         ValueError: If draft_id is not found or track_name doesn't exist
     """
