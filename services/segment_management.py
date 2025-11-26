@@ -14,6 +14,40 @@ from pyJianYingDraft.video_segment import VideoSegment
 logger = logging.getLogger(__name__)
 
 
+class ClipSettingsUpdate:
+    """Helper class for partial clip settings updates"""
+    def __init__(self, data: Dict[str, Any]):
+        self.alpha = data.get("alpha")
+        self.flip_horizontal = data.get("flip_horizontal")
+        self.flip_vertical = data.get("flip_vertical")
+        self.rotation = data.get("rotation")
+        self.scale_x = data.get("scale_x")
+        self.scale_y = data.get("scale_y")
+        self.transform_x = data.get("transform_x")
+        self.transform_y = data.get("transform_y")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary, excluding None values"""
+        result = {}
+        if self.alpha is not None:
+            result["alpha"] = self.alpha
+        if self.flip_horizontal is not None:
+            result["flip_horizontal"] = self.flip_horizontal
+        if self.flip_vertical is not None:
+            result["flip_vertical"] = self.flip_vertical
+        if self.rotation is not None:
+            result["rotation"] = self.rotation
+        if self.scale_x is not None:
+            result["scale_x"] = self.scale_x
+        if self.scale_y is not None:
+            result["scale_y"] = self.scale_y
+        if self.transform_x is not None:
+            result["transform_x"] = self.transform_x
+        if self.transform_y is not None:
+            result["transform_y"] = self.transform_y
+        return result
+
+
 def get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific segment
@@ -407,4 +441,114 @@ def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] 
         "deleted_segment_id": segment_id,
         "deleted_segment_index": segment_index,
         "remaining_segments_count": remaining_count,
+    }
+
+
+def modify_segment(draft_id: str, track_name: str, segment_id: str,
+                   clip_settings: Optional[Dict[str, Any]] = None,
+                   volume: Optional[float] = None,
+                   speed: Optional[float] = None) -> Dict[str, Any]:
+    """
+    Modify a segment's properties (clip settings, volume, speed)
+
+    Args:
+        draft_id: The draft ID to modify
+        track_name: Name of the track containing the segment
+        segment_id: ID of the segment to modify
+        clip_settings: Optional clip settings to update. Can include:
+            - alpha (float): Opacity, 0-1
+            - flip_horizontal (bool): Horizontal flip
+            - flip_vertical (bool): Vertical flip
+            - rotation (float): Rotation angle in degrees
+            - scale_x (float): Horizontal scale
+            - scale_y (float): Vertical scale
+            - transform_x (float): Horizontal position
+            - transform_y (float): Vertical position
+        volume: Optional volume level (0-1)
+        speed: Optional playback speed
+
+    Returns:
+        Dictionary containing success status and updated segment info:
+        {
+            "success": True,
+            "message": str,
+            "draft_id": str,
+            "track_name": str,
+            "segment_id": str,
+            "updated_fields": List[str]
+        }
+
+    Raises:
+        ValueError: If required parameters are missing or segment not found
+        TypeError: If trying to modify unsupported properties for segment type
+    """
+    logger.info(f"Modifying segment in draft {draft_id}, track {track_name}, segment_id={segment_id}")
+
+    if not draft_id:
+        raise ValueError("draft_id is required")
+
+    if not track_name:
+        raise ValueError("track_name is required")
+
+    if not segment_id:
+        raise ValueError("segment_id is required")
+
+    if clip_settings is None and volume is None and speed is None:
+        raise ValueError("At least one of clip_settings, volume, or speed must be provided")
+
+    # Get the script from cache
+    script = get_from_cache(draft_id)
+    if script is None:
+        raise ValueError(f"Draft {draft_id} not found in cache")
+
+    # Process clip_settings if provided
+    clip_settings_dict = None
+    if clip_settings is not None:
+        clip_update = ClipSettingsUpdate(clip_settings)
+        clip_settings_dict = clip_update.to_dict()
+
+    # Track which fields were updated
+    updated_fields = []
+    if clip_settings_dict:
+        updated_fields.extend(list(clip_settings_dict.keys()))
+    if volume is not None:
+        updated_fields.append("volume")
+    if speed is not None:
+        updated_fields.append("speed")
+
+    # Perform the modification using the Script_file method
+    try:
+        script.modify_segment(
+            track_name,
+            segment_id,
+            clip_settings=clip_settings_dict,
+            volume=volume,
+            speed=speed
+        )
+    except SegmentNotFound as e:
+        logger.error(f"Failed to modify segment: {e!s}")
+        raise ValueError(str(e)) from e
+    except NameError as e:
+        logger.error(f"Track not found: {e!s}")
+        raise ValueError(str(e)) from e
+    except TypeError as e:
+        logger.error(f"Unsupported property modification: {e!s}")
+        raise
+    except Exception as e:
+        logger.error(f"Error modifying segment: {e!s}")
+        raise
+
+    # Save the updated script back to cache
+    update_cache(draft_id, script)
+
+    logger.info(f"Successfully modified segment {segment_id} in track {track_name}. "
+                f"Updated fields: {updated_fields}")
+
+    return {
+        "success": True,
+        "message": f"Segment modified successfully in track '{track_name}'",
+        "draft_id": draft_id,
+        "track_name": track_name,
+        "segment_id": segment_id,
+        "updated_fields": updated_fields,
     }
