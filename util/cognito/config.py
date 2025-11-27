@@ -33,10 +33,6 @@ class CognitoConfig:
     # 应用程序客户端ID（用于验证audience）
     CLIENT_ID: str = os.getenv("COGNITO_CLIENT_ID", "")
     
-    # 速率限制配置
-    RATE_LIMIT_REQUESTS_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "60"))
-    RATE_LIMIT_KEY_PREFIX: str = os.getenv("RATE_LIMIT_KEY_PREFIX", "rate_limit:")
-    
     # Redis Token缓存配置
     ENABLE_REDIS_CACHE: bool = os.getenv("ENABLE_REDIS_CACHE", "true").lower() in ("true", "1", "yes")
     
