@@ -59,35 +59,21 @@ class DraftFolder:
         shutil.rmtree(draft_path)
 
     def create_draft(self, draft_name: str, width: int, height: int, fps: int = 30, *,
-                     maintrack_adsorb: bool = True,
-                     allow_replace: bool = False) -> ScriptFile:
-        """创建一个新草稿并开始编辑, 编辑完成后使用`ScriptFile.save()`保存即可
+                     maintrack_adsorb: bool = True) -> ScriptFile:
+        """创建一个新草稿对象, 用于后续导出草稿压缩包
 
         Args:
-            draft_name (`str`): 草稿名称, 即相应文件夹名称
+            draft_name (`str`): 草稿名称
             width (`int`): 视频宽度, 单位为像素
             height (`int`): 视频高度, 单位为像素
             fps (`int`, optional): 视频帧率. 默认为30.
-            maintrack_adsorb (`bool`, optional): 是否启用主轨道吸附（主轨磁吸）. 默认启用.
-            allow_replace (`bool`, optional): 是否允许覆盖与`draft_name`重名的草稿. 默认为否.
+            maintrack_adsorb (`bool`, optional): 是否启用主轨道吸附. 默认启用.
 
-        Raises:
-            `FileExistsError`: 已存在与`draft_name`重名的草稿, 但不允许覆盖.
+        Returns:
+            `ScriptFile`: 草稿对象, 仅用于导出压缩包
         """
-        draft_path = os.path.join(self.folder_path, draft_name)
-        if os.path.exists(draft_path):
-            if not allow_replace:
-                raise FileExistsError(f"草稿文件夹 {draft_name} 已存在且不允许覆盖")
-            shutil.rmtree(draft_path)
-
-        # 创建草稿文件夹
-        os.makedirs(draft_path)
-
-        # 创建草稿文件
-        script_file = ScriptFile(width, height, fps, maintrack_adsorb=maintrack_adsorb)
-        script_file.save_path = os.path.join(draft_path, "draft_info.json")
-
-        return script_file
+        # 创建草稿对象
+        return ScriptFile(width, height, fps, name=draft_name, maintrack_adsorb=maintrack_adsorb)
 
     def inspect_material(self, draft_name: str) -> None:
         """输出指定名称草稿中的贴纸素材元数据
