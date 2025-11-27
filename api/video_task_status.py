@@ -5,20 +5,18 @@ API endpoints for updating VideoTask status (intended for Celery workers).
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from models import VideoTaskStatus
 from repositories.video_task_repository import get_video_task_repository
-from util.cognito_auth import verify_api_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/video-tasks",
     tags=["video-tasks"],
-    dependencies=[Depends(verify_api_token)]
 )
 
 class UpdateTaskStatusRequest(BaseModel):
