@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 import os
 from copy import deepcopy
@@ -217,7 +218,7 @@ class ScriptFile:
             height (int): 视频高度, 单位为像素
             fps (int, optional): 视频帧率. 默认为30.
             name (str, optional): 草稿名称. 默认为"draft".
-            resource (str, optional): 资源路径. 默认为None.
+            resource (str, optional): 草稿来源标识（如"api"、"mcp"等）. 默认为None.
             maintrack_adsorb (bool, optional): 是否启用主轨道吸附（主轨磁吸）. 默认为True.
         """
         self.save_path = None
@@ -1155,7 +1156,6 @@ class ScriptFile:
                 self.content["materials"] = self.materials.export_json()
             except Exception as e:
                 # 如果导出失败，使用空字典或保留原有内容
-                import logging
                 logging.warning(f"Failed to export materials: {e}, using empty dict")
                 self.content["materials"] = self.content.get("materials", {})
 
@@ -1207,26 +1207,15 @@ class ScriptFile:
                 self.content["tracks"] = [track.export_json() for track in track_list]
             except Exception as e:
                 # 如果导出失败，使用空列表或保留原有内容
-                import logging
                 logging.warning(f"Failed to export tracks: {e}, using existing tracks")
                 if "tracks" not in self.content:
                     self.content["tracks"] = []
 
             return json.dumps(self.content, ensure_ascii=False, indent=4)
         except Exception as e:
-            # 如果整个导出过程失败，记录错误并返回最小可用的JSON
-            import logging
-            logging.error(f"Critical error in dumps(): {e}")
-            # 返回一个基本的JSON结构，至少保证不会完全崩溃
-            fallback_content = {
-                "fps": getattr(self, "fps", 30),
-                "duration": getattr(self, "duration", 0),
-                "canvas_config": {"width": getattr(self, "width", 1920), "height": getattr(self, "height", 1080), "ratio": "original"},
-                "materials": {},
-                "tracks": [],
-                "name": getattr(self, "name", "draft")
-            }
-            return json.dumps(fallback_content, ensure_ascii=False, indent=4)
+            # 如果整个导出过程失败，记录错误并重新抛出异常
+            logging.error(f"Critical error in dumps(): {e}", exc_info=True)
+            raise
 
     def dump(self, file_path: str) -> None:
         """将草稿文件内容写入文件"""
