@@ -199,78 +199,43 @@ class TokenCache:
             return False
 
 # 实际使用函数
-def get_token_cache(
-    redis_host: Optional[str] = None,
-    redis_port: Optional[int] = None,
-    redis_db: Optional[int] = None,
-    redis_password: Optional[str] = None,
-    redis_url: Optional[str] = None
-) -> Optional[TokenCache]:
+def get_token_cache(redis_url: Optional[str] = None) -> Optional[TokenCache]:
     """
     获取Token缓存实例（从环境变量读取配置）
     
-    支持从以下环境变量读取：
-    - REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
-    - CELERY_BROKER_URL
-    - REDIS_URL
+    只支持从 TOKEN_REDIS_URL 环境变量读取配置，与 CELERY_BROKER_URL 完全独立。
+    
+    配置格式：redis://[:password@]host[:port][/db]
+    示例：
+    - TOKEN_REDIS_URL=redis://localhost:6379/1
+    - TOKEN_REDIS_URL=redis://:password@localhost:6379/1
+    
+    注意：
+    - TOKEN_REDIS_URL 和 CELERY_BROKER_URL 完全独立，互不干扰
+    - 建议使用独立的数据库编号（如DB 1），与Celery（DB 0）完全隔离
+    - 如果未配置 TOKEN_REDIS_URL，将返回 None，不使用 Redis 缓存
     
     Args:
-        redis_host: Redis主机（可选，从环境变量读取）
-        redis_port: Redis端口（可选，从环境变量读取）
-        redis_db: Redis数据库（可选，从环境变量读取）
-        redis_password: Redis密码（可选，从环境变量读取）
-        redis_url: Redis URL（可选，优先使用）
+        redis_url: Redis URL（可选，优先使用，否则从环境变量 TOKEN_REDIS_URL 读取）
     
     Returns:
-        TokenCache实例，如果配置不完整或连接失败则返回None
+        TokenCache实例，如果未配置或连接失败则返回None
     """
     import os
     
-    # 优先使用REDIS_URL（如果提供）
-    if redis_url:
-        try:
-            from urllib.parse import urlparse
-            parsed = urlparse(redis_url)
-            host = parsed.hostname or "localhost"
-            port = parsed.port or 6379
-            db = int(parsed.path.lstrip('/')) if parsed.path else 0
-            password = parsed.password
-            return TokenCache(
-                redis_host=host,
-                redis_port=port,
-                redis_db=db,
-                redis_password=password
-            )
-        except Exception as e:
-            print(f"⚠️  无法从REDIS_URL初始化Redis缓存: {str(e)}")
-    
-    # 使用CELERY_BROKER_URL（如果存在）
-    celery_broker = os.getenv("CELERY_BROKER_URL")
-    if celery_broker and celery_broker.startswith("redis://"):
-        try:
-            from urllib.parse import urlparse
-            parsed = urlparse(celery_broker)
-            host = parsed.hostname or "localhost"
-            port = parsed.port or 6379
-            db = int(parsed.path.lstrip('/')) if parsed.path else 0
-            password = parsed.password
-            # 使用不同的数据库编号，避免冲突（使用db+1）
-            return TokenCache(
-                redis_host=host,
-                redis_port=port,
-                redis_db=db + 1,  # 使用下一个数据库
-                redis_password=password
-            )
-        except Exception as e:
-            print(f"⚠️  无法从CELERY_BROKER_URL初始化Redis缓存: {str(e)}")
-    
-    # 使用独立配置
-    host = redis_host or os.getenv("REDIS_HOST", "localhost")
-    port = redis_port or int(os.getenv("REDIS_PORT", "6379"))
-    db = redis_db or int(os.getenv("REDIS_DB", "0"))
-    password = redis_password or os.getenv("REDIS_PASSWORD")
+    # 只使用 TOKEN_REDIS_URL（从参数或环境变量）
+    redis_url = redis_url or os.getenv("TOKEN_REDIS_URL")
+    if not redis_url:
+        # 未配置 TOKEN_REDIS_URL，返回 None（不使用 Redis 缓存）
+        return None
     
     try:
+        from urllib.parse import urlparse
+        parsed = urlparse(redis_url)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 6379
+        db = int(parsed.path.lstrip('/')) if parsed.path else 0
+        password = parsed.password
         return TokenCache(
             redis_host=host,
             redis_port=port,
@@ -278,6 +243,6 @@ def get_token_cache(
             redis_password=password
         )
     except Exception as e:
-        print(f"⚠️  无法初始化Redis缓存: {str(e)}")
+        print(f"⚠️  无法从TOKEN_REDIS_URL初始化Redis缓存: {str(e)}")
         return None
 
