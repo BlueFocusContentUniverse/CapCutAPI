@@ -6,22 +6,9 @@ AWS Cognito 配置管理模块
 
 import os
 import logging
-from pathlib import Path
 from typing import Optional
-from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
-
-# 加载.env文件
-env_path = Path(__file__).parent.parent.parent / '.env'
-if env_path.exists():
-    load_dotenv(env_path)
-    logger.info(f"已加载环境配置文件: {env_path}")
-else:
-    logger.warning(
-        f".env文件未找到: {env_path}\n"
-        f"将使用系统环境变量。如果需要加载.env文件，请确保文件存在。"
-    )
 
 class CognitoConfig:
     """AWS Cognito配置类"""
