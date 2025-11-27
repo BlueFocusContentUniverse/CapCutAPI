@@ -53,7 +53,8 @@ def get_tracks(draft_id: str) -> Dict[str, Any]:
             "render_index": track.render_index,
             "mute": track.mute,
             "segment_count": len(track.segments),
-            "end_time": track.end_time
+            "end_time": track.end_time,
+            "id": track.track_id
         }
         tracks_info.append(track_info)
 
