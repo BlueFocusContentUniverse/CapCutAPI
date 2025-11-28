@@ -71,11 +71,11 @@ class AddTextRequest(BaseModel):
     background_vertical_offset: float = 0.5
 
     shadow_enabled: bool = False
-    shadow_alpha: float = 0.9
-    shadow_angle: float = -45.0
+    shadow_alpha: float = 0.76
+    shadow_angle: float = -54.0
     shadow_color: str = "#000000"
     shadow_distance: float = 5.0
-    shadow_smoothing: float = 0.15
+    shadow_smoothing: float = 0.22
 
     bubble_effect_id: Optional[str] = None
     bubble_resource_id: Optional[str] = None
