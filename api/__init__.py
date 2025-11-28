@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends
 
-from util.cognito.auth_middleware import get_current_user_claims
+from util.cognito.cognito_auth import get_current_user_claims
 
 
 def get_api_router() -> tuple[APIRouter, APIRouter]:
     """Get the main API router with all sub-routers included."""
-    # 为所有 /api/* 路由添加认证依赖（除了 /api/health）
-    # 使用 Depends(get_current_user_claims) 可以让 FastAPI 自动在 OpenAPI schema 中添加安全定义
-    # 参考: https://fastapi.tiangolo.com/tutorial/security/first-steps/#the-password-flow
+
     router = APIRouter(
         dependencies=[Depends(get_current_user_claims)]
     )
