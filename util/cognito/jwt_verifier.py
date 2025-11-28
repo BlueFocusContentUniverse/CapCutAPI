@@ -94,6 +94,8 @@ class CognitoJWTVerifier:
         """
         # 解析token header（不验证签名）
         try:
+            # 清理token（去除可能的空格和换行符）
+            token = token.strip()
             unverified_header = jwt.get_unverified_header(token)
         except Exception as e:
             raise JWTError(f"无法解析token header: {str(e)}")
