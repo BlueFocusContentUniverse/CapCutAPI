@@ -1,9 +1,19 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from util.cognito.auth_middleware import get_current_user_claims
 
 
-def get_api_router() -> APIRouter:
+def get_api_router() -> tuple[APIRouter, APIRouter]:
     """Get the main API router with all sub-routers included."""
-    router = APIRouter()
+    # 为所有 /api/* 路由添加认证依赖（除了 /api/health）
+    # 使用 Depends(get_current_user_claims) 可以让 FastAPI 自动在 OpenAPI schema 中添加安全定义
+    # 参考: https://fastapi.tiangolo.com/tutorial/security/first-steps/#the-password-flow
+    router = APIRouter(
+        dependencies=[Depends(get_current_user_claims)]
+    )
+    
+    # health_router 不需要认证，单独返回
+    from .health import router as health_router
     
     from .audio import router as audio_router
     from .draft_archives import router as draft_archives_router
@@ -11,7 +21,6 @@ def get_api_router() -> APIRouter:
     from .drafts import router as drafts_router
     from .effects import router as effects_router
     from .generate import router as generate_router
-    from .health import router as health_router
     from .image import router as image_router
     from .metadata import router as metadata_router
     from .segments import router as segments_router
@@ -35,7 +44,6 @@ def get_api_router() -> APIRouter:
     router.include_router(drafts_router)
     router.include_router(metadata_router)
     router.include_router(generate_router)
-    router.include_router(health_router)
     router.include_router(tasks_router)
     router.include_router(draft_management_router)
     router.include_router(draft_archives_router)
@@ -44,5 +52,5 @@ def get_api_router() -> APIRouter:
     router.include_router(videos_router)
     router.include_router(video_task_status_router)
     
-    return router
+    return router, health_router
 

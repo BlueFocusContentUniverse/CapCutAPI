@@ -177,7 +177,7 @@ def get_rate_limiter(requests_per_minute: Optional[int] = None, key_prefix: Opti
     """获取速率限制器实例(使用默认配置时返回单例)"""
     global _default_rate_limiter
 
-    default_rpm = int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "60"))
+    default_rpm = int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "600"))
     default_prefix = os.getenv("RATE_LIMIT_KEY_PREFIX", "rate_limit:")
 
     if requests_per_minute is None and key_prefix is None:

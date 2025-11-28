@@ -12,6 +12,7 @@ from api import get_api_router
 from db import init_db
 from logging_utils import setup_logging
 from mcp_stream_server import create_fastmcp_app
+
 from util.cognito.auth_middleware import get_auth_middleware
 from util.rate_limit import get_identifier_from_request, get_rate_limiter
 
@@ -60,49 +61,6 @@ if rate_limiter.enabled:
     logger.info(f"Rate Limit 中间件已启用: {rate_limiter.requests_per_minute} 次/分钟")
 else:
     logger.warning("Rate Limit 中间件未启用 (Redis未配置)")
-
-auth_middleware_instance = get_auth_middleware()
-logger.info("Cognito认证中间件已初始化")
-
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    """认证中间件 - 自动拦截需要认证的请求进行token验证"""
-    # 排除公开路径
-    if request.url.path == "/":
-        return await call_next(request)
-
-    public_paths = ["/health", "/docs", "/redoc", "/openapi.json", "/jymcp"]
-    if any(request.url.path.startswith(path) for path in public_paths):
-        return await call_next(request)
-
-    # 只对 /api/* 路径进行认证检查
-    if not request.url.path.startswith("/api/"):
-        return await call_next(request)
-
-    # 提取并验证token
-    try:
-        claims = await auth_middleware_instance.verify_token(request)
-        request.state.claims = claims
-    except HTTPException as e:
-        # 在中间件中直接返回401响应,避免被外层中间件捕获导致500错误
-        return JSONResponse(
-            status_code=e.status_code,
-            content=e.detail,
-            headers=e.headers
-        )
-    except Exception as e:
-        logger.error(f"Token验证异常: {e}", exc_info=True)
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content={
-                "error": "invalid_token",
-                "message": f"Token验证失败: {e!s}"
-            },
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return await call_next(request)
-
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
@@ -158,7 +116,9 @@ async def rate_limit_middleware(request: Request, call_next):
 app.mount("/jymcp", mcp_app)
 
 # Include API router
-app.include_router(get_api_router())
+api_router, health_router = get_api_router()
+app.include_router(api_router)
+app.include_router(health_router)
 
 if __name__ == "__main__":
     import uvicorn

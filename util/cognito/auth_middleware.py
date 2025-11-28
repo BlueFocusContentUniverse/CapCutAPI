@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-FastAPI认证中间件
+Cognito JWT Token验证器
 用于验证Cognito JWT token
 """
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
-from fastapi import HTTPException, Request, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from util.cognito.config import CognitoConfig
 from util.cognito.jwt_verifier import CognitoJWTVerifier
@@ -17,13 +17,14 @@ from util.cognito.redis_cache import get_token_cache
 
 logger = logging.getLogger(__name__)
 
-# OAuth2 Bearer token方案
-# auto_error=False: 如果没有token,返回None而不是抛出异常(适合中间件使用)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+# HTTP Bearer token方案（用于FastAPI依赖注入和OpenAPI文档）
+http_bearer_scheme = HTTPBearer(
+    description="使用 AWS Cognito JWT token 进行认证。请在 Authorization header 中提供 Bearer token。"
+)
 
 
-class CognitoAuthMiddleware:
-    """Cognito认证中间件"""
+class CognitoTokenVerifier:
+    """Cognito JWT Token验证器"""
 
     def __init__(
         self,
@@ -32,7 +33,7 @@ class CognitoAuthMiddleware:
         enable_cache: bool = True
     ):
         """
-        初始化认证中间件
+        初始化Token验证器
 
         Args:
             config: CognitoConfig实例
@@ -43,23 +44,6 @@ class CognitoAuthMiddleware:
         self.token_cache = token_cache
         # 只有在提供了token_cache时才启用缓存
         self.enable_cache = enable_cache and token_cache is not None
-
-    async def _extract_token(self, request: Request) -> Optional[str]:
-        """从请求中提取token(使用FastAPI标准OAuth2PasswordBearer)"""
-        # 优先使用OAuth2PasswordBearer提取token(符合FastAPI标准)
-        token = await oauth2_scheme(request)
-        if token:
-            logger.debug(f"[AUTH] 从OAuth2PasswordBearer提取到token: {token[:20]}...")
-            return token
-
-        # 备用方案:从X-Auth-Token header获取
-        token = request.headers.get("X-Auth-Token")
-        if token:
-            logger.debug(f"[AUTH] 从X-Auth-Token header提取到token: {token[:20]}...")
-            return token.strip()
-
-        logger.debug("[AUTH] 未找到token")
-        return None
 
     def _verify_token_with_cache(self, token: str) -> Dict[str, Any]:
         """验证token(带缓存)"""
@@ -99,48 +83,21 @@ class CognitoAuthMiddleware:
 
         return claims
 
-    async def verify_token(self, request: Request) -> Dict[str, Any]:
-        """
-        验证请求中的token
 
-        Args:
-            request: FastAPI Request对象
-
-        Returns:
-            token的claims字典
-
-        Raises:
-            HTTPException: 如果token缺失或验证失败
-        """
-        token = await self._extract_token(request)
-
-        if not token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={
-                    "error": "missing_token",
-                    "message": "需要提供认证token。请在Authorization header中使用Bearer token"
-                },
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        return self._verify_token_with_cache(token)
+# 全局Token验证器实例(延迟初始化)
+_token_verifier: Optional[CognitoTokenVerifier] = None
 
 
-# 全局认证中间件实例(延迟初始化)
-_auth_middleware: Optional[CognitoAuthMiddleware] = None
-
-
-def get_auth_middleware() -> CognitoAuthMiddleware:
+def get_token_verifier() -> CognitoTokenVerifier:
     """
-    获取认证中间件实例(单例模式)
+    获取Token验证器实例(单例模式)
 
     Returns:
-        CognitoAuthMiddleware实例
+        CognitoTokenVerifier实例
     """
-    global _auth_middleware
+    global _token_verifier
 
-    if _auth_middleware is None:
+    if _token_verifier is None:
         token_cache = None
         if CognitoConfig.ENABLE_REDIS_CACHE:
             try:
@@ -148,11 +105,61 @@ def get_auth_middleware() -> CognitoAuthMiddleware:
             except Exception as e:
                 logger.warning(f"Redis缓存不可用: {e},认证功能仍然可用,只是不使用缓存")
 
-        _auth_middleware = CognitoAuthMiddleware(
+        _token_verifier = CognitoTokenVerifier(
             config=CognitoConfig,
             token_cache=token_cache,
             enable_cache=token_cache is not None
         )
 
-    return _auth_middleware
+    return _token_verifier
+
+
+# FastAPI 依赖函数 - 用于依赖注入和OpenAPI文档
+async def get_current_user_claims(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(http_bearer_scheme)]
+) -> Dict[str, Any]:
+    """
+    验证 JWT token 并返回 claims
+    
+    Args:
+        credentials: HTTPAuthorizationCredentials 对象，包含从 Authorization header 中提取的 Bearer token
+        
+    Returns:
+        token 的 claims 字典
+        
+    Raises:
+        HTTPException: 如果 token 验证失败
+    """
+    token = credentials.credentials.strip()  # 去除可能的空格和换行符
+    # 获取Token验证器
+    try:
+        verifier = get_token_verifier()
+    except Exception as e:
+        logger.error(f"Token验证器初始化失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": "auth_service_unavailable",
+                "message": "认证服务暂时不可用，请稍后重试"
+            },
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from e
+    
+    # 验证 token
+    try:
+        claims = verifier._verify_token_with_cache(token)
+        return claims
+    except HTTPException:
+        # 直接重新抛出 HTTPException
+        raise
+    except Exception as e:
+        logger.error(f"Token验证异常: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": "invalid_token",
+                "message": f"Token验证失败: {e!s}"
+            },
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from e
 
