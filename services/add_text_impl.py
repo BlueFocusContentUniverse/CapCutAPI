@@ -39,11 +39,11 @@ def add_text_impl(
     background_vertical_offset: float = 0.5,
     # Shadow parameters
     shadow_enabled: bool = False,
-    shadow_alpha: float = 0.9,
-    shadow_angle: float = -45.0,
+    shadow_alpha: float = 0.76,
+    shadow_angle: float = -54.0,
     shadow_color: str = "#000000",
     shadow_distance: float = 5.0,
-    shadow_smoothing: float = 0.15,
+    shadow_smoothing: float = 0.22,
     # Bubble effect
     bubble_effect_id: str | None = None,
     bubble_resource_id: str | None = None,
@@ -89,11 +89,11 @@ def add_text_impl(
     :param background_horizontal_offset: 背景水平偏移，范围0.0-1.0（默认0.5）
     :param background_vertical_offset: 背景垂直偏移，范围0.0-1.0（默认0.5）
     :param shadow_enabled: 是否启用阴影（默认False）
-    :param shadow_alpha: 阴影透明度，范围0.0-1.0（默认0.9）
-    :param shadow_angle: 阴影角度，范围-180.0-180.0（默认-45.0）
+    :param shadow_alpha: 阴影不透明度，范围0.0-1.0（默认0.76）
+    :param shadow_angle: 阴影角度，范围-180.0-180.0（默认-54.0）
     :param shadow_color: 阴影颜色（默认黑色）
     :param shadow_distance: 阴影距离（默认5.0）
-    :param shadow_smoothing: 阴影平滑度，范围0.0-1.0（默认0.15）
+    :param shadow_smoothing: 阴影平滑度（模糊度），范围0.0-1.0（默认0.22）
     :param bubble_effect_id: Bubble effect ID
     :param bubble_resource_id: Bubble resource ID
     :param effect_effect_id: Text effect ID
