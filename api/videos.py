@@ -5,21 +5,19 @@ API endpoints for managing video records and OSS metadata.
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
 from repositories.video_repository import get_video_repository
 from repositories.video_task_repository import get_video_task_repository
-from util.auth import verify_api_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/videos",
     tags=["videos"],
-    dependencies=[Depends(verify_api_token)]
 )
 
 
