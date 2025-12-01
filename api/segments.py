@@ -15,7 +15,7 @@ from services.segment_management import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["segments"])
+router = APIRouter(tags=["segments"], prefix="/segments")
 
 
 class GetSegmentDetailsRequest(BaseModel):

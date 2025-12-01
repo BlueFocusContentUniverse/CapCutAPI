@@ -5,30 +5,30 @@ import logging
 from typing import Any, Dict
 
 from draft_cache import get_from_cache, update_cache
+from pyJianYingDraft.llm_export import export_track_for_llm, export_tracks_for_llm
 
 logger = logging.getLogger(__name__)
 
 
 def get_tracks(draft_id: str) -> Dict[str, Any]:
     """
-    Get all tracks from a draft
+    Get all tracks from a draft in LLM-friendly format.
 
     Args:
         draft_id: The draft ID to query
 
     Returns:
-        Dictionary containing track information:
+        Dictionary containing track information with only meaningful params:
         {
             "tracks": [
                 {
                     "name": str,
                     "type": str,
-                    "render_index": int,
                     "mute": bool,
                     "segment_count": int,
-                    "end_time": int (microseconds)
-                },
-                ...
+                    "end_time": float (seconds),
+                    "segments": [...]
+                }
             ],
             "imported_tracks": [...],
             "total_tracks": int
@@ -44,40 +44,11 @@ def get_tracks(draft_id: str) -> Dict[str, Any]:
     if script is None:
         raise ValueError(f"Draft {draft_id} not found in cache")
 
-    # Collect regular tracks
-    tracks_info = []
-    for track_name, track in script.tracks.items():
-        track_info = {
-            "name": track.name,
-            "type": track.track_type.name,
-            "render_index": track.render_index,
-            "mute": track.mute,
-            "segment_count": len(track.segments),
-            "end_time": track.end_time,
-            "id": track.track_id
-        }
-        tracks_info.append(track_info)
-
-    # Collect imported tracks
-    imported_tracks_info = []
-    for track in script.imported_tracks:
-        track_info = {
-            "name": track.name,
-            "type": track.track_type.name,
-            "render_index": track.render_index,
-            "mute": track.mute,
-            "segment_count": len(track.segments),
-            "end_time": track.end_time
-        }
-        imported_tracks_info.append(track_info)
-
-    result = {
-        "tracks": tracks_info,
-        "imported_tracks": imported_tracks_info,
-        "total_tracks": len(tracks_info) + len(imported_tracks_info)
-    }
-
-    return result
+    return export_tracks_for_llm(
+        script.tracks,
+        script.imported_tracks,
+        include_segments=True
+    )
 
 
 def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
@@ -134,32 +105,21 @@ def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
 
 def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     """
-    Get detailed information about a specific track
+    Get detailed information about a specific track in LLM-friendly format.
 
     Args:
         draft_id: The draft ID to query
         track_name: Name of the track to get details for
 
     Returns:
-        Dictionary containing detailed track information:
+        Dictionary containing LLM-friendly track information:
         {
             "name": str,
             "type": str,
-            "render_index": int,
             "mute": bool,
             "segment_count": int,
-            "end_time": int (microseconds),
-            "segments": [
-                {
-                    "id": str,
-                    "material_id": str,
-                    "start": int,
-                    "end": int,
-                    "duration": int,
-                    "type": str
-                },
-                ...
-            ]
+            "end_time": float (seconds),
+            "segments": [...]
         }
 
     Raises:
@@ -188,28 +148,5 @@ def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     if track is None:
         raise ValueError(f"Track '{track_name}' not found in draft {draft_id}")
 
-    # Collect segment information
-    segments_info = []
-    for segment in track.segments:
-        segment_info = {
-            "id": segment.segment_id,
-            "material_id": segment.material_id,
-            "start": segment.target_timerange.start,
-            "end": segment.target_timerange.end,
-            "duration": segment.target_timerange.duration,
-            "type": type(segment).__name__
-        }
-        segments_info.append(segment_info)
-
-    result = {
-        "name": track.name,
-        "type": track.track_type.name,
-        "render_index": track.render_index,
-        "mute": track.mute,
-        "segment_count": len(track.segments),
-        "end_time": track.end_time,
-        "segments": segments_info
-    }
-
-    return result
+    return export_track_for_llm(track, include_segments=True)
 
