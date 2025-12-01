@@ -574,6 +574,29 @@ TOOLS = [
             },
             "required": ["draft_id", "track_name"]
         }
+    },
+    {
+        "name": "modify_segment",
+        "description": "修改片段的属性。支持修改视觉属性（透明度、翻转、旋转、缩放、位移）、音量和播放速度。适用于视频、图片、音频等片段类型。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "track_name": {"type": "string", "description": "包含该片段的轨道名称"},
+                "segment_id": {"type": "string", "description": "要修改的片段的唯一标识符"},
+                "alpha": {"type": ["number", "null"], "default": None, "description": "透明度，范围0-1，0为完全透明，1为完全不透明"},
+                "flip_horizontal": {"type": ["boolean", "null"], "default": None, "description": "是否水平翻转"},
+                "flip_vertical": {"type": ["boolean", "null"], "default": None, "description": "是否垂直翻转"},
+                "rotation": {"type": ["number", "null"], "default": None, "description": "旋转角度（度）"},
+                "scale_x": {"type": ["number", "null"], "default": None, "description": "水平缩放比例"},
+                "scale_y": {"type": ["number", "null"], "default": None, "description": "垂直缩放比例"},
+                "transform_x": {"type": ["number", "null"], "default": None, "description": "水平位移"},
+                "transform_y": {"type": ["number", "null"], "default": None, "description": "垂直位移"},
+                "volume": {"type": ["number", "null"], "default": None, "description": "音量，范围0-1"},
+                "speed": {"type": ["number", "null"], "default": None, "description": "播放速度倍数"}
+            },
+            "required": ["draft_id", "track_name", "segment_id"]
+        }
     }
 ]
 
