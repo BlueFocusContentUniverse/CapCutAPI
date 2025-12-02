@@ -4,14 +4,18 @@ API endpoints for segment management in tracks
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from logging_utils import api_endpoint_logger
-from services.segment_management import delete_segment, get_segment_details
+from services.segment_management import (
+    delete_segment,
+    get_segment_details,
+    modify_segment,
+)
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["segments"])
+router = APIRouter(tags=["segments"], prefix="/segments")
 
 
 class GetSegmentDetailsRequest(BaseModel):
@@ -115,3 +119,86 @@ async def delete_segment_api(request: DeleteSegmentRequest):
         result["error"] = f"Error occurred while deleting segment: {e!s}"
         return result
 
+
+class ClipSettingsRequest(BaseModel):
+    """Clip settings for visual segments"""
+    alpha: Optional[float] = None  # Opacity 0-1
+    flip_horizontal: Optional[bool] = None
+    flip_vertical: Optional[bool] = None
+    rotation: Optional[float] = None  # Rotation angle in degrees
+    scale_x: Optional[float] = None  # Horizontal scale
+    scale_y: Optional[float] = None  # Vertical scale
+    transform_x: Optional[float] = None  # Horizontal position
+    transform_y: Optional[float] = None  # Vertical position
+
+
+class ModifySegmentRequest(BaseModel):
+    draft_id: str
+    track_name: str
+    segment_id: str
+    clip_settings: Optional[ClipSettingsRequest] = None
+    volume: Optional[float] = None  # Volume 0-1
+    speed: Optional[float] = None  # Playback speed
+
+
+@router.post("/modify_segment")
+@api_endpoint_logger
+async def modify_segment_api(request: ModifySegmentRequest):
+    """
+    Modify a segment's properties (clip settings, volume, speed)
+
+    - **clip_settings**: Visual adjustments like alpha, rotation, scale, transform, flip
+    - **volume**: Audio volume level (0-1)
+    - **speed**: Playback speed multiplier
+    """
+    result = {
+        "success": False,
+        "output": "",
+        "error": ""
+    }
+
+    if not request.draft_id:
+        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        return result
+
+    if not request.track_name:
+        result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        return result
+
+    if not request.segment_id:
+        result["error"] = "Hi, the required parameter 'segment_id' is missing. Please add it and try again."
+        return result
+
+    if request.clip_settings is None and request.volume is None and request.speed is None:
+        result["error"] = "Hi, you must provide at least one of 'clip_settings', 'volume', or 'speed'. Please add one and try again."
+        return result
+
+    try:
+        # Convert clip_settings to dict if provided
+        clip_settings_dict = None
+        if request.clip_settings:
+            clip_settings_dict = request.clip_settings.model_dump(exclude_none=True)
+
+        modify_result = modify_segment(
+            request.draft_id,
+            request.track_name,
+            request.segment_id,
+            clip_settings=clip_settings_dict,
+            volume=request.volume,
+            speed=request.speed
+        )
+
+        result["success"] = True
+        result["output"] = modify_result
+        return result
+
+    except ValueError as e:
+        result["error"] = str(e)
+        return result
+    except TypeError as e:
+        result["error"] = f"Unsupported operation: {e!s}"
+        return result
+    except Exception as e:
+        logger.error(f"Error modifying segment: {e}", exc_info=True)
+        result["error"] = f"Error occurred while modifying segment: {e!s}"
+        return result

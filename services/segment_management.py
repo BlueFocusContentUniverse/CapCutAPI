@@ -5,18 +5,49 @@ import logging
 from typing import Any, Dict, Optional
 
 from draft_cache import get_from_cache, update_cache
-from pyJianYingDraft.audio_segment import AudioSegment
-from pyJianYingDraft.effect_segment import Effect_segment
 from pyJianYingDraft.exceptions import SegmentNotFound
-from pyJianYingDraft.text_segment import Text_segment
-from pyJianYingDraft.video_segment import VideoSegment
+from pyJianYingDraft.llm_export import export_segment_for_llm
 
 logger = logging.getLogger(__name__)
 
 
+class ClipSettingsUpdate:
+    """Helper class for partial clip settings updates"""
+    def __init__(self, data: Dict[str, Any]):
+        self.alpha = data.get("alpha")
+        self.flip_horizontal = data.get("flip_horizontal")
+        self.flip_vertical = data.get("flip_vertical")
+        self.rotation = data.get("rotation")
+        self.scale_x = data.get("scale_x")
+        self.scale_y = data.get("scale_y")
+        self.transform_x = data.get("transform_x")
+        self.transform_y = data.get("transform_y")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary, excluding None values"""
+        result = {}
+        if self.alpha is not None:
+            result["alpha"] = self.alpha
+        if self.flip_horizontal is not None:
+            result["flip_horizontal"] = self.flip_horizontal
+        if self.flip_vertical is not None:
+            result["flip_vertical"] = self.flip_vertical
+        if self.rotation is not None:
+            result["rotation"] = self.rotation
+        if self.scale_x is not None:
+            result["scale_x"] = self.scale_x
+        if self.scale_y is not None:
+            result["scale_y"] = self.scale_y
+        if self.transform_x is not None:
+            result["transform_x"] = self.transform_x
+        if self.transform_y is not None:
+            result["transform_y"] = self.transform_y
+        return result
+
+
 def get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict[str, Any]:
     """
-    Get detailed information about a specific segment
+    Get detailed information about a specific segment in LLM-friendly format.
 
     Args:
         draft_id: The draft ID to query
@@ -24,56 +55,18 @@ def get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict
         segment_id: ID of the segment to get details for
 
     Returns:
-        Dictionary containing detailed segment information with all properties:
+        Dictionary containing LLM-friendly segment information:
         {
             "id": str,
-            "material_id": str,
             "type": str,
-            "target_timerange": {
-                "start": int,
-                "duration": int
-            },
-            "start": int,
-            "end": int,
-            "duration": int,
-
-            # For Media_segment (Audio/Video):
-            "source_timerange": {
-                "start": int,
-                "duration": int
-            } (optional),
-            "speed": float,
+            "start_time": float (seconds),
+            "duration": float (seconds),
+            "end_time": float (seconds),
             "volume": float,
-
-            # For Visual_segment (Video/Text/Sticker):
-            "clip_settings": {
-                "alpha": float,
-                "flip": {"horizontal": bool, "vertical": bool},
-                "rotation": float,
-                "scale": {"x": float, "y": float},
-                "transform": {"x": float, "y": float}
-            },
-            "uniform_scale": {"on": bool, "value": float},
-
-            # For Video_segment specific:
-            "material_name": str (optional),
-            "cartoon": bool (optional),
-            "filters": [...] (optional),
-            "masks": [...] (optional),
-            "effects": [...] (optional),
-
-            # For Text_segment specific:
-            "content": str (optional),
-            "font_info": {...} (optional),
-            "style": {...} (optional),
-
-            # For Audio_segment specific:
-            "fade": {...} (optional),
-            "audio_effects": [...] (optional),
-
-            # Common for all segments:
-            "common_keyframes": [...],
-            "extra_material_refs": [...]
+            "speed": float,
+            "clip": {...},  # For visual segments
+            "text": str,    # For text segments
+            "material": {...},  # For video/audio segments
         }
 
     Raises:
@@ -117,208 +110,8 @@ def get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict
 
     logger.info(f"Found segment {segment_id} in track {track_name} of draft {draft_id}")
 
-    # Build the basic segment info
-    result = {
-        "id": segment.segment_id,
-        "material_id": segment.material_id,
-        "type": type(segment).__name__,
-        "target_timerange": {
-            "start": segment.target_timerange.start,
-            "duration": segment.target_timerange.duration
-        },
-        "start": segment.start,
-        "end": segment.end,
-        "duration": segment.duration,
-    }
-
-    # Add properties based on segment type hierarchy
-    # Check if it's a Media_segment (has source_timerange, speed, volume)
-    if hasattr(segment, "source_timerange"):
-        result["source_timerange"] = {
-            "start": segment.source_timerange.start if segment.source_timerange else None,
-            "duration": segment.source_timerange.duration if segment.source_timerange else None
-        } if segment.source_timerange else None
-        result["speed"] = segment.speed.speed if hasattr(segment.speed, "speed") else segment.speed
-        result["volume"] = segment.volume
-        result["extra_material_refs"] = segment.extra_material_refs
-
-    # Check if it's a Visual_segment (has clip_settings)
-    if hasattr(segment, "clip_settings"):
-        clip = segment.clip_settings
-        result["clip_settings"] = {
-            "alpha": clip.alpha,
-            "flip": {
-                "horizontal": clip.flip_horizontal,
-                "vertical": clip.flip_vertical
-            },
-            "rotation": clip.rotation,
-            "scale": {
-                "x": clip.scale_x,
-                "y": clip.scale_y
-            },
-            "transform": {
-                "x": clip.transform_x,
-                "y": clip.transform_y
-            }
-        }
-        result["uniform_scale"] = {
-            "on": segment.uniform_scale,
-            "value": 1.0
-        }
-
-        # Add animations if present
-        if hasattr(segment, "animations_instance") and segment.animations_instance:
-            result["animations"] = {
-                "has_animation": True,
-                "animation_id": segment.animations_instance.global_id
-            }
-
-    # Add common keyframes
-    if hasattr(segment, "common_keyframes"):
-        result["common_keyframes"] = []
-        for kf_list in segment.common_keyframes:
-            keyframes_data = {
-                "property": kf_list.keyframe_property.name if hasattr(kf_list.keyframe_property, "name") else str(kf_list.keyframe_property),
-                "keyframes": [
-                    {
-                        "time_offset": kf.time_offset,
-                        "value": kf.value
-                    } for kf in kf_list.keyframes
-                ]
-            }
-            result["common_keyframes"].append(keyframes_data)
-
-    # Video_segment specific properties
-    if isinstance(segment, VideoSegment):
-        if hasattr(segment, "material_instance") and segment.material_instance:
-            result["material_name"] = getattr(segment.material_instance, "name", None)
-            result["material_path"] = getattr(segment.material_instance, "path", None)
-            result["material_duration"] = getattr(segment.material_instance, "duration", None)
-            result["material_width"] = getattr(segment.material_instance, "width", None)
-            result["material_height"] = getattr(segment.material_instance, "height", None)
-
-        result["cartoon"] = segment.cartoon if hasattr(segment, "cartoon") else False
-
-        # Filters
-        if hasattr(segment, "filters") and segment.filters:
-            result["filters"] = [
-                {
-                    "name": f.name if hasattr(f, "name") else None,
-                    "intensity": f.intensity if hasattr(f, "intensity") else None,
-                    "id": f.filter_id if hasattr(f, "filter_id") else None
-                } for f in segment.filters
-            ]
-
-        # Masks
-        if hasattr(segment, "masks") and segment.masks:
-            result["masks"] = [
-                {
-                    "name": m.mask_meta.name if hasattr(m, "mask_meta") else None,
-                    "id": m.global_id if hasattr(m, "global_id") else None,
-                    "center": {"x": m.center_x, "y": m.center_y} if hasattr(m, "center_x") else None,
-                    "width": m.width if hasattr(m, "width") else None,
-                    "height": m.height if hasattr(m, "height") else None,
-                    "rotation": m.rotation if hasattr(m, "rotation") else None,
-                    "invert": m.invert if hasattr(m, "invert") else None,
-                    "feather": m.feather if hasattr(m, "feather") else None
-                } for m in segment.masks
-            ]
-
-        # Effects (character/scene effects)
-        if hasattr(segment, "effects") and segment.effects:
-            result["effects"] = [
-                {
-                    "name": e.name if hasattr(e, "name") else None,
-                    "id": e.effect_id if hasattr(e, "effect_id") else None,
-                    "resource_id": e.resource_id if hasattr(e, "resource_id") else None,
-                    "category": e.category_name if hasattr(e, "category_name") else None
-                } for e in segment.effects
-            ]
-
-        # Transitions
-        if hasattr(segment, "transition") and segment.transition:
-            trans = segment.transition
-            result["transition"] = {
-                "name": trans.name if hasattr(trans, "name") else None,
-                "id": trans.transition_id if hasattr(trans, "transition_id") else None,
-                "duration": trans.duration if hasattr(trans, "duration") else None
-            }
-
-    # Text_segment specific properties
-    elif isinstance(segment, Text_segment):
-        result["content"] = segment.content if hasattr(segment, "content") else None
-
-        if hasattr(segment, "font") and segment.font:
-            result["font_info"] = {
-                "name": segment.font.name if hasattr(segment.font, "name") else None,
-                "id": segment.font.font_id if hasattr(segment.font, "font_id") else None
-            }
-
-        if hasattr(segment, "style") and segment.style:
-            style = segment.style
-            result["style"] = {
-                "size": style.size if hasattr(style, "size") else None,
-                "bold": style.bold if hasattr(style, "bold") else None,
-                "italic": style.italic if hasattr(style, "italic") else None,
-                "underline": style.underline if hasattr(style, "underline") else None,
-                "color": style.color if hasattr(style, "color") else None,
-                "alpha": style.alpha if hasattr(style, "alpha") else None,
-                "align": style.align if hasattr(style, "align") else None,
-                "vertical": style.vertical if hasattr(style, "vertical") else None,
-                "letter_spacing": style.letter_spacing if hasattr(style, "letter_spacing") else None,
-                "line_spacing": style.line_spacing if hasattr(style, "line_spacing") else None
-            }
-
-        if hasattr(segment, "border") and segment.border:
-            border = segment.border
-            result["border"] = {
-                "color": border.color if hasattr(border, "color") else None,
-                "alpha": border.alpha if hasattr(border, "alpha") else None,
-                "width": border.width if hasattr(border, "width") else None
-            }
-
-        if hasattr(segment, "shadow") and segment.shadow:
-            shadow = segment.shadow
-            result["shadow"] = {
-                "color": shadow.color if hasattr(shadow, "color") else None,
-                "alpha": shadow.alpha if hasattr(shadow, "alpha") else None,
-                "angle": shadow.angle if hasattr(shadow, "angle") else None,
-                "distance": shadow.distance if hasattr(shadow, "distance") else None,
-                "blur": shadow.blur if hasattr(shadow, "blur") else None
-            }
-
-    # Audio_segment specific properties
-    elif isinstance(segment, AudioSegment):
-        if hasattr(segment, "material_instance") and segment.material_instance:
-            result["material_name"] = getattr(segment.material_instance, "name", None)
-            result["material_path"] = getattr(segment.material_instance, "path", None)
-            result["material_duration"] = getattr(segment.material_instance, "duration", None)
-
-        if hasattr(segment, "fade") and segment.fade:
-            fade = segment.fade
-            result["fade"] = {
-                "id": fade.fade_id if hasattr(fade, "fade_id") else None,
-                "in_duration": fade.in_duration if hasattr(fade, "in_duration") else None,
-                "out_duration": fade.out_duration if hasattr(fade, "out_duration") else None
-            }
-
-        if hasattr(segment, "effects") and segment.effects:
-            result["audio_effects"] = [
-                {
-                    "name": e.name if hasattr(e, "name") else None,
-                    "id": e.effect_id if hasattr(e, "effect_id") else None,
-                    "resource_id": e.resource_id if hasattr(e, "resource_id") else None,
-                    "category": e.category_name if hasattr(e, "category_name") else None
-                } for e in segment.effects
-            ]
-
-    # Effect_segment specific properties
-    elif isinstance(segment, Effect_segment):
-        if hasattr(segment, "effect_meta") and segment.effect_meta:
-            result["effect_info"] = {
-                "name": segment.effect_meta.name if hasattr(segment.effect_meta, "name") else None,
-                "resource_id": segment.effect_meta.resource_id if hasattr(segment.effect_meta, "resource_id") else None
-            }
+    # Use LLM-friendly export
+    result = export_segment_for_llm(segment)
 
     logger.info(f"Successfully retrieved details for segment {segment_id}")
 
@@ -407,4 +200,114 @@ def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] 
         "deleted_segment_id": segment_id,
         "deleted_segment_index": segment_index,
         "remaining_segments_count": remaining_count,
+    }
+
+
+def modify_segment(draft_id: str, track_name: str, segment_id: str,
+                   clip_settings: Optional[Dict[str, Any]] = None,
+                   volume: Optional[float] = None,
+                   speed: Optional[float] = None) -> Dict[str, Any]:
+    """
+    Modify a segment's properties (clip settings, volume, speed)
+
+    Args:
+        draft_id: The draft ID to modify
+        track_name: Name of the track containing the segment
+        segment_id: ID of the segment to modify
+        clip_settings: Optional clip settings to update. Can include:
+            - alpha (float): Opacity, 0-1
+            - flip_horizontal (bool): Horizontal flip
+            - flip_vertical (bool): Vertical flip
+            - rotation (float): Rotation angle in degrees
+            - scale_x (float): Horizontal scale
+            - scale_y (float): Vertical scale
+            - transform_x (float): Horizontal position
+            - transform_y (float): Vertical position
+        volume: Optional volume level (0-1)
+        speed: Optional playback speed
+
+    Returns:
+        Dictionary containing success status and updated segment info:
+        {
+            "success": True,
+            "message": str,
+            "draft_id": str,
+            "track_name": str,
+            "segment_id": str,
+            "updated_fields": List[str]
+        }
+
+    Raises:
+        ValueError: If required parameters are missing or segment not found
+        TypeError: If trying to modify unsupported properties for segment type
+    """
+    logger.info(f"Modifying segment in draft {draft_id}, track {track_name}, segment_id={segment_id}")
+
+    if not draft_id:
+        raise ValueError("draft_id is required")
+
+    if not track_name:
+        raise ValueError("track_name is required")
+
+    if not segment_id:
+        raise ValueError("segment_id is required")
+
+    if clip_settings is None and volume is None and speed is None:
+        raise ValueError("At least one of clip_settings, volume, or speed must be provided")
+
+    # Get the script from cache
+    script = get_from_cache(draft_id)
+    if script is None:
+        raise ValueError(f"Draft {draft_id} not found in cache")
+
+    # Process clip_settings if provided
+    clip_settings_dict = None
+    if clip_settings is not None:
+        clip_update = ClipSettingsUpdate(clip_settings)
+        clip_settings_dict = clip_update.to_dict()
+
+    # Track which fields were updated
+    updated_fields = []
+    if clip_settings_dict:
+        updated_fields.extend(list(clip_settings_dict.keys()))
+    if volume is not None:
+        updated_fields.append("volume")
+    if speed is not None:
+        updated_fields.append("speed")
+
+    # Perform the modification using the Script_file method
+    try:
+        script.modify_segment(
+            track_name,
+            segment_id,
+            clip_settings=clip_settings_dict,
+            volume=volume,
+            speed=speed
+        )
+    except SegmentNotFound as e:
+        logger.error(f"Failed to modify segment: {e!s}")
+        raise ValueError(str(e)) from e
+    except NameError as e:
+        logger.error(f"Track not found: {e!s}")
+        raise ValueError(str(e)) from e
+    except TypeError as e:
+        logger.error(f"Unsupported property modification: {e!s}")
+        raise
+    except Exception as e:
+        logger.error(f"Error modifying segment: {e!s}")
+        raise
+
+    # Save the updated script back to cache
+    update_cache(draft_id, script)
+
+    logger.info(f"Successfully modified segment {segment_id} in track {track_name}. "
+                f"Updated fields: {updated_fields}")
+
+    return {
+        "success": True,
+        "message": f"Segment modified successfully in track '{track_name}'",
+        "draft_id": draft_id,
+        "track_name": track_name,
+        "segment_id": segment_id,
+        "updated_fields": updated_fields,
     }

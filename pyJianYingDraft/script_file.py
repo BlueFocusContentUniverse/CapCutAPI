@@ -574,6 +574,95 @@ class ScriptFile:
 
         return self
 
+    def modify_segment(self, track_name: str, segment_id: str, *,
+                       clip_settings: Optional[Dict[str, Any]] = None,
+                       volume: Optional[float] = None,
+                       speed: Optional[float] = None) -> "ScriptFile":
+        """修改指定轨道中指定片段的属性
+
+        Args:
+            track_name (`str`): 轨道名称
+            segment_id (`str`): 片段ID
+            clip_settings (`Dict[str, Any]`, optional): 图像调节设置, 支持以下字段:
+                - alpha (`float`): 不透明度, 0-1
+                - flip_horizontal (`bool`): 是否水平翻转
+                - flip_vertical (`bool`): 是否垂直翻转
+                - rotation (`float`): 顺时针旋转角度
+                - scale_x (`float`): 水平缩放比例
+                - scale_y (`float`): 垂直缩放比例
+                - transform_x (`float`): 水平位移
+                - transform_y (`float`): 垂直位移
+            volume (`float`, optional): 音量, 0-1
+            speed (`float`, optional): 播放速度
+
+        Returns:
+            Script_file: Self for method chaining
+
+        Raises:
+            `NameError`: 未找到指定名称的轨道
+            `exceptions.SegmentNotFound`: 根据`segment_id`未找到对应片段
+            `TypeError`: 试图修改不支持的属性
+        """
+        # 查找轨道
+        target_track = None
+        if track_name in self.tracks:
+            target_track = self.tracks[track_name]
+        else:
+            for track in self.imported_tracks:
+                if track.name == track_name:
+                    target_track = track
+                    break
+
+        if target_track is None:
+            raise NameError("不存在名为 '%s' 的轨道" % track_name)
+
+        # 查找片段
+        target_segment = None
+        for segment in target_track.segments:
+            if segment.segment_id == segment_id:
+                target_segment = segment
+                break
+
+        if target_segment is None:
+            raise exceptions.SegmentNotFound("在轨道 '%s' 中未找到ID为 '%s' 的片段" % (track_name, segment_id))
+
+        # 修改clip_settings (仅对VisualSegment有效)
+        if clip_settings is not None:
+            if not hasattr(target_segment, "clip_settings"):
+                raise TypeError("片段类型 '%s' 不支持 clip_settings" % type(target_segment).__name__)
+
+            clip = target_segment.clip_settings
+            if "alpha" in clip_settings:
+                clip.alpha = clip_settings["alpha"]
+            if "flip_horizontal" in clip_settings:
+                clip.flip_horizontal = clip_settings["flip_horizontal"]
+            if "flip_vertical" in clip_settings:
+                clip.flip_vertical = clip_settings["flip_vertical"]
+            if "rotation" in clip_settings:
+                clip.rotation = clip_settings["rotation"]
+            if "scale_x" in clip_settings:
+                clip.scale_x = clip_settings["scale_x"]
+            if "scale_y" in clip_settings:
+                clip.scale_y = clip_settings["scale_y"]
+            if "transform_x" in clip_settings:
+                clip.transform_x = clip_settings["transform_x"]
+            if "transform_y" in clip_settings:
+                clip.transform_y = clip_settings["transform_y"]
+
+        # 修改volume (仅对MediaSegment有效)
+        if volume is not None:
+            if not hasattr(target_segment, "volume"):
+                raise TypeError("片段类型 '%s' 不支持 volume" % type(target_segment).__name__)
+            target_segment.volume = volume
+
+        # 修改speed (仅对MediaSegment有效)
+        if speed is not None:
+            if not hasattr(target_segment, "speed"):
+                raise TypeError("片段类型 '%s' 不支持 speed" % type(target_segment).__name__)
+            target_segment.speed.speed = speed
+
+        return self
+
     def add_effect(self, effect: Union[VideoSceneEffectType, VideoCharacterEffectType],
                    t_range: Timerange, track_name: Optional[str] = None, *,
                    params: Optional[List[Optional[float]]] = None) -> "ScriptFile":

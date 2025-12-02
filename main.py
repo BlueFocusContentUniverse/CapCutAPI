@@ -10,7 +10,6 @@ from api import get_api_router
 from db import init_db
 from logging_utils import setup_logging
 from mcp_stream_server import create_fastmcp_app
-from redis_event_store import RedisEventStore
 
 # Load environment variables
 env_file = Path(__file__).parent / ".env"
@@ -23,15 +22,6 @@ logger = logging.getLogger(__name__)
 
 # Create MCP server instance
 mcp_server = create_fastmcp_app()
-
-# Create Redis Event Store for session persistence
-# This allows the MCP server to work with multiple workers
-try:
-    event_store = RedisEventStore()
-    logger.info("Initialized RedisEventStore for MCP session persistence")
-except Exception as e:
-    logger.warning(f"Failed to initialize RedisEventStore: {e}. Falling back to in-memory session storage (single worker only).")
-    event_store = None
 
 mcp_app = mcp_server.http_app(path="/mcp")
 
@@ -49,7 +39,7 @@ async def lifespan(app: FastAPI):
         yield
     # Shutdown
 
-app = FastAPI(lifespan=lifespan, title="CapCut API Service", version="1.6.3")
+app = FastAPI(lifespan=lifespan, title="CapCut API Service", version="1.7.0")
 
 # Configure CORS
 app.add_middleware(

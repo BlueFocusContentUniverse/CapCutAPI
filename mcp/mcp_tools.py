@@ -40,31 +40,17 @@ TOOLS = [
                 "name": {"type": "string", "description": "草稿名称"},
                 "framerate": {"type": "string", "description": "帧率（可选值30.0、50.0、60.0）", "enum": ["30.0", "50.0", "60.0"], "default": "30.0"}
             },
-            "required": ["width", "height"]
+            "required": ["name"]
         }
     },
     {
         "name": "batch_add_videos",
         "description": """批量添加多个视频素材到track。适用于需要连续添加多个视频的场景。每个视频可以独立设置video_url、start、end、target_start、speed参数，其他参数（如转场、蒙版、缩放等）在所有视频间共享。
         【使用场景】
-        • 视频拼接：将多个视频片段按顺序拼接成完整视频
         • 批量导入：一次性导入多个视频素材
-        • 幻灯片：制作图片或视频幻灯片效果
-
-        【videos数组说明】
-        每个视频对象包含：
-        • video_url（必需）：视频素材URL或本地路径
-        • start（可选，默认0）：从视频第几秒开始截取
-        • end（可选，默认0）：到视频第几秒结束截取（0表示到末尾）
-        • target_start（可选，默认0）：该片段在时间线上的起始位置
-        • speed（可选，默认1.0）：播放速度
-        • mode（可选，默认cover）：速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed
-        • target_duration（默认None）：fill模式专用，素材在轨道上的目标时长（秒）
-        • duration（默认None）：视频素材总时长（秒）
-        • video_name（可选）：视频素材名称
 
         【共享参数】
-        其他参数（transform_x/y、scale_x/y、transition、mask_type等）在根级别设置，应用于所有视频
+        除videos之外其他参数（transform_x/y、scale_x/y、transition、mask_type等），将应用于videos内所有视频
         """,
         "inputSchema": {
             "type": "object",
@@ -587,6 +573,29 @@ TOOLS = [
                 "segment_id": {"type": ["string", "null"], "default": None, "description": "要删除的片段的唯一标识符。与segment_index互斥，二者必须且只能提供一个"}
             },
             "required": ["draft_id", "track_name"]
+        }
+    },
+    {
+        "name": "modify_segment",
+        "description": "修改片段的属性。支持修改视觉属性（透明度、翻转、旋转、缩放、位移）、音量和播放速度。适用于视频、图片、音频等片段类型。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {"type": "string", "description": "目标草稿的唯一标识符"},
+                "track_name": {"type": "string", "description": "包含该片段的轨道名称"},
+                "segment_id": {"type": "string", "description": "要修改的片段的唯一标识符"},
+                "alpha": {"type": ["number", "null"], "default": None, "description": "透明度，范围0-1，0为完全透明，1为完全不透明"},
+                "flip_horizontal": {"type": ["boolean", "null"], "default": None, "description": "是否水平翻转"},
+                "flip_vertical": {"type": ["boolean", "null"], "default": None, "description": "是否垂直翻转"},
+                "rotation": {"type": ["number", "null"], "default": None, "description": "旋转角度（度）"},
+                "scale_x": {"type": ["number", "null"], "default": None, "description": "水平缩放比例"},
+                "scale_y": {"type": ["number", "null"], "default": None, "description": "垂直缩放比例"},
+                "transform_x": {"type": ["number", "null"], "default": None, "description": "水平位移"},
+                "transform_y": {"type": ["number", "null"], "default": None, "description": "垂直位移"},
+                "volume": {"type": ["number", "null"], "default": None, "description": "音量，范围0-1"},
+                "speed": {"type": ["number", "null"], "default": None, "description": "播放速度倍数"}
+            },
+            "required": ["draft_id", "track_name", "segment_id"]
         }
     }
 ]
