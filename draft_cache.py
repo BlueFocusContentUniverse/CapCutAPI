@@ -165,7 +165,7 @@ def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
                 try:
                     redis_cache = get_redis_draft_cache()
                     if redis_cache:
-                        redis_cache._set_cache(cache_key, draft_obj, mark_dirty=False)
+                        redis_cache.save_draft(cache_key, draft_obj, mark_dirty=False)
                 except Exception:
                     pass  # 忽略Redis写入失败
             return draft_obj
@@ -220,7 +220,7 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
                 try:
                     redis_cache = get_redis_draft_cache()
                     if redis_cache:
-                        redis_cache._set_cache(cache_key, script_obj, mark_dirty=False)
+                        redis_cache.save_draft(cache_key, script_obj, mark_dirty=False)
                 except Exception:
                     pass  # 忽略Redis写入失败
             return (script_obj, version)

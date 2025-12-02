@@ -191,13 +191,14 @@ class RedisDraftCache:
         self,
         draft_id: str,
         script_obj: draft.ScriptFile,
-        expected_version: Optional[int] = None
+        expected_version: Optional[int] = None,
+        mark_dirty: bool = True
     ) -> bool:
         """
         保存草稿（Write-Through + Write-Behind策略）
         
         1. 先写Redis（立即返回）
-        2. 标记为脏数据
+        2. 如果mark_dirty=True，标记为脏数据
         3. 如果提供了expected_version，立即同步到PG（保证一致性）
         4. 否则后台任务定期同步到PostgreSQL
         """
@@ -208,9 +209,10 @@ class RedisDraftCache:
             # 1. 先写Redis（立即返回）
             self.cache_region.set(cache_key, serialized_data)
             
-            # 标记为脏数据
-            dirty_key = self._get_dirty_key(draft_id)
-            self.redis_client.setex(dirty_key, DRAFT_CACHE_TTL * 2, b"1")
+            # 标记为脏数据（如果需要）
+            if mark_dirty:
+                dirty_key = self._get_dirty_key(draft_id)
+                self.redis_client.setex(dirty_key, DRAFT_CACHE_TTL * 2, b"1")
             
             # 2. 如果提供了expected_version，立即同步到PG（保证一致性）
             # 这种情况下需要创建版本记录，因为涉及版本控制
@@ -222,9 +224,14 @@ class RedisDraftCache:
                     create_version=True  # 版本控制需要创建版本记录
                 )
                 if success:
-                    # 清除脏数据标记
-                    self.redis_client.delete(dirty_key)
+                    # 清除脏数据标记（如果存在）
+                    if mark_dirty:
+                        self.redis_client.delete(dirty_key)
                     logger.debug(f"立即同步草稿到PostgreSQL: {draft_id}（已创建版本记录）")
+                else:
+                    # 同步失败，如果标记了脏数据则保留标记以便后台任务重试
+                    if mark_dirty:
+                        logger.warning(f"立即同步失败，保留脏数据标记: {draft_id}")
                 return success
             
             # 3. 否则标记为脏数据，等待后台同步
@@ -238,9 +245,27 @@ class RedisDraftCache:
     def _sync_to_postgres(self):
         """后台同步任务：将脏数据同步到PostgreSQL"""
         try:
-            # 获取所有脏数据标记
+            # 使用SCAN代替KEYS，避免阻塞Redis
             pattern = f"{DRAFT_DIRTY_KEY_PREFIX}*"
-            dirty_keys = self.redis_client.keys(pattern.encode())
+            dirty_keys = []
+            cursor = 0
+            scan_count = 0
+            max_scan_iterations = 1000  # 防止无限循环
+            
+            while scan_count < max_scan_iterations:
+                try:
+                    cursor, keys = self.redis_client.scan(
+                        cursor,
+                        match=pattern.encode(),
+                        count=100
+                    )
+                    dirty_keys.extend(keys)
+                    scan_count += 1
+                    if cursor == 0:
+                        break
+                except Exception as e:
+                    logger.error(f"SCAN操作失败: {e}")
+                    break
             
             if not dirty_keys:
                 return
@@ -248,7 +273,9 @@ class RedisDraftCache:
             logger.info(f"开始同步 {len(dirty_keys)} 个脏数据到PostgreSQL")
             
             synced_count = 0
+            failed_count = 0
             for dirty_key in dirty_keys:
+                draft_id = None
                 try:
                     # 检查脏数据标记是否仍然存在（可能已被立即同步清除）
                     if not self.redis_client.exists(dirty_key):
@@ -267,11 +294,21 @@ class RedisDraftCache:
                     # 反序列化
                     script_obj = pickle.loads(cached_data)
                     
+                    # 获取当前版本号（用于乐观锁，从PostgreSQL获取）
+                    current_version = None
+                    try:
+                        result = self.pg_storage.get_draft_with_version(draft_id)
+                        if result:
+                            _, current_version = result
+                    except Exception as e:
+                        logger.warning(f"获取版本号失败 {draft_id}: {e}")
+                    
                     # 同步到PostgreSQL（持久化操作，创建版本记录）
-                    # 注意：如果同一个草稿在Redis中被多次修改，只有最后一次同步时创建版本
+                    # 使用版本控制避免覆盖并发更新
                     success = self.pg_storage.save_draft(
                         draft_id,
                         script_obj,
+                        expected_version=current_version,
                         create_version=True  # 持久化时创建版本记录
                     )
                     if success:
@@ -279,15 +316,23 @@ class RedisDraftCache:
                         self.redis_client.delete(dirty_key)
                         synced_count += 1
                         logger.debug(f"同步草稿到PostgreSQL: {draft_id}（已创建版本记录）")
+                    else:
+                        # 同步失败（可能是版本冲突），保留脏数据标记以便下次重试
+                        failed_count += 1
+                        logger.warning(f"同步草稿失败（可能是版本冲突）: {draft_id}")
+                        # 延长脏数据标记的TTL，确保不会丢失
+                        self.redis_client.expire(dirty_key, DRAFT_CACHE_TTL * 2)
                     
                 except Exception as e:
-                    logger.error(f"同步草稿失败 {draft_id}: {e}")
+                    failed_count += 1
+                    draft_id_str = draft_id or "unknown"
+                    logger.error(f"同步草稿失败 {draft_id_str}: {e}", exc_info=True)
             
-            if synced_count > 0:
-                logger.info(f"同步完成: {synced_count}/{len(dirty_keys)} 个草稿已同步")
+            if synced_count > 0 or failed_count > 0:
+                logger.info(f"同步完成: {synced_count} 成功, {failed_count} 失败, 共 {len(dirty_keys)} 个草稿")
             
         except Exception as e:
-            logger.error(f"后台同步任务失败: {e}")
+            logger.error(f"后台同步任务失败: {e}", exc_info=True)
     
     def _start_sync_task(self):
         """启动后台同步任务"""
@@ -337,7 +382,7 @@ class RedisDraftCache:
         dirty_key = self._get_dirty_key(draft_id)
         
         try:
-            # 删除Redis缓存
+            # 删除Redis缓存和脏数据标记
             self.cache_region.delete(cache_key)
             self.redis_client.delete(dirty_key)
         except Exception as e:
@@ -360,14 +405,26 @@ class RedisDraftCache:
         }
         
         try:
-            # 统计Redis中的缓存数量
+            # 统计Redis中的缓存数量（使用SCAN）
             pattern = f"{DRAFT_CACHE_KEY_PREFIX}*"
-            cache_keys = self.redis_client.keys(pattern.encode())
+            cache_keys = []
+            cursor = 0
+            while True:
+                cursor, keys = self.redis_client.scan(cursor, match=pattern.encode(), count=100)
+                cache_keys.extend(keys)
+                if cursor == 0:
+                    break
             stats["redis_cache_count"] = len(cache_keys)
             
-            # 统计脏数据数量
+            # 统计脏数据数量（使用SCAN）
             dirty_pattern = f"{DRAFT_DIRTY_KEY_PREFIX}*"
-            dirty_keys = self.redis_client.keys(dirty_pattern.encode())
+            dirty_keys = []
+            cursor = 0
+            while True:
+                cursor, keys = self.redis_client.scan(cursor, match=dirty_pattern.encode(), count=100)
+                dirty_keys.extend(keys)
+                if cursor == 0:
+                    break
             stats["dirty_count"] = len(dirty_keys)
         except Exception as e:
             logger.warning(f"获取Redis统计失败: {e}")

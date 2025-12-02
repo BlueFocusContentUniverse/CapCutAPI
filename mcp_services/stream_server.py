@@ -16,7 +16,11 @@ from fastmcp import FastMCP
 
 # pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
+<<<<<<<< HEAD:mcp_services/stream_server.py
 from mcp_services.mcp_tools import TOOLS, execute_tool
+========
+from capcut_mcp.mcp_tools import TOOLS, execute_tool
+>>>>>>>> c345590 (fix: Update draft cache logic):capcut_mcp/stream_server.py
 from services.add_audio_track import add_audio_track, batch_add_audio_track
 from services.add_effect_impl import add_effect_impl
 from services.add_image_impl import add_image_impl
