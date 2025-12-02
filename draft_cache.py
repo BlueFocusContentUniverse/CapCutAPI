@@ -9,6 +9,14 @@ from repositories.draft_repository import get_postgres_storage
 
 logger = logging.getLogger(__name__)
 
+# 尝试导入Redis缓存
+try:
+    from repositories.redis_draft_cache import get_redis_draft_cache
+    REDIS_CACHE_AVAILABLE = True
+except Exception as e:
+    REDIS_CACHE_AVAILABLE = False
+    logger.debug(f"Redis草稿缓存层不可用: {e}")
+
 # Keep in-memory cache for active drafts (faster access)
 # Note: In-memory cache should be invalidated when using version-based locking
 DRAFT_CACHE: Dict[str, Tuple["draft.ScriptFile", int]] = OrderedDict()  # Store (script, version)
@@ -68,7 +76,7 @@ def normalize_draft_id(raw_key: Any) -> Optional[str]:
 
 def update_cache(key: str, value: draft.ScriptFile, expected_version: Optional[int] = None) -> bool:
     """
-    Update cache in both memory and PostgreSQL with optimistic locking support.
+    Update cache with Redis (L1) and PostgreSQL (L2) with optimistic locking support.
 
     Args:
         key: Draft ID
@@ -84,7 +92,24 @@ def update_cache(key: str, value: draft.ScriptFile, expected_version: Optional[i
         return False
 
     try:
-        # Update PostgreSQL storage (persistent) with version check
+        # 优先使用Redis缓存
+        if REDIS_CACHE_AVAILABLE:
+            try:
+                redis_cache = get_redis_draft_cache()
+                if redis_cache:
+                    success = redis_cache.save_draft(cache_key, value, expected_version=expected_version)
+                    if success:
+                        # 清除内存缓存（重要：其他进程可能已更新）
+                        if cache_key in DRAFT_CACHE:
+                            DRAFT_CACHE.pop(cache_key)
+                        logger.info(f"Successfully updated draft {cache_key} via Redis cache")
+                        return True
+                    else:
+                        logger.warning(f"Redis cache update failed, falling back to PostgreSQL")
+            except Exception as e:
+                logger.warning(f"Redis cache unavailable: {e}, falling back to PostgreSQL")
+
+        # 降级到PostgreSQL
         pg_storage = get_postgres_storage()
         success = pg_storage.save_draft(cache_key, value, expected_version=expected_version)
 
@@ -107,23 +132,42 @@ def update_cache(key: str, value: draft.ScriptFile, expected_version: Optional[i
 
 def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
     """
-    Get draft from cache (PostgreSQL first for consistency).
+    Get draft from cache (Redis -> PostgreSQL -> Memory).
 
-    Note: We prioritize PostgreSQL over memory cache to ensure we always
-    get the latest version when concurrent updates are happening.
+    Read-Through策略：优先从Redis获取，未命中则从PostgreSQL获取并缓存到Redis。
     """
     cache_key = _normalize_cache_key(key)
     if not cache_key:
         logger.error("Cannot retrieve draft with invalid key: %s", key)
         return None
 
+    # 优先使用Redis缓存
+    if REDIS_CACHE_AVAILABLE:
+        try:
+            redis_cache = get_redis_draft_cache()
+            if redis_cache:
+                draft_obj = redis_cache.get_draft(cache_key)
+                if draft_obj is not None:
+                    logger.debug(f"Retrieved draft {cache_key} from Redis cache")
+                    return draft_obj
+        except Exception as e:
+            logger.warning(f"Redis cache unavailable: {e}, falling back to PostgreSQL")
+
+    # 降级到PostgreSQL
     try:
-        # Always fetch from PostgreSQL to ensure latest version
         pg_storage = get_postgres_storage()
         draft_obj = pg_storage.get_draft(cache_key)
 
         if draft_obj is not None:
             logger.debug(f"Retrieved draft {cache_key} from PostgreSQL")
+            # 如果Redis可用，尝试写入Redis缓存
+            if REDIS_CACHE_AVAILABLE:
+                try:
+                    redis_cache = get_redis_draft_cache()
+                    if redis_cache:
+                        redis_cache._set_cache(cache_key, draft_obj, mark_dirty=False)
+                except Exception:
+                    pass  # 忽略Redis写入失败
             return draft_obj
 
         logger.warning(f"Draft {cache_key} not found in PostgreSQL")
@@ -150,14 +194,35 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
         logger.error("Cannot retrieve draft with version using invalid key: %s", key)
         return None
 
+    # 优先使用Redis缓存
+    if REDIS_CACHE_AVAILABLE:
+        try:
+            redis_cache = get_redis_draft_cache()
+            if redis_cache:
+                result = redis_cache.get_draft_with_version(cache_key)
+                if result is not None:
+                    script_obj, version = result
+                    logger.debug(f"Retrieved draft {cache_key} from Redis cache with version {version}")
+                    return (script_obj, version)
+        except Exception as e:
+            logger.warning(f"Redis cache unavailable: {e}, falling back to PostgreSQL")
+
+    # 降级到PostgreSQL
     try:
-        # Fetch from PostgreSQL with version information
         pg_storage = get_postgres_storage()
         result = pg_storage.get_draft_with_version(cache_key)
 
         if result is not None:
             script_obj, version = result
             logger.debug(f"Retrieved draft {cache_key} from PostgreSQL with version {version}")
+            # 如果Redis可用，尝试写入Redis缓存
+            if REDIS_CACHE_AVAILABLE:
+                try:
+                    redis_cache = get_redis_draft_cache()
+                    if redis_cache:
+                        redis_cache._set_cache(cache_key, script_obj, mark_dirty=False)
+                except Exception:
+                    pass  # 忽略Redis写入失败
             return (script_obj, version)
 
         logger.warning(f"Draft {cache_key} not found in PostgreSQL")
@@ -222,22 +287,33 @@ def cache_exists(key: str) -> bool:
 
 def get_cache_stats() -> Dict:
     """Get cache statistics"""
+    stats = {
+        "memory_cache_size": len(DRAFT_CACHE),
+        "memory_cache_max": MAX_CACHE_SIZE,
+        "redis_cache_available": REDIS_CACHE_AVAILABLE,
+    }
+    
+    # Redis缓存统计
+    if REDIS_CACHE_AVAILABLE:
+        try:
+            redis_cache = get_redis_draft_cache()
+            if redis_cache:
+                redis_stats = redis_cache.get_stats()
+                stats["redis_stats"] = redis_stats
+        except Exception as e:
+            logger.warning(f"Failed to get Redis cache stats: {e}")
+            stats["redis_stats"] = {"redis_available": False}
+    
+    # PostgreSQL统计
     try:
         pg_storage = get_postgres_storage()
         pg_stats = pg_storage.get_stats()
-
-        return {
-            "memory_cache_size": len(DRAFT_CACHE),
-            "memory_cache_max": MAX_CACHE_SIZE,
-            "postgres_stats": pg_stats
-        }
+        stats["postgres_stats"] = pg_stats
     except Exception as e:
         logger.error(f"Failed to get cache stats: {e}")
-        return {
-            "memory_cache_size": len(DRAFT_CACHE),
-            "memory_cache_max": MAX_CACHE_SIZE,
-            "postgres_stats": {}
-        }
+        stats["postgres_stats"] = {}
+    
+    return stats
 
 def update_draft_with_retry(
     draft_id: str,
