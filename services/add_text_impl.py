@@ -89,11 +89,7 @@ def add_text_impl(
     :param background_horizontal_offset: 背景水平偏移，范围0.0-1.0（默认0.5）
     :param background_vertical_offset: 背景垂直偏移，范围0.0-1.0（默认0.5）
     :param shadow_enabled: 是否启用阴影（默认False）
-<<<<<<< Updated upstream
     :param shadow_alpha: 阴影透明度，范围0.0-1.0（默认0.76）
-=======
-    :param shadow_alpha: 阴影不透明度，范围0.0-1.0（默认0.76）
->>>>>>> Stashed changes
     :param shadow_angle: 阴影角度，范围-180.0-180.0（默认-54.0）
     :param shadow_color: 阴影颜色（默认黑色）
     :param shadow_distance: 阴影距离（默认5.0）
