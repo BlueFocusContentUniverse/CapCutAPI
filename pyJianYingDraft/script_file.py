@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 import os
 from copy import deepcopy
@@ -209,7 +210,7 @@ class ScriptFile:
 
     TEMPLATE_FILE = "draft_content_template.json"
 
-    def __init__(self, width: int, height: int, fps: int = 30, name: str = "draft", resource: str | None = None):
+    def __init__(self, width: int, height: int, fps: int = 30, name: str = "draft", resource: str | None = None, maintrack_adsorb: bool = True):
         """创建一个剪映草稿
 
         Args:
@@ -217,6 +218,8 @@ class ScriptFile:
             height (int): 视频高度, 单位为像素
             fps (int, optional): 视频帧率. 默认为30.
             name (str, optional): 草稿名称. 默认为"draft".
+            resource (str, optional): 草稿来源标识（如"api"、"mcp"等）. 默认为None.
+            maintrack_adsorb (bool, optional): 是否启用主轨道吸附（主轨磁吸）. 默认为True.
         """
         self.save_path = None
 
@@ -226,6 +229,7 @@ class ScriptFile:
         self.duration = 0
         self.name = name
         self.resource = resource
+        self.maintrack_adsorb = maintrack_adsorb
 
         self.materials = ScriptMaterial()
         self.tracks = {}
@@ -254,10 +258,13 @@ class ScriptFile:
             obj.content = json.load(f)
 
         util.assign_attr_with_json(obj, ["fps", "duration"], obj.content)
-        util.assign_attr_with_json(obj, ["width", "height"], obj.content["canvas_config"])
+        util.assign_attr_with_json(obj, ["width", "height"], obj.content.get("canvas_config", {}))
         obj.name = obj.content.get("name", "")
+        # 从 config 中读取 maintrack_adsorb，如果不存在则使用默认值 True
+        config = obj.content.get("config", {})
+        obj.maintrack_adsorb = config.get("maintrack_adsorb", True)
 
-        obj.imported_materials = deepcopy(obj.content["materials"])
+        obj.imported_materials = deepcopy(obj.content.get("materials", {}))
         obj.imported_tracks = [import_track(track_data, obj.imported_materials) for track_data in obj.content["tracks"]]
 
         return obj
@@ -287,11 +294,14 @@ class ScriptFile:
             raise ValueError("草稿内容必须是字符串或字典类型")
 
         util.assign_attr_with_json(obj, ["fps", "duration"], obj.content)
-        util.assign_attr_with_json(obj, ["width", "height"], obj.content["canvas_config"])
+        util.assign_attr_with_json(obj, ["width", "height"], obj.content.get("canvas_config", {}))
         obj.name = obj.content.get("name", "")
+        # 从 config 中读取 maintrack_adsorb，如果不存在则使用默认值 True
+        config = obj.content.get("config", {})
+        obj.maintrack_adsorb = config.get("maintrack_adsorb", True)
 
-        obj.imported_materials = deepcopy(obj.content["materials"])
-        obj.imported_tracks = [import_track(track_data, obj.imported_materials) for track_data in obj.content["tracks"]]
+        obj.imported_materials = deepcopy(obj.content.get("materials", {}))
+        obj.imported_tracks = [import_track(track_data, obj.imported_materials) for track_data in obj.content.get("tracks", [])]
 
         return obj
 
@@ -1129,48 +1139,83 @@ class ScriptFile:
 
     def dumps(self) -> str:
         """将草稿文件内容导出为JSON字符串"""
-        self.content["fps"] = self.fps
-        self.content["duration"] = self.duration
-        self.content["canvas_config"] = {"width": self.width, "height": self.height, "ratio": "original"}
-        self.content["materials"] = self.materials.export_json()
-        self.content["name"] = self.name
+        try:
+            # 更新基础信息（使用安全的字典访问）
+            self.content["fps"] = self.fps
+            self.content["duration"] = self.duration
+            self.content["canvas_config"] = {"width": self.width, "height": self.height, "ratio": "original"}
+            self.content["name"] = self.name
+            
+            # 更新 maintrack_adsorb（确保 config 字典存在）
+            if "config" not in self.content:
+                self.content["config"] = {}
+            self.content["config"]["maintrack_adsorb"] = getattr(self, "maintrack_adsorb", True)
+            
+            # 导出素材（使用 try-except 保护）
+            try:
+                self.content["materials"] = self.materials.export_json()
+            except Exception as e:
+                # 如果导出失败，使用空字典或保留原有内容
+                logging.warning(f"Failed to export materials: {e}, using empty dict")
+                self.content["materials"] = self.content.get("materials", {})
 
-        self.content["last_modified_platform"] = {
-            "app_id": 359289,
-            "app_source": "cc",
-            "app_version": "5.9.0",
-            "device_id": "c4ca4238a0b923820dcc509a6f75849b",
-            "hard_disk_id": "307563e0192a94465c0e927fbc482942",
-            "mac_address": "c3371f2d4fb02791c067ce44d8fb4ed5",
-            "os": "mac",
-            "os_version": "15.5"
-        }
+            # 更新平台信息（如果不存在则创建）
+            if "last_modified_platform" not in self.content:
+                self.content["last_modified_platform"] = {
+                    "app_id": 359289,
+                    "app_source": "cc",
+                    "app_version": "5.9.0",
+                    "device_id": "c4ca4238a0b923820dcc509a6f75849b",
+                    "hard_disk_id": "307563e0192a94465c0e927fbc482942",
+                    "mac_address": "c3371f2d4fb02791c067ce44d8fb4ed5",
+                    "os": "mac",
+                    "os_version": "15.5"
+                }
 
-        self.content["platform"] = {
-            "app_id": 359289,
-            "app_source": "cc",
-            "app_version": "5.9.0",
-            "device_id": "c4ca4238a0b923820dcc509a6f75849b",
-            "hard_disk_id": "307563e0192a94465c0e927fbc482942",
-            "mac_address": "c3371f2d4fb02791c067ce44d8fb4ed5",
-            "os": "mac",
-            "os_version": "15.5"
-        }
+            if "platform" not in self.content:
+                self.content["platform"] = {
+                    "app_id": 359289,
+                    "app_source": "cc",
+                    "app_version": "5.9.0",
+                    "device_id": "c4ca4238a0b923820dcc509a6f75849b",
+                    "hard_disk_id": "307563e0192a94465c0e927fbc482942",
+                    "mac_address": "c3371f2d4fb02791c067ce44d8fb4ed5",
+                    "os": "mac",
+                    "os_version": "15.5"
+                }
 
-        # 合并导入的素材
-        for material_type, material_list in self.imported_materials.items():
-            if material_type not in self.content["materials"]:
-                self.content["materials"][material_type] = material_list
-            else:
-                self.content["materials"][material_type].extend(material_list)
+            # 合并导入的素材（使用安全的字典访问）
+            materials = self.content.get("materials", {})
+            if not isinstance(materials, dict):
+                materials = {}
+                self.content["materials"] = materials
+                
+            for material_type, material_list in self.imported_materials.items():
+                if material_type not in materials:
+                    materials[material_type] = material_list
+                else:
+                    if isinstance(materials[material_type], list):
+                        materials[material_type].extend(material_list)
+                    else:
+                        materials[material_type] = material_list
 
-        # 对轨道排序并导出
-        track_list: List[BaseTrack] = list(self.tracks.values())
-        track_list.extend(self.imported_tracks)
-        track_list.sort(key=lambda track: track.render_index)
-        self.content["tracks"] = [track.export_json() for track in track_list]
+            # 对轨道排序并导出（使用 try-except 保护）
+            try:
+                track_list: List[BaseTrack] = list(self.tracks.values())
+                track_list.extend(self.imported_tracks)
+                track_list.sort(key=lambda track: track.render_index)
+                self.content["tracks"] = [track.export_json() for track in track_list]
+            except Exception as e:
+                # 如果导出失败，使用空列表或保留原有内容
+                logging.warning(f"Failed to export tracks: {e}, using existing tracks")
+                if "tracks" not in self.content:
+                    self.content["tracks"] = []
 
-        return json.dumps(self.content, ensure_ascii=False, indent=4)
+            return json.dumps(self.content, ensure_ascii=False, indent=4)
+        except Exception as e:
+            # 如果整个导出过程失败，记录错误并重新抛出异常
+            logging.error(f"Critical error in dumps(): {e}", exc_info=True)
+            raise
 
     def dump(self, file_path: str) -> None:
         """将草稿文件内容写入文件"""

@@ -200,4 +200,3 @@ def add_text(request: AddTextRequest, response: Response):
         result["error"] = f"Error occurred while processing text: {e!s}."
         return result
 
-

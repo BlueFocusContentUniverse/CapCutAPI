@@ -6,7 +6,6 @@ from typing import List
 
 from .script_file import ScriptFile
 
-
 class DraftFolder:
     """管理一个文件夹及其内的一系列草稿"""
 
@@ -34,6 +33,16 @@ class DraftFolder:
         """
         return [f for f in os.listdir(self.folder_path) if os.path.isdir(os.path.join(self.folder_path, f))]
 
+    def has_draft(self, draft_name: str) -> bool:
+        """检查文件夹中是否存在指定名称的草稿
+
+        注意: 本函数只检查文件夹是否存在, 并不检查草稿是否符合剪映的格式
+
+        Args:
+            draft_name (`str`): 草稿名称, 即相应文件夹名称
+        """
+        return draft_name in self.list_drafts()
+
     def remove(self, draft_name: str) -> None:
         """删除指定名称的草稿
 
@@ -48,6 +57,23 @@ class DraftFolder:
             raise FileNotFoundError(f"草稿文件夹 {draft_name} 不存在")
 
         shutil.rmtree(draft_path)
+
+    def create_draft(self, draft_name: str, width: int, height: int, fps: int = 30, *,
+                     maintrack_adsorb: bool = True) -> ScriptFile:
+        """创建一个新草稿对象, 用于后续导出草稿压缩包
+
+        Args:
+            draft_name (`str`): 草稿名称
+            width (`int`): 视频宽度, 单位为像素
+            height (`int`): 视频高度, 单位为像素
+            fps (`int`, optional): 视频帧率. 默认为30.
+            maintrack_adsorb (`bool`, optional): 是否启用主轨道吸附. 默认启用.
+
+        Returns:
+            `ScriptFile`: 草稿对象, 仅用于导出压缩包
+        """
+        # 创建草稿对象
+        return ScriptFile(width, height, fps, name=draft_name, maintrack_adsorb=maintrack_adsorb)
 
     def inspect_material(self, draft_name: str) -> None:
         """输出指定名称草稿中的贴纸素材元数据
@@ -72,16 +98,22 @@ class DraftFolder:
             draft_name (`str`): 草稿名称, 即相应文件夹名称
 
         Returns:
-            `Script_file`: 以模板模式打开的草稿对象
+            `ScriptFile`: 以模板模式打开的草稿对象
 
         Raises:
-            `FileNotFoundError`: 对应的草稿不存在
+            `FileNotFoundError`: 对应的草稿不存在或找不到草稿JSON文件
         """
         draft_path = os.path.join(self.folder_path, draft_name)
         if not os.path.exists(draft_path):
             raise FileNotFoundError(f"草稿文件夹 {draft_name} 不存在")
 
-        return ScriptFile.load_template(os.path.join(draft_path, "draft_info.json"))
+        # 查找草稿JSON文件
+        draft_info_path = os.path.join(draft_path, "draft_info.json")
+        if not os.path.exists(draft_info_path):
+            raise FileNotFoundError(
+                f"草稿文件夹 {draft_name} 中找不到草稿JSON文件 draft_info.json"
+            )
+        return ScriptFile.load_template(draft_info_path)
 
     def duplicate_as_template(self, template_name: str, new_draft_name: str, allow_replace: bool = False) -> ScriptFile:
         """复制一份给定的草稿, 并在复制出的新草稿上进行编辑
@@ -92,10 +124,10 @@ class DraftFolder:
             allow_replace (`bool`, optional): 是否允许覆盖与`new_draft_name`重名的草稿. 默认为否.
 
         Returns:
-            `Script_file`: 以模板模式打开的**复制后的**草稿对象
+            `ScriptFile`: 以模板模式打开的**复制后的**草稿对象
 
         Raises:
-            `FileNotFoundError`: 原始草稿不存在
+            `FileNotFoundError`: 原始草稿不存在或复制后找不到草稿JSON文件
             `FileExistsError`: 已存在与`new_draft_name`重名的草稿, 但不允许覆盖.
         """
         template_path = os.path.join(self.folder_path, template_name)
