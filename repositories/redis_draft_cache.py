@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Redis草稿缓存层（基于dogpile.cache）
+Redis草稿缓存层（读取侧基于dogpile.cache，写入侧使用Redis客户端保证事务完整性）
 - L1缓存：Redis（10分钟TTL）
 - L2持久化：PostgreSQL
 - 写入策略：Write-Through + Write-Behind
@@ -11,6 +11,7 @@ import logging
 import pickle
 import time
 import threading
+import json
 from typing import Optional, Tuple, Dict, Any
 from urllib.parse import urlparse
 
@@ -129,6 +130,47 @@ class RedisDraftCache:
         """生成脏数据标记key"""
         return f"{DRAFT_DIRTY_KEY_PREFIX}{draft_id}".encode()
     
+    def _serialize_for_dogpile(self, data: bytes) -> bytes:
+        """
+        模拟 dogpile.cache 的序列化格式
+        
+        dogpile.cache 的格式：{"ct": timestamp, "v": version}|<实际数据>
+        - ct: 创建时间戳
+        - v: 版本号（通常是2）
+        - |: 分隔符
+        - 后面是实际的数据（pickle序列化的数据）
+        """
+        metadata = {
+            "ct": time.time(),
+            "v": 2  # dogpile.cache 的版本号
+        }
+        metadata_json = json.dumps(metadata).encode('utf-8')
+        return metadata_json + b"|" + data
+    
+    def _deserialize_cached_data(self, cached_data: Any, draft_id: str) -> Optional[draft.ScriptFile]:
+        """
+        反序列化缓存数据
+        
+        Args:
+            cached_data: 从 dogpile.cache 获取的数据（通常是 bytes，也可能是 ScriptFile 对象）
+            draft_id: 草稿ID（用于日志）
+        
+        Returns:
+            ScriptFile 对象，如果反序列化失败则返回 None
+        """
+        if isinstance(cached_data, bytes):
+            try:
+                return pickle.loads(cached_data)
+            except Exception as e:
+                logger.warning(f"反序列化失败 {draft_id}: {e}")
+                return None
+        elif isinstance(cached_data, draft.ScriptFile):
+            # 如果已经是 ScriptFile 对象（可能是旧数据），直接返回
+            return cached_data
+        else:
+            logger.warning(f"不支持的缓存数据类型: {type(cached_data)}, draft_id: {draft_id}")
+            return None
+    
     def get_draft(self, draft_id: str) -> Optional[draft.ScriptFile]:
         """
         获取草稿（Read-Through策略）
@@ -156,9 +198,12 @@ class RedisDraftCache:
             )
             
             if cached_data:
-                script_obj = pickle.loads(cached_data)
-                logger.debug(f"从Redis缓存获取草稿: {draft_id}")
-                return script_obj
+                script_obj = self._deserialize_cached_data(cached_data, draft_id)
+                if script_obj:
+                    logger.debug(f"从Redis缓存获取草稿: {draft_id}")
+                    return script_obj
+                # 反序列化失败，降级到PostgreSQL
+                return self.pg_storage.get_draft(draft_id)
             
         except Exception as e:
             logger.warning(f"Redis读取失败: {e}，降级到PostgreSQL")
@@ -197,22 +242,49 @@ class RedisDraftCache:
         """
         保存草稿（Write-Through + Write-Behind策略）
         
-        1. 先写Redis（立即返回）
-        2. 如果mark_dirty=True，标记为脏数据
-        3. 如果提供了expected_version，立即同步到PG（保证一致性）
-        4. 否则后台任务定期同步到PostgreSQL
+        1. 使用Redis事务原子性地写入缓存和脏数据标记
+        2. 如果提供了expected_version，立即同步到PG（保证一致性）
+        3. 否则后台任务定期同步到PostgreSQL
+        
+        注意：写入时绕过dogpile.cache，直接使用Redis客户端以保证事务原子性
         """
         try:
-            cache_key = self._get_cache_key(draft_id)
-            serialized_data = pickle.dumps(script_obj)
+            cache_key = self._get_cache_key(draft_id)  # 返回 draft_id（不带前缀）
+            # dogpile.cache 会自动添加前缀，所以需添加前缀以保持一致
+            # 使用bytes格式，因为redis_client使用decode_responses=False
+            cache_key_with_prefix = f"{DRAFT_CACHE_KEY_PREFIX}{cache_key}".encode()
             
-            # 1. 先写Redis（立即返回）
-            self.cache_region.set(cache_key, serialized_data)
+            # 序列化数据：先pickle，然后模拟dogpile.cache的格式
+            # 这样读取时可以使用dogpile.cache的get()，衔接dogpile.cache的防缓存击穿功能
+            pickled_data = pickle.dumps(script_obj)
+            serialized_data = self._serialize_for_dogpile(pickled_data)
             
-            # 标记为脏数据（如果需要）
+            # 1. 使用Redis事务原子性地写入缓存和脏数据标记（绕过dogpile.cache的set()方法，直接使用Redis客户端以保证事务原子性）
+            # 但使用dogpile.cache的序列化格式，确保读取时可以使用dogpile.cache的get()
+            # pipeline(transaction=True) 会自动使用 MULTI/EXEC 保证原子性
+            pipe = self.redis_client.pipeline(transaction=True)
+            
+            # 操作1：写入缓存（直接使用Redis，但使用dogpile.cache的序列化格式）
+            # 使用带前缀的key，与dogpile.cache保持一致
+            pipe.setex(cache_key_with_prefix, DRAFT_CACHE_TTL, serialized_data)
+            
+            # 操作2：标记为脏数据（如果需要）
+            dirty_key = None
             if mark_dirty:
                 dirty_key = self._get_dirty_key(draft_id)
-                self.redis_client.setex(dirty_key, DRAFT_CACHE_TTL * 2, b"1")
+                pipe.setex(dirty_key, DRAFT_CACHE_TTL * 2, b"1")
+            
+            # 执行事务（保证原子性：所有命令一起执行）
+            try:
+                results = pipe.execute()
+                # 检查结果（Redis事务不保证回滚，需要检查返回值）
+                # results 是一个列表，每个元素对应一个命令的执行结果
+                if not results or not all(results):
+                    logger.warning(f"Redis事务执行部分失败: {draft_id}, results: {results}")
+                    return False
+            except Exception as e:
+                logger.error(f"Redis事务执行失败: {draft_id}: {e}")
+                return False
             
             # 2. 如果提供了expected_version，立即同步到PG（保证一致性）
             # 这种情况下需要创建版本记录，因为涉及版本控制
@@ -225,8 +297,11 @@ class RedisDraftCache:
                 )
                 if success:
                     # 清除脏数据标记（如果存在）
-                    if mark_dirty:
-                        self.redis_client.delete(dirty_key)
+                    if mark_dirty and dirty_key:
+                        try:
+                            self.redis_client.delete(dirty_key)
+                        except Exception as e:
+                            logger.warning(f"清除脏数据标记失败: {draft_id}: {e}")
                     logger.debug(f"立即同步草稿到PostgreSQL: {draft_id}（已创建版本记录）")
                 else:
                     # 同步失败，如果标记了脏数据则保留标记以便后台任务重试
@@ -274,25 +349,41 @@ class RedisDraftCache:
             
             synced_count = 0
             failed_count = 0
+            skipped_count = 0  # 跳过的数量（缓存不存在、已过期、格式错误等）
             for dirty_key in dirty_keys:
                 draft_id = None
                 try:
                     # 检查脏数据标记是否仍然存在（可能已被立即同步清除）
                     if not self.redis_client.exists(dirty_key):
+                        skipped_count += 1
                         continue  # 跳过，已被其他操作清除
                     # 提取draft_id
                     draft_id = dirty_key.decode().replace(DRAFT_DIRTY_KEY_PREFIX, "")
                     cache_key = self._get_cache_key(draft_id)
                     
-                    # 从dogpile.cache获取缓存数据
-                    cached_data = self.cache_region.get(cache_key)
+                    # 写入时使用了dogpile.cache的序列化格式，所以可以正常读取
+                    try:
+                        cached_data = self.cache_region.get(cache_key)
+                    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as e:
+                        # 数据格式错误
+                        logger.error(f"缓存数据格式错误 {draft_id}: {e}，清除脏标记并跳过")
+                        self.redis_client.delete(dirty_key)
+                        skipped_count += 1
+                        continue
+                    
                     if not cached_data:
                         # 缓存已过期，清除脏数据标记
                         self.redis_client.delete(dirty_key)
+                        skipped_count += 1
                         continue
                     
-                    # 反序列化
-                    script_obj = pickle.loads(cached_data)
+                    # 反序列化缓存数据
+                    script_obj = self._deserialize_cached_data(cached_data, draft_id)
+                    if not script_obj:
+                        # 反序列化失败，清除脏标记并跳过
+                        self.redis_client.delete(dirty_key)
+                        skipped_count += 1
+                        continue
                     
                     # 获取当前版本号（用于乐观锁，从PostgreSQL获取）
                     current_version = None
@@ -328,8 +419,8 @@ class RedisDraftCache:
                     draft_id_str = draft_id or "unknown"
                     logger.error(f"同步草稿失败 {draft_id_str}: {e}", exc_info=True)
             
-            if synced_count > 0 or failed_count > 0:
-                logger.info(f"同步完成: {synced_count} 成功, {failed_count} 失败, 共 {len(dirty_keys)} 个草稿")
+            if synced_count > 0 or failed_count > 0 or skipped_count > 0:
+                logger.info(f"同步完成: {synced_count} 成功, {failed_count} 失败, {skipped_count} 跳过, 共 {len(dirty_keys)} 个脏数据标记")
             
         except Exception as e:
             logger.error(f"后台同步任务失败: {e}", exc_info=True)
