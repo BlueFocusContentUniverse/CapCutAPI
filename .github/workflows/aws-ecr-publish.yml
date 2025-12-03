@@ -11,12 +11,12 @@ on:
     # Publish semver tags as releases.
     tags: ["v*.*.*"]
 
-env:
-  AWS_REGION: us-west-2                  # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: jyapi-mcp           # set this to your Amazon ECR repository name
+env:                 
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: kox-agent/jy-neo         # set this to your Amazon ECR repository name
 
 jobs:
-  build-portal:
+  build-jy-api:
     runs-on: ubuntu-latest
     # Skip if this is a stage tag (those go to DockerHub)
     if: ${{ !contains(github.ref, '-stage') }}
@@ -50,7 +50,7 @@ jobs:
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
-      - name: Extract Docker metadata for API
+      - name: Extract Docker metadata for JYAPI
         id: meta
         uses: docker/metadata-action@v5
         with:
