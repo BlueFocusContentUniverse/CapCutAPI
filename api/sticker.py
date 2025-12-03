@@ -5,7 +5,6 @@ import requests
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.add_sticker_impl import add_sticker_impl
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,6 @@ class SearchStickerRequest(BaseModel):
     keywords: str
 
 @router.post("/add_sticker")
-@api_endpoint_logger
 def add_sticker(request: AddStickerRequest, response: Response):
     result = {
         "success": False,
@@ -68,7 +66,6 @@ def add_sticker(request: AddStickerRequest, response: Response):
 
 
 @router.post("/search_sticker")
-@api_endpoint_logger
 def search_sticker(request: SearchStickerRequest, response: Response):
     result = {
         "error": "",

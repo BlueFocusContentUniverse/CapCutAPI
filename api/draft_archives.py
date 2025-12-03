@@ -9,7 +9,6 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from repositories.draft_archive_repository import get_postgres_archive_storage
 from util.cos_client import get_cos_client
 
@@ -23,7 +22,6 @@ router = APIRouter(
 
 
 @router.get("/list")
-@api_endpoint_logger
 async def list_archives(
     draft_id: Optional[str] = Query(None, description="Filter by draft_id"),
     user_id: Optional[str] = Query(None, description="Filter by user_id"),
@@ -63,7 +61,6 @@ async def list_archives(
 
 
 @router.get("/get/{archive_id}")
-@api_endpoint_logger
 async def get_archive(archive_id: str):
     """
     Get a specific archive by archive_id
@@ -94,7 +91,6 @@ async def get_archive(archive_id: str):
 
 
 @router.get("/get_by_draft")
-@api_endpoint_logger
 async def get_archive_by_draft(
     draft_id: str = Query(..., description="The draft ID"),
     draft_version: Optional[int] = Query(None, description="The draft version")
@@ -137,7 +133,6 @@ class UpdateArchiveRequest(BaseModel):
 
 @router.put("/update/{archive_id}")
 @router.patch("/update/{archive_id}")
-@api_endpoint_logger
 async def update_archive(archive_id: str, request: UpdateArchiveRequest):
     """
     Update archive fields
@@ -175,7 +170,6 @@ async def update_archive(archive_id: str, request: UpdateArchiveRequest):
 
 
 @router.delete("/delete/{archive_id}")
-@api_endpoint_logger
 async def delete_archive(archive_id: str):
     """
     Delete an archive
@@ -231,7 +225,6 @@ async def delete_archive(archive_id: str):
 
 
 @router.get("/stats")
-@api_endpoint_logger
 async def get_stats(
     draft_id: Optional[str] = Query(None, description="Get stats for a specific draft"),
     user_id: Optional[str] = Query(None, description="Get stats for a specific user")

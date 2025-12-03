@@ -9,7 +9,7 @@ import time
 from typing import Annotated, Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from util.cognito.config import CognitoConfig
 from util.cognito.jwt_verifier import CognitoJWTVerifier
@@ -120,13 +120,13 @@ async def get_current_user_claims(
 ) -> Dict[str, Any]:
     """
     验证 JWT token 并返回 claims
-    
+
     Args:
         credentials: HTTPAuthorizationCredentials 对象，包含从 Authorization header 中提取的 Bearer token
-        
+
     Returns:
         token 的 claims 字典
-        
+
     Raises:
         HTTPException: 如果 token 验证失败
     """
@@ -144,7 +144,7 @@ async def get_current_user_claims(
             },
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
-    
+
     # 验证 token
     try:
         claims = verifier._verify_token_with_cache(token)

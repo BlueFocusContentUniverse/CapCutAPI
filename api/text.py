@@ -4,7 +4,6 @@ from typing import List, Optional
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from pyJianYingDraft.text_segment import Text_border, Text_style, TextStyleRange
 from services.add_text_impl import add_text_impl
 from util.helpers import hex_to_rgb
@@ -94,7 +93,6 @@ class AddTextRequest(BaseModel):
     text_styles: List[TextStyleRangeItem] = []
 
 @router.post("/add_text")
-@api_endpoint_logger
 def add_text(request: AddTextRequest, response: Response):
     # Handle aliases
     font_color = request.color if request.color is not None else (request.font_color if request.font_color is not None else "#FFFFFF")

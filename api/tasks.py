@@ -1,13 +1,12 @@
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from db import get_session
-from logging_utils import api_endpoint_logger
 from models import VideoTask
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,6 @@ class CreateTaskRequest(BaseModel):
 
 
 @router.post("/tasks")
-@api_endpoint_logger
 def create_task(request: CreateTaskRequest):
     if not request.task_id or not request.draft_id:
         return JSONResponse(status_code=400, content={"success": False, "error": "task_id and draft_id are required"})
@@ -38,7 +36,6 @@ def create_task(request: CreateTaskRequest):
 
 
 @router.get("/tasks/{task_id}")
-@api_endpoint_logger
 def get_task(task_id: str):
     with get_session() as session:
         row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
@@ -66,7 +63,6 @@ class UpdateTaskRequest(BaseModel):
 
 
 @router.patch("/tasks/{task_id}")
-@api_endpoint_logger
 def update_task(task_id: str, request: UpdateTaskRequest):
     with get_session() as session:
         row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
@@ -83,7 +79,6 @@ def update_task(task_id: str, request: UpdateTaskRequest):
 
 
 @router.patch("/tasks/by_draft/{draft_id}")
-@api_endpoint_logger
 def update_tasks_by_draft(draft_id: str, request: UpdateTaskRequest):
     with get_session() as session:
         rows = session.execute(select(VideoTask).where(VideoTask.draft_id == draft_id)).scalars().all()

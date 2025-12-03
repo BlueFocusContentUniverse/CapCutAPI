@@ -9,16 +9,16 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     router = APIRouter(
         dependencies=[Depends(get_current_user_claims)]
     )
-    
-    # health_router 不需要认证，单独返回
-    from .health import router as health_router
-    
+
+    unprotected_router = APIRouter()
+
     from .audio import router as audio_router
     from .draft_archives import router as draft_archives_router
     from .draft_management_api import router as draft_management_router
     from .drafts import router as drafts_router
     from .effects import router as effects_router
     from .generate import router as generate_router
+    from .health import router as health_router
     from .image import router as image_router
     from .metadata import router as metadata_router
     from .segments import router as segments_router
@@ -41,7 +41,7 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     router.include_router(effects_router)
     router.include_router(drafts_router)
     router.include_router(metadata_router)
-    router.include_router(generate_router)
+    # router.include_router(generate_router)
     router.include_router(tasks_router)
     router.include_router(draft_management_router)
     router.include_router(draft_archives_router)
@@ -49,6 +49,8 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     router.include_router(segments_router)
     router.include_router(videos_router)
     router.include_router(video_task_status_router)
-    
-    return router, health_router
 
+    unprotected_router.include_router(health_router)
+    unprotected_router.include_router(generate_router)
+
+    return router, unprotected_router

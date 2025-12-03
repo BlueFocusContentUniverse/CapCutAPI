@@ -5,11 +5,10 @@ API endpoints for managing video records and OSS metadata.
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from repositories.video_repository import get_video_repository
 from repositories.video_task_repository import get_video_task_repository
 
@@ -34,7 +33,6 @@ class CreateVideoRequest(BaseModel):
 
 
 @router.post("/create")
-@api_endpoint_logger
 async def create_video(request: CreateVideoRequest):
     """
     Create a new video record with OSS metadata.
@@ -102,7 +100,6 @@ async def create_video(request: CreateVideoRequest):
 
 
 @router.get("/{video_id}")
-@api_endpoint_logger
 async def get_video(video_id: str):
     """
     Get video details by video_id.
@@ -132,7 +129,6 @@ async def get_video(video_id: str):
 
 
 @router.get("/by-draft/{draft_id}")
-@api_endpoint_logger
 async def get_videos_by_draft(draft_id: str):
     """
     Get all videos associated with a draft_id.
@@ -169,7 +165,6 @@ class UpdateVideoRequest(BaseModel):
 
 
 @router.put("/{video_id}")
-@api_endpoint_logger
 async def update_video(video_id: str, request: UpdateVideoRequest):
     """
     Update video metadata.
@@ -209,7 +204,6 @@ async def update_video(video_id: str, request: UpdateVideoRequest):
 
 
 @router.delete("/{video_id}")
-@api_endpoint_logger
 async def delete_video(
     video_id: str,
     delete_oss: bool = Query(True, description="Whether to delete remote OSS object")
@@ -245,7 +239,6 @@ async def delete_video(
 
 
 @router.get("")
-@api_endpoint_logger
 async def list_videos(
     page: int = Query(1, description="Page number (1-indexed)"),
     page_size: int = Query(100, description="Number of items per page"),

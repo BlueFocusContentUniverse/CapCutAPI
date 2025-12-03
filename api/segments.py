@@ -7,7 +7,6 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.segment_management import (
     delete_segment,
     get_segment_details,
@@ -25,7 +24,6 @@ class GetSegmentDetailsRequest(BaseModel):
 
 
 @router.post("/get_segment_details")
-@api_endpoint_logger
 async def get_segment_details_api(request: GetSegmentDetailsRequest):
     """
     Get detailed information about a specific segment
@@ -72,7 +70,6 @@ class DeleteSegmentRequest(BaseModel):
 
 
 @router.post("/delete_segment")
-@api_endpoint_logger
 async def delete_segment_api(request: DeleteSegmentRequest):
     """
     Delete a segment from a track by index or ID
@@ -142,7 +139,6 @@ class ModifySegmentRequest(BaseModel):
 
 
 @router.post("/modify_segment")
-@api_endpoint_logger
 async def modify_segment_api(request: ModifySegmentRequest):
     """
     Modify a segment's properties (clip settings, volume, speed)

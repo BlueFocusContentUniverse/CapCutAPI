@@ -4,7 +4,6 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.add_video_keyframe_impl import add_video_keyframe_impl
 from services.add_video_track import add_video_track, batch_add_video_track
 
@@ -112,7 +111,6 @@ class AddVideoKeyframeRequest(BaseModel):
     values: Optional[List[Any]] = None
 
 @router.post("/add_video")
-@api_endpoint_logger
 async def add_video(request: AddVideoRequest, response: Response):
     result = {
         "success": False,
@@ -175,7 +173,6 @@ async def add_video(request: AddVideoRequest, response: Response):
 
 
 @router.post("/batch_add_videos")
-@api_endpoint_logger
 async def batch_add_videos(request: BatchAddVideosRequest, response: Response):
     result = {
         "success": False,
@@ -249,7 +246,6 @@ async def batch_add_videos(request: BatchAddVideosRequest, response: Response):
 
 
 @router.post("/add_video_keyframe")
-@api_endpoint_logger
 def add_video_keyframe(request: AddVideoKeyframeRequest, response: Response):
     result = {
         "success": False,

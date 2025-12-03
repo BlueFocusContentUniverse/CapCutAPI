@@ -7,6 +7,6 @@ The actual implementation has been moved to the mcp/ package.
 """
 
 # Re-export everything from the new location for backward compatibility
-from mcp.stream_server import create_fastmcp_app
+from mcp_local.stream_server import create_fastmcp_app
 
 __all__ = ["create_fastmcp_app"]

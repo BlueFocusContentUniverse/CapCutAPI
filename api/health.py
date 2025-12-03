@@ -4,13 +4,11 @@ from fastapi import APIRouter, Response
 from sqlalchemy import text
 
 from db import get_engine
-from logging_utils import api_endpoint_logger
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-@api_endpoint_logger
 def health_check(response: Response):
     try:
         db_status = "unknown"
@@ -26,7 +24,7 @@ def health_check(response: Response):
         health_info = {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
-            "version": "1.0.0",
+            "version": "1.7.0",
             "services": {"postgres": db_status, "api": "healthy"},
         }
 
