@@ -14,6 +14,7 @@ import threading
 import json
 from typing import Optional, Tuple, Dict, Any
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from dogpile.cache import make_region
@@ -34,6 +35,8 @@ DRAFT_CACHE_TTL = 600  # 10分钟
 DRAFT_CACHE_KEY_PREFIX = "draft:cache:"
 DRAFT_DIRTY_KEY_PREFIX = "draft:dirty:"
 SYNC_INTERVAL = 60  # 同步间隔（秒）
+MAX_SYNC_BATCH_SIZE = 1000  # 单次同步的最大脏数据数量（避免单次同步时间过长）
+MAX_SYNC_WORKERS = 5  # 并发同步的线程数（默认5，不超过数据库连接池的50%，避免影响主业务）
 
 
 class RedisDraftCache:
@@ -43,7 +46,9 @@ class RedisDraftCache:
         self,
         redis_url: Optional[str] = None,
         pg_storage: Optional[PostgresDraftStorage] = None,
-        enable_sync: bool = True
+        enable_sync: bool = True,
+        max_sync_batch_size: int = MAX_SYNC_BATCH_SIZE,
+        max_sync_workers: int = MAX_SYNC_WORKERS
     ):
         """
         初始化Redis缓存层
@@ -52,6 +57,8 @@ class RedisDraftCache:
             redis_url: Redis连接URL，格式: redis://[:password]@host:port/db
             pg_storage: PostgreSQL存储实例
             enable_sync: 是否启用后台同步任务
+            max_sync_batch_size: 单次同步的最大脏数据数量（默认1000）
+            max_sync_workers: 并发同步的线程数（默认5，建议不超过数据库连接池的50%）
         """
         if not DOGPILE_AVAILABLE:
             raise ImportError("dogpile.cache包未安装，请运行: pip install 'dogpile.cache[redis]'")
@@ -60,6 +67,8 @@ class RedisDraftCache:
         self.enable_sync = enable_sync
         self._sync_thread = None
         self._stop_sync = False
+        self.max_sync_batch_size = max_sync_batch_size
+        self.max_sync_workers = max_sync_workers
         
         # 解析Redis URL
         if redis_url:
@@ -157,27 +166,49 @@ class RedisDraftCache:
     
     def _deserialize_cached_data(self, cached_data: Any, draft_id: str) -> Optional[draft.ScriptFile]:
         """
-        反序列化缓存数据
+        反序列化缓存数据（健壮性优化）
         
         Args:
-            cached_data: 从 dogpile.cache 获取的数据（通常是 bytes，也可能是 ScriptFile 对象）
+            cached_data: 从 dogpile.cache 获取的数据
+                - 通常是 ScriptFile 对象（dogpile.cache 已自动反序列化）
+                - 也可能是 bytes（异常情况或旧数据）
             draft_id: 草稿ID（用于日志）
         
         Returns:
             ScriptFile 对象，如果反序列化失败则返回 None
         """
+        # 如果已经是 ScriptFile 对象，直接返回
+        if isinstance(cached_data, draft.ScriptFile):
+            return cached_data
+        
+        # 如果是 bytes，需要反序列化
         if isinstance(cached_data, bytes):
             try:
-                return pickle.loads(cached_data)
+                # 检查是否包含 dogpile.cache 格式的元数据分隔符
+                if b"|" in cached_data:
+                    # 按第一个 "|" 分割（避免数据中含 "|" 导致分割错误）
+                    metadata_json, pickled_data = cached_data.split(b"|", 1)
+                    # 验证元数据格式（可选，无效则抛出异常）
+                    try:
+                        json.loads(metadata_json.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"缓存元数据格式错误 {draft_id}: {e}")
+                        return None
+                    # 反序列化实际的 pickle 数据
+                    return pickle.loads(pickled_data)
+                else:
+                    # 兼容旧数据（无元数据，直接是 pickle 数据）
+                    return pickle.loads(cached_data)
+            except pickle.UnpicklingError as e:
+                logger.warning(f"pickle 反序列化失败 {draft_id}: {e}")
+                return None
             except Exception as e:
                 logger.warning(f"反序列化失败 {draft_id}: {e}")
                 return None
-        elif isinstance(cached_data, draft.ScriptFile):
-            # 如果已经是 ScriptFile 对象（可能是旧数据），直接返回
-            return cached_data
-        else:
-            logger.warning(f"不支持的缓存数据类型: {type(cached_data)}, draft_id: {draft_id}")
-            return None
+        
+        # 其他类型不支持
+        logger.warning(f"不支持的缓存数据类型: {type(cached_data)}, draft_id: {draft_id}")
+        return None
     
     def get_draft(self, draft_id: str) -> Optional[draft.ScriptFile]:
         """
@@ -483,7 +514,7 @@ class RedisDraftCache:
         return (draft_id or "unknown", 'failed')
     
     def _sync_to_postgres(self):
-        """后台同步任务：将脏数据同步到PostgreSQL"""
+        """后台同步任务：将脏数据同步到PostgreSQL（支持批量限制和并发处理）"""
         try:
             # 使用SCAN代替KEYS，避免阻塞Redis
             pattern = f"{DRAFT_DIRTY_KEY_PREFIX}*"
@@ -510,23 +541,47 @@ class RedisDraftCache:
             if not dirty_keys:
                 return
             
-            logger.info(f"开始同步 {len(dirty_keys)} 个脏数据到PostgreSQL")
+            # 方案A: 限制单次同步数量（避免单次同步时间过长）
+            total_count = len(dirty_keys)
+            if total_count > self.max_sync_batch_size:
+                dirty_keys = dirty_keys[:self.max_sync_batch_size]
+                logger.info(f"脏数据数量 ({total_count}) 超过单次同步限制 ({self.max_sync_batch_size})，本次只同步前 {self.max_sync_batch_size} 条")
             
+            logger.info(f"开始同步 {len(dirty_keys)} 个脏数据到PostgreSQL（并发数: {self.max_sync_workers}）")
+            
+            # 方案B: 使用线程池并发处理
             synced_count = 0
             failed_count = 0
             skipped_count = 0
             
-            for dirty_key in dirty_keys:
-                _, result = self._sync_single_draft(dirty_key)
-                if result == 'synced':
-                    synced_count += 1
-                elif result == 'failed':
-                    failed_count += 1
-                elif result == 'skipped':
-                    skipped_count += 1
+            with ThreadPoolExecutor(max_workers=self.max_sync_workers) as executor:
+                # 提交所有任务
+                future_to_key = {
+                    executor.submit(self._sync_single_draft, dirty_key): dirty_key
+                    for dirty_key in dirty_keys
+                }
+                
+                # 收集结果
+                for future in as_completed(future_to_key):
+                    try:
+                        _, result = future.result()
+                        if result == 'synced':
+                            synced_count += 1
+                        elif result == 'failed':
+                            failed_count += 1
+                        elif result == 'skipped':
+                            skipped_count += 1
+                    except Exception as e:
+                        failed_count += 1
+                        dirty_key = future_to_key[future]
+                        draft_id = dirty_key.decode('utf-8').replace(DRAFT_DIRTY_KEY_PREFIX, "") if isinstance(dirty_key, bytes) else str(dirty_key)
+                        logger.error(f"同步任务异常 {draft_id}: {e}", exc_info=True)
             
             if synced_count > 0 or failed_count > 0 or skipped_count > 0:
                 logger.info(f"同步完成: {synced_count} 成功, {failed_count} 失败, {skipped_count} 跳过, 共 {len(dirty_keys)} 个脏数据标记")
+                if total_count > self.max_sync_batch_size:
+                    remaining = total_count - self.max_sync_batch_size
+                    logger.info(f"剩余 {remaining} 个脏数据将在下次同步时处理")
             
         except Exception as e:
             logger.error(f"后台同步任务失败: {e}", exc_info=True)
@@ -598,6 +653,8 @@ class RedisDraftCache:
             "redis_available": True,
             "cache_ttl_seconds": DRAFT_CACHE_TTL,
             "sync_interval_seconds": SYNC_INTERVAL,
+            "max_sync_batch_size": self.max_sync_batch_size,
+            "max_sync_workers": self.max_sync_workers,
             "backend": "dogpile.cache",
         }
         
