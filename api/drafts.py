@@ -4,7 +4,6 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.create_draft import DraftFramerate, create_draft
 from services.save_draft_impl import (
     query_script_impl,
@@ -24,7 +23,6 @@ class CreateDraftRequest(BaseModel):
 
 
 @router.post("/create_draft")
-@api_endpoint_logger
 async def create_draft_service(request: CreateDraftRequest):
     result = {
         "success": False,
@@ -56,7 +54,6 @@ class QueryScriptRequest(BaseModel):
 
 
 @router.post("/query_script")
-@api_endpoint_logger
 async def query_script(request: QueryScriptRequest):
     result = {
         "success": False,
@@ -96,7 +93,6 @@ class SaveDraftRequest(BaseModel):
 
 
 @router.post("/save_draft")
-@api_endpoint_logger
 async def save_draft(request: SaveDraftRequest):
     result = {
         "success": False,

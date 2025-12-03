@@ -4,7 +4,6 @@ from typing import List, Optional
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.add_audio_track import add_audio_track, batch_add_audio_track
 
 logger = logging.getLogger(__name__)
@@ -46,7 +45,6 @@ class BatchAddAudiosRequest(BaseModel):
     effect_params: Optional[List[float]] = None
 
 @router.post("/add_audio")
-@api_endpoint_logger
 async def add_audio(request: AddAudioRequest, response: Response):
     sound_effects = None
     if request.effect_type is not None:
@@ -84,7 +82,6 @@ async def add_audio(request: AddAudioRequest, response: Response):
 
 
 @router.post("/batch_add_audios")
-@api_endpoint_logger
 async def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
     sound_effects = None
     if request.effect_type is not None:

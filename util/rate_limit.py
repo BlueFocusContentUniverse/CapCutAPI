@@ -51,7 +51,7 @@ def _get_redis_client():
 
 class RateLimiter:
     """速率限制器"""
-    
+
     def __init__(
         self,
         redis_client: Optional[Any] = None,
@@ -70,7 +70,7 @@ class RateLimiter:
         self.requests_per_minute = requests_per_minute
         self.key_prefix = key_prefix
         self.enabled = self.redis_client is not None
-    
+
     def _get_rate_limit_key(self, identifier: str) -> str:
         """生成速率限制key"""
         current_minute = int(time.time() // 60)
@@ -85,7 +85,7 @@ class RateLimiter:
     def _get_reset_time(self) -> int:
         """计算重置时间(下一分钟)"""
         return (int(time.time() // 60) + 1) * 60
-    
+
     def check_rate_limit(self, identifier: str) -> Dict[str, Any]:
         """检查速率限制，如果超过限制会抛出HTTPException"""
         if not self.enabled:
@@ -143,7 +143,7 @@ class RateLimiter:
                 "remaining": self.requests_per_minute,
                 "error": str(e)
             }
-    
+
     def get_rate_limit_info(self, identifier: str) -> Dict[str, Any]:
         """获取速率限制信息(不增加计数)"""
         if not self.enabled:
@@ -173,25 +173,19 @@ class RateLimiter:
 _default_rate_limiter: Optional[RateLimiter] = None
 
 
-def get_rate_limiter(requests_per_minute: Optional[int] = None, key_prefix: Optional[str] = None) -> RateLimiter:
+def get_rate_limiter() -> RateLimiter:
     """获取速率限制器实例(使用默认配置时返回单例)"""
     global _default_rate_limiter
 
     default_rpm = int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "600"))
     default_prefix = os.getenv("RATE_LIMIT_KEY_PREFIX", "rate_limit:")
 
-    if requests_per_minute is None and key_prefix is None:
-        if _default_rate_limiter is None:
-            _default_rate_limiter = RateLimiter(
-                requests_per_minute=default_rpm,
-                key_prefix=default_prefix
-            )
-        return _default_rate_limiter
-
-    return RateLimiter(
-        requests_per_minute=requests_per_minute or default_rpm,
-        key_prefix=key_prefix or default_prefix
-    )
+    if _default_rate_limiter is None:
+        _default_rate_limiter = RateLimiter(
+            requests_per_minute=default_rpm,
+            key_prefix=default_prefix
+        )
+    return _default_rate_limiter
 
 
 def get_identifier_from_request(request: Request, claims: Optional[Dict[str, Any]] = None) -> str:

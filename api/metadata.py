@@ -2,7 +2,6 @@ import logging
 
 from fastapi import APIRouter
 
-from logging_utils import api_endpoint_logger
 from pyJianYingDraft.metadata import (
     CapCutGroupAnimationType,
     CapCutIntroType,
@@ -42,7 +41,6 @@ router = APIRouter(tags=["metadata"])
 
 
 @router.get("/get_intro_animation_types")
-@api_endpoint_logger
 async def get_intro_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -62,7 +60,6 @@ async def get_intro_animation_types():
 
 
 @router.get("/get_outro_animation_types")
-@api_endpoint_logger
 async def get_outro_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -82,7 +79,6 @@ async def get_outro_animation_types():
 
 
 @router.get("/get_combo_animation_types")
-@api_endpoint_logger
 async def get_combo_animation_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -102,7 +98,6 @@ async def get_combo_animation_types():
 
 
 @router.get("/get_transition_types")
-@api_endpoint_logger
 async def get_transition_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -122,7 +117,6 @@ async def get_transition_types():
 
 
 @router.get("/get_mask_types")
-@api_endpoint_logger
 async def get_mask_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -142,7 +136,6 @@ async def get_mask_types():
 
 
 @router.get("/get_filter_types")
-@api_endpoint_logger
 async def get_filter_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -158,18 +151,15 @@ async def get_filter_types():
 
 
 @router.get("/get_audio_effect_types")
-@api_endpoint_logger
 async def get_audio_effect_types():
     return get_audio_effect_types_impl()
 
 
-@api_endpoint_logger
 @router.get("/get_font_types")
 async def get_font_types():
     return get_font_types_impl()
 
 
-@api_endpoint_logger
 @router.get("/get_text_intro_types")
 async def get_text_intro_types():
     result = {"success": True, "output": "", "error": ""}
@@ -189,7 +179,6 @@ async def get_text_intro_types():
         return result
 
 
-@api_endpoint_logger
 @router.get("/get_text_outro_types")
 async def get_text_outro_types():
     result = {"success": True, "output": "", "error": ""}
@@ -209,7 +198,6 @@ async def get_text_outro_types():
         return result
 
 
-@api_endpoint_logger
 @router.get("/get_text_loop_anim_types")
 async def get_text_loop_anim_types():
     result = {"success": True, "output": "", "error": ""}
@@ -230,7 +218,6 @@ async def get_text_loop_anim_types():
 
 
 @router.get("/get_video_scene_effect_types")
-@api_endpoint_logger
 async def get_video_scene_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:
@@ -250,7 +237,6 @@ async def get_video_scene_effect_types():
 
 
 @router.get("/get_video_character_effect_types")
-@api_endpoint_logger
 async def get_video_character_effect_types():
     result = {"success": True, "output": "", "error": ""}
     try:

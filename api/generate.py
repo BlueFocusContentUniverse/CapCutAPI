@@ -4,7 +4,6 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.generate_video_impl import generate_video_impl
 from services.get_video_task_status_impl import get_video_task_status_impl
 
@@ -18,7 +17,6 @@ class GenerateVideoRequest(BaseModel):
     name: Optional[str] = None
 
 @router.get("/video_task_status")
-@api_endpoint_logger
 def get_video_task_status(task_id: str):
     """API endpoint to get the status of a video generation task.
 
@@ -36,7 +34,6 @@ def get_video_task_status(task_id: str):
 
 
 @router.post("/generate_video")
-@api_endpoint_logger
 def generate_video_api(request: GenerateVideoRequest, response: Response):
     """API endpoint to generate a video from a draft.
 

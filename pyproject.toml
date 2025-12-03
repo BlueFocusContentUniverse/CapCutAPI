@@ -4,24 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "capcut-api"
-version = "1.6.4"
+version = "1.7.0"
 description = "CapCut API Service"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "requests",
-    "fastapi",
+    "requests>=2.32.5",
+    "fastapi>=0.123.5",
     "pydantic>=2.12.1",
+    "python-jose[cryptography]>=3.5.0",
     "uvicorn[standard]>=0.38",
     "numpy>=2.3.3",
     "celery>=5.5",
     "python-dotenv>=1.2.0",
-    "redis>=7.0.0",
+    "redis>=7.1.0",
     "SQLAlchemy>=2.0.44",
     "psycopg2-binary>=2.9.11",
     "alembic>=1.17",
     "cos-python-sdk-v5>=1.9.38",
-    "fastmcp==2.13.0"
+    "fastmcp==2.13.2"
 ]
 
 [tool.setuptools.packages.find]

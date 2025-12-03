@@ -3,10 +3,9 @@ API endpoints for track management in drafts
 """
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.track_management import delete_track, get_track_details, get_tracks
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,6 @@ class GetTracksRequest(BaseModel):
 
 
 @router.post("/get_tracks")
-@api_endpoint_logger
 async def get_tracks_api(request: GetTracksRequest):
     """
     Get all tracks from a draft
@@ -54,7 +52,6 @@ class DeleteTrackRequest(BaseModel):
 
 
 @router.post("/delete_track")
-@api_endpoint_logger
 async def delete_track_api(request: DeleteTrackRequest):
     """
     Delete a track from a draft by name
@@ -94,7 +91,6 @@ class GetTrackDetailsRequest(BaseModel):
 
 
 @router.post("/get_track_details")
-@api_endpoint_logger
 async def get_track_details_api(request: GetTrackDetailsRequest):
     """
     Get detailed information about a specific track

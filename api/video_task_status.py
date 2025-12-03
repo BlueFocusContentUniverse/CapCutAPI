@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from models import VideoTaskStatus
 from repositories.video_task_repository import get_video_task_repository
 
@@ -55,7 +54,6 @@ def _parse_render_status(status_str: str) -> VideoTaskStatus:
 
 
 @router.put("/{task_id}/status")
-@api_endpoint_logger
 def update_task_status(task_id: str, request: UpdateTaskStatusRequest, response: Response):
     """
     Update VideoTask status fields (for Celery workers).
@@ -144,7 +142,6 @@ def update_task_status(task_id: str, request: UpdateTaskStatusRequest, response:
 
 
 @router.get("/{task_id}")
-@api_endpoint_logger
 def get_task(task_id: str, response: Response):
     """
     Get VideoTask details by task_id.
@@ -182,7 +179,6 @@ def get_task(task_id: str, response: Response):
 
 
 @router.post("/{task_id}/link-video")
-@api_endpoint_logger
 def link_video_to_task(task_id: str, request: LinkVideoRequest, response: Response):
     """
     Link a video_id to a VideoTask.

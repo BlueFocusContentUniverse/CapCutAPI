@@ -4,7 +4,6 @@ from typing import Optional
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.add_image_impl import add_image_impl
 
 logger = logging.getLogger(__name__)
@@ -43,7 +42,6 @@ class AddImageRequest(BaseModel):
     background_blur: Optional[int] = None
 
 @router.post("/add_image")
-@api_endpoint_logger
 async def add_image(request: AddImageRequest, response: Response):
     result = {
         "success": False,

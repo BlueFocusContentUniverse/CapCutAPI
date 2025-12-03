@@ -11,7 +11,6 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from draft_cache import get_cache_stats, remove_from_cache
-from logging_utils import api_endpoint_logger
 from repositories.draft_repository import get_postgres_storage
 
 logger = logging.getLogger(__name__)
@@ -24,7 +23,6 @@ router = APIRouter(
 
 
 @router.get("/list")
-@api_endpoint_logger
 async def list_drafts(
     page: int = Query(1, description="Page number (1-indexed)"),
     page_size: int = Query(100, description="Number of items per page"),
@@ -60,7 +58,6 @@ async def list_drafts(
         )
 
 @router.get("/{draft_id}")
-@api_endpoint_logger
 async def get_draft_info(draft_id: str):
     """Get draft metadata without loading the full object"""
     try:
@@ -92,7 +89,6 @@ async def get_draft_info(draft_id: str):
 
 
 @router.get("/{draft_id}/content")
-@api_endpoint_logger
 async def get_draft_content(draft_id: str):
     """Fetch full draft content JSON stored in Postgres."""
     try:
@@ -130,7 +126,6 @@ async def get_draft_content(draft_id: str):
         )
 
 @router.delete("/{draft_id}")
-@api_endpoint_logger
 async def delete_draft(draft_id: str):
     """Delete a draft from cache and soft-delete from database"""
     try:
@@ -164,7 +159,6 @@ async def delete_draft(draft_id: str):
         )
 
 @router.get("/{draft_id}/exists")
-@api_endpoint_logger
 async def check_draft_exists(draft_id: str):
     """Check if a draft exists in storage"""
     try:
@@ -187,7 +181,6 @@ async def check_draft_exists(draft_id: str):
         )
 
 @router.get("/stats")
-@api_endpoint_logger
 async def get_storage_stats():
     """Get storage statistics"""
     try:
@@ -207,7 +200,6 @@ async def get_storage_stats():
         )
 
 @router.post("/cleanup")
-@api_endpoint_logger
 async def cleanup_expired():
     """Clean up expired or orphaned drafts"""
     try:
@@ -230,7 +222,6 @@ async def cleanup_expired():
         )
 
 @router.get("/{draft_id}/versions")
-@api_endpoint_logger
 async def list_draft_versions(draft_id: str):
     """List all versions of a draft"""
     try:
@@ -254,7 +245,6 @@ async def list_draft_versions(draft_id: str):
         )
 
 @router.get("/{draft_id}/versions/{version}")
-@api_endpoint_logger
 async def get_draft_version_content(draft_id: str, version: int):
     """Get full draft content for a specific version"""
     try:
@@ -293,7 +283,6 @@ async def get_draft_version_content(draft_id: str, version: int):
         )
 
 @router.get("/{draft_id}/versions/{version}/metadata")
-@api_endpoint_logger
 async def get_draft_version_metadata(draft_id: str, version: int):
     """Get metadata for a specific version of a draft"""
     try:

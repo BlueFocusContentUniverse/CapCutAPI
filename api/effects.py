@@ -4,7 +4,6 @@ from typing import List, Optional
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.add_effect_impl import add_effect_impl
 
 logger = logging.getLogger(__name__)
@@ -20,7 +19,6 @@ class AddEffectRequest(BaseModel):
     params: Optional[List[float]] = None
 
 @router.post("/add_effect")
-@api_endpoint_logger
 def add_effect(request: AddEffectRequest, response: Response):
     result = {
         "success": False,

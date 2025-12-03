@@ -11,14 +11,12 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastmcp import FastMCP
-
 import mcp.types as types
-from logging_utils import mcp_tool_logger
+from fastmcp import FastMCP
 
 # pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
-from mcp.mcp_tools import TOOLS, execute_tool
+from mcp_services.mcp_tools import TOOLS, execute_tool
 from services.add_audio_track import add_audio_track, batch_add_audio_track
 from services.add_effect_impl import add_effect_impl
 from services.add_image_impl import add_image_impl
@@ -40,14 +38,12 @@ if not logging.getLogger().hasHandlers():
     logging.basicConfig(level=logging.INFO)
 
 # Manual tool handlers with flattened parameters (required first)
-@mcp_tool_logger("create_draft")
 def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 30.0, name: str = "mcp_draft", resource: str = "mcp") -> Dict[str, Any]:
     _, draft_id = create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
     return {
         "draft_id": draft_id,
     }
 
-@mcp_tool_logger("batch_add_videos")
 async def tool_batch_add_videos(
     videos: List[Dict[str, Any]],
     draft_id: Optional[str] = None,
@@ -155,7 +151,6 @@ async def tool_batch_add_videos(
     }
 
 
-@mcp_tool_logger("add_video")
 async def tool_add_video(
     video_url: str,
     draft_id: str,
@@ -214,7 +209,6 @@ async def tool_add_video(
     )
 
 
-@mcp_tool_logger("add_audio")
 async def tool_add_audio(
     audio_url: str,
     draft_id: str,
@@ -249,7 +243,6 @@ async def tool_add_audio(
     )
 
 
-@mcp_tool_logger("batch_add_audios")
 async def tool_batch_add_audios(
     audios: List[Dict[str, Any]],
     draft_id: Optional[str] = None,
@@ -310,7 +303,6 @@ async def tool_batch_add_audios(
     }
 
 
-@mcp_tool_logger("add_image")
 async def tool_add_image(
     image_url: str,
     image_name: str,
@@ -344,8 +336,6 @@ async def tool_add_image(
         mask_type=mask_type,
     )
 
-
-@mcp_tool_logger("add_text")
 def tool_add_text(
     text: str,
     start: float,
@@ -431,8 +421,6 @@ def tool_add_text(
         underline=underline,
     )
 
-
-@mcp_tool_logger("add_subtitle")
 def tool_add_subtitle(
     srt_path: str,
     draft_id: str,
@@ -472,8 +460,6 @@ def tool_add_subtitle(
     arguments = {k: v for k, v in arguments.items() if v is not None}
     return execute_tool("add_subtitle", arguments)
 
-
-@mcp_tool_logger("add_effect")
 def tool_add_effect(
     effect_type: str,
     draft_id: str,
@@ -493,8 +479,6 @@ def tool_add_effect(
         params=params,
     )
 
-
-@mcp_tool_logger("add_sticker")
 def tool_add_sticker(
     resource_id: str,
     start: float,
@@ -525,7 +509,6 @@ def tool_add_sticker(
     return execute_tool("add_sticker", arguments)
 
 
-@mcp_tool_logger("add_video_keyframe")
 def tool_add_video_keyframe(
     draft_id: str,
     track_name: str = "main",
@@ -550,7 +533,6 @@ def tool_add_video_keyframe(
     return execute_tool("add_video_keyframe", arguments)
 
 
-@mcp_tool_logger("generate_video")
 def tool_generate_video(
     draft_id: str,
     resolution: str = "1080P",
@@ -567,50 +549,41 @@ def tool_generate_video(
     return generate_video_impl(**arguments)
 
 
-@mcp_tool_logger("get_video_task_status")
 def tool_get_video_task_status(task_id: str) -> Dict[str, Any]:
     """Get the status of a video generation task."""
     from services.get_video_task_status_impl import get_video_task_status_impl
     return get_video_task_status_impl(task_id=task_id)
 
 
-@mcp_tool_logger("get_font_types")
 def tool_get_font_types() -> Dict[str, Any]:
     """Fetch available font types."""
     return get_font_types_impl()
 
 
-@mcp_tool_logger("get_audio_effect_types")
 def tool_get_audio_effect_types() -> Dict[str, Any]:
     """Fetch available audio effect types."""
     return get_audio_effect_types_impl()
 
-
-@mcp_tool_logger("get_tracks")
 def tool_get_tracks(draft_id: str) -> Dict[str, Any]:
     """Get all tracks from a draft."""
     return get_tracks(draft_id=draft_id)
 
 
-@mcp_tool_logger("delete_track")
 def tool_delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     """Delete a track from a draft."""
     return delete_track(draft_id=draft_id, track_name=track_name)
 
 
-@mcp_tool_logger("get_track_details")
 def tool_get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     """Get detailed information about a specific track."""
     return get_track_details(draft_id=draft_id, track_name=track_name)
 
 
-@mcp_tool_logger("get_segment_details")
 def tool_get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict[str, Any]:
     """Get detailed information about a specific segment."""
     return get_segment_details(draft_id=draft_id, track_name=track_name, segment_id=segment_id)
 
 
-@mcp_tool_logger("delete_segment")
 def tool_delete_segment(
     draft_id: str,
     track_name: str,
@@ -626,7 +599,6 @@ def tool_delete_segment(
     )
 
 
-@mcp_tool_logger("modify_segment")
 def tool_modify_segment(
     draft_id: str,
     track_name: str,

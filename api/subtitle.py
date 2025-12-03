@@ -3,7 +3,6 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from logging_utils import api_endpoint_logger
 from services.add_subtitle_impl import add_subtitle_impl
 
 router = APIRouter(tags=["subtitle"])
@@ -39,7 +38,6 @@ class AddSubtitleRequest(BaseModel):
 
 
 @router.post("/add_subtitle")
-@api_endpoint_logger
 async def add_subtitle(request: AddSubtitleRequest):
     result = {
         "success": False,
