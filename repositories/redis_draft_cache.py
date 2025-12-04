@@ -720,3 +720,33 @@ def get_redis_draft_cache() -> Optional[RedisDraftCache]:
     except Exception as e:
         logger.warning(f"Redis缓存初始化失败: {e}，将降级到PostgreSQL")
         return None
+
+
+def init_redis_draft_cache() -> Optional[RedisDraftCache]:
+    """
+    初始化Redis缓存实例（用于FastAPI生命周期管理）
+    
+    如果Redis不可用，返回None（降级到PostgreSQL）
+    如果已经初始化，返回现有实例
+    """
+    return get_redis_draft_cache()
+
+
+def shutdown_redis_draft_cache() -> None:
+    """
+    关闭Redis缓存实例（用于FastAPI生命周期管理）
+    
+    停止后台同步任务，清理资源
+    """
+    global _redis_cache
+    
+    if _redis_cache is not None:
+        try:
+            _redis_cache.stop_sync_task()
+            logger.info("Redis缓存后台同步任务已停止")
+        except Exception as e:
+            logger.error(f"停止Redis缓存后台同步任务失败: {e}")
+        finally:
+            # 注意：不重置 _redis_cache 为 None，因为可能还有请求在使用
+            # 只是停止后台任务，实例本身保留以便后续使用
+            pass
