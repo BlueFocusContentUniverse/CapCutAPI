@@ -16,14 +16,7 @@ from typing import Optional, Tuple, Dict, Any
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-try:
-    from dogpile.cache import make_region
-    from dogpile.cache.backends.redis import RedisBackend
-    DOGPILE_AVAILABLE = True
-except ImportError:
-    DOGPILE_AVAILABLE = False
-    make_region = None
-    RedisBackend = None
+from dogpile.cache import make_region
 
 import pyJianYingDraft as draft
 from repositories.draft_repository import PostgresDraftStorage, get_postgres_storage
@@ -60,9 +53,6 @@ class RedisDraftCache:
             max_sync_batch_size: 单次同步的最大脏数据数量（默认1000）
             max_sync_workers: 并发同步的线程数（默认5，建议不超过数据库连接池的50%）
         """
-        if not DOGPILE_AVAILABLE:
-            raise ImportError("dogpile.cache包未安装，请运行: pip install 'dogpile.cache[redis]'")
-        
         self.pg_storage = pg_storage or get_postgres_storage()
         self.enable_sync = enable_sync
         self._sync_thread = None
@@ -134,8 +124,6 @@ class RedisDraftCache:
     def _get_cache_key(self, draft_id: str) -> str:
         """
         生成完整缓存key（直接带前缀，无需后续拼接）
-        
-        统一返回带前缀的完整 key，dogpile.cache 和直接操作 Redis 都使用此格式
         """
         return f"{DRAFT_CACHE_KEY_PREFIX}{draft_id}"
     
@@ -710,13 +698,12 @@ def get_redis_draft_cache() -> Optional[RedisDraftCache]:
     if _redis_cache is not None:
         return _redis_cache
     
-    if not DOGPILE_AVAILABLE:
-        logger.warning("dogpile.cache包未安装，Redis缓存不可用")
-        return None
-    
     try:
         _redis_cache = RedisDraftCache()
         return _redis_cache
+    except ImportError as e:
+        logger.warning(f"dogpile.cache包未安装，Redis缓存不可用: {e}")
+        return None
     except Exception as e:
         logger.warning(f"Redis缓存初始化失败: {e}，将降级到PostgreSQL")
         return None
