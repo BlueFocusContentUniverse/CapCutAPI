@@ -28,7 +28,13 @@ class PostgresDraftStorage:
             logger.error(f"Failed to initialize database: {e}")
             raise
 
-    def save_draft(self, draft_id: str, script_obj: draft.ScriptFile, expected_version: Optional[int] = None) -> bool:
+    def save_draft(
+        self,
+        draft_id: str,
+        script_obj: draft.ScriptFile,
+        expected_version: Optional[int] = None,
+        create_version: bool = True
+    ) -> bool:
         """
         Save draft with optimistic locking support.
 
@@ -37,6 +43,8 @@ class PostgresDraftStorage:
             script_obj: The script object to save
             expected_version: Expected current version for optimistic locking. If provided and doesn't match,
                              save will fail and return False
+            create_version: Whether to create a version history record. Default True for backward compatibility.
+                           Set to False to skip version creation (e.g., when syncing from cache).
 
         Returns:
             True if save succeeded, False if version mismatch or other error occurred
@@ -87,24 +95,27 @@ class PostgresDraftStorage:
                         )
                         return False
 
-                    # Persist previous version into history table before updating
+                    # Persist previous version into history table before updating (only if create_version is True)
                     previous_version = current_version
-                    history = DraftVersionModel(
-                        draft_id=existing.draft_id,
-                        version=previous_version,
-                        data=existing.data,
-                        width=existing.width,
-                        height=existing.height,
-                        duration=existing.duration,
-                        fps=existing.fps,
-                        script_version=existing.version,
-                        size_bytes=existing.size_bytes,
-                        draft_name=existing.draft_name,
-                        resource=existing.resource,
-                    )
-                    session.add(history)
+                    if create_version:
+                        history = DraftVersionModel(
+                            draft_id=existing.draft_id,
+                            version=previous_version,
+                            data=existing.data,
+                            width=existing.width,
+                            height=existing.height,
+                            duration=existing.duration,
+                            fps=existing.fps,
+                            script_version=existing.version,
+                            size_bytes=existing.size_bytes,
+                            draft_name=existing.draft_name,
+                            resource=existing.resource,
+                        )
+                        session.add(history)
+                        logger.debug(f"Created version history for draft {draft_id} version {previous_version}")
 
                     # Update in place; if previously soft-deleted, resurrect it
+                    # Version number always increments on persistence, even if we don't create a history record
                     new_version = previous_version + 1
                     existing.data = serialized_data
                     existing.width = getattr(script_obj, "width", None)
@@ -119,7 +130,10 @@ class PostgresDraftStorage:
                     existing.current_version = new_version
                     existing.accessed_at = datetime.now(timezone.utc)
 
-                    logger.info(f"Updated draft {draft_id} from version {previous_version} to {new_version}")
+                    if create_version:
+                        logger.info(f"Updated draft {draft_id} from version {previous_version} to {new_version} (version history created)")
+                    else:
+                        logger.info(f"Updated draft {draft_id} from version {previous_version} to {new_version} (no version history)")
 
             logger.info(f"Successfully saved draft {draft_id} to Postgres (size: {len(serialized_data)} bytes)")
             return True
