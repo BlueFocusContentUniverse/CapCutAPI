@@ -12,8 +12,8 @@ on:
     tags: ["v*.*.*"]
 
 env:                 
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY: kox-agent/jy-neo         # set this to your Amazon ECR repository name
+  AWS_REGION: us-west-2
+  ECR_REPOSITORY: jyapi-mcp         # set this to your Amazon ECR repository name
 
 jobs:
   build-jy-api:
