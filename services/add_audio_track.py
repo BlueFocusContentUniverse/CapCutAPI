@@ -37,6 +37,8 @@ class AudioSegmentPayload:
     segment: draft.AudioSegment
     track_name: Optional[str]
     sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]]
+    fade_in_duration: float
+    fade_out_duration: float
 
 
 def _prepare_audio_segment_payload(
@@ -53,6 +55,8 @@ def _prepare_audio_segment_payload(
     sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]],
     audio_name: Optional[str],
     duration: Optional[float],
+    fade_in_duration: float = 0.0,
+    fade_out_duration: float = 0.0,
 ) -> AudioSegmentPayload:
     """
     Add an audio track to the specified draft
@@ -137,11 +141,20 @@ def _prepare_audio_segment_payload(
         volume=volume
     )
 
+    # Add fade effect (convert seconds to microseconds)
+    if fade_in_duration > 0 or fade_out_duration > 0:
+        fade_in_us = int(fade_in_duration * 1e6)  # seconds to microseconds
+        fade_out_us = int(fade_out_duration * 1e6)  # seconds to microseconds
+        audio_segment.add_fade(fade_in_us, fade_out_us)
+        logger.debug(f"Added fade effect: in={fade_in_duration}s ({fade_in_us}us), out={fade_out_duration}s ({fade_out_us}us)")
+
     return AudioSegmentPayload(
         audio_url=audio_url,
         segment=audio_segment,
         track_name=track_name,
         sound_effects=sound_effects,
+        fade_in_duration=fade_in_duration,
+        fade_out_duration=fade_out_duration,
     )
 
 
@@ -213,7 +226,9 @@ async def add_audio_track(
     speed: float = 1.0,
     sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]] = None,
     audio_name: Optional[str] = None,
-    duration: Optional[float] = None  # Added duration parameter
+    duration: Optional[float] = None,  # Added duration parameter
+    fade_in_duration: float = 0.0,
+    fade_out_duration: float = 0.0,
 ) -> Dict[str, str]:
     # Get or create draft (initial fetch for validation only)
     draft_id, _ = get_draft(draft_id=draft_id)
@@ -248,6 +263,8 @@ async def add_audio_track(
         sound_effects=sound_effects,
         audio_name=audio_name,
         duration=duration,
+        fade_in_duration=fade_in_duration,
+        fade_out_duration=fade_out_duration,
     )
 
     def modify_draft(script):
@@ -333,6 +350,8 @@ async def batch_add_audio_track(
                 sound_effects=audio.get("sound_effects", sound_effects),
                 audio_name=audio_name,
                 duration=duration,
+                fade_in_duration=audio.get("fade_in_duration", 0.0),
+                fade_out_duration=audio.get("fade_out_duration", 0.0),
             )
             payloads.append(payload)
         except Exception as exc:

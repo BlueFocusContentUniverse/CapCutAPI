@@ -69,7 +69,9 @@ TOOLS = [
                             "mode": {"type": "string", "enum": ["cover", "fill"], "default": "cover", "description": "速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed"},
                             "target_duration": {"type": ["number", "null"], "default": None, "description": "fill模式专用，素材在轨道上的目标时长（秒）"},
                             "duration": {"type": ["number", "null"], "default": None, "description": "视频素材总时长（秒）"},
-                            "video_name": {"type": "string", "description": "视频素材名称"}
+                            "video_name": {"type": "string", "description": "视频素材名称"},
+                            "fade_in_duration": {"type": "number", "default": 0.0, "description": "音频淡入时长（秒）"},
+                            "fade_out_duration": {"type": "number", "default": 0.0, "description": "音频淡出时长（秒）"}
                         },
                         "required": ["video_url", "start", "end", "target_start", "mode", "target_duration", "duration"]
                     }
@@ -101,8 +103,6 @@ TOOLS = [
                 "mask_round_corner": {"type": ["number", "null"], "default": None, "description": "矩形圆角半径"},
                 "filter_type": {"type": "string", "description": "滤镜效果类型"},
                 "filter_intensity": {"type": "number", "default": 100.0, "description": "滤镜强度"},
-                "fade_in_duration": {"type": "number", "default": 0.0, "description": "音频淡入时长"},
-                "fade_out_duration": {"type": "number", "default": 0.0, "description": "音频淡出时长"},
                 "background_blur": {"type": "integer", "description": "背景模糊强度（1-4）"}
             },
             "required": ["videos", "draft_id"]
@@ -240,7 +240,9 @@ TOOLS = [
                 "duration": {"type": ["number", "null"], "default": None, "description": "【性能优化】原始音频素材的总时长（秒）。提前提供可避免重复解析素材，显著提升处理速度。null表示使用默认值0.0，实际时长在下载时获取"},
                 # "effect_type": {"type": "string", "description": "音效处理类型名称。根据IS_CAPCUT_ENV自动选择：CapCut环境支持CapCutVoiceFiltersEffectType/CapCutVoiceCharactersEffectType/CapCutSpeechToSongEffectType；剪映环境支持AudioSceneEffectType/ToneEffectType/SpeechToSongType"},
                 # "effect_params": {"type": "array", "description": "音效参数数组。参数的具体含义和数量取决于effect_type。格式：List[Optional[float]]。例如：某些效果可能需要[0.5, 1.0]"},
-                "audio_name": {"type": "string", "description": "音频素材名称"}
+                "audio_name": {"type": "string", "description": "音频素材名称"},
+                "fade_in_duration": {"type": "number", "default": 0.0, "description": "音频淡入时长（秒）。音频开始时音量从0逐渐增加到设定值的过渡时间。例：0.5表示0.5秒淡入"},
+                "fade_out_duration": {"type": "number", "default": 0.0, "description": "音频淡出时长（秒）。音频结束时音量从设定值逐渐减少到0的过渡时间。例：1.0表示1秒淡出"}
             },
             "required": ["audio_url", "draft_id", "start", "target_start"]
         }
@@ -280,7 +282,9 @@ TOOLS = [
                             "target_start": {"type": "number", "default": 0, "description": "该片段在时间线上的起始位置"},
                             "speed": {"type": "number", "default": 1.0, "description": "播放速度"},
                             "duration": {"type": ["number", "null"], "default": None, "description": "音频素材总时长（秒）"},
-                            "audio_name": {"type": "string", "description": "音频素材名称"}
+                            "audio_name": {"type": "string", "description": "音频素材名称"},
+                            "fade_in_duration": {"type": "number", "default": 0.0, "description": "音频淡入时长（秒）"},
+                            "fade_out_duration": {"type": "number", "default": 0.0, "description": "音频淡出时长（秒）"}
                         },
                         "required": ["audio_url", "start", "target_start", "end", "speed", "duration"]
                     }

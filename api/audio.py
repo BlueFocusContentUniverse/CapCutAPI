@@ -22,6 +22,8 @@ class AddAudioRequest(BaseModel):
     duration: Optional[float] = None
     effect_type: Optional[str] = None
     effect_params: Optional[List[float]] = None
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
 
 class AudioItem(BaseModel):
     audio_url: str
@@ -31,13 +33,15 @@ class AudioItem(BaseModel):
     speed: float = 1.0
     duration: Optional[float] = None
     audio_name: Optional[str] = None
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
 
 class BatchAddAudiosRequest(BaseModel):
     draft_folder: Optional[str] = None
     draft_id: Optional[str] = None
     audios: List[AudioItem]
 
-    # Common parameters
+    # Common parameters (fade 参数在 AudioItem 中，每个音频可独立设置)
     volume: float = 1.0
     track_name: str = "audio_main"
     speed: float = 1.0
@@ -68,7 +72,9 @@ async def add_audio(request: AddAudioRequest, response: Response):
             speed=request.speed,
             sound_effects=sound_effects,
             audio_name=request.audio_name,
-            duration=request.duration
+            duration=request.duration,
+            fade_in_duration=request.fade_in_duration,
+            fade_out_duration=request.fade_out_duration
         )
 
         result["success"] = True

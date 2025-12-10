@@ -62,6 +62,8 @@ class VideoItem(BaseModel):
     target_duration: Optional[float] = None
     duration: Optional[float] = None
     video_name: Optional[str] = None
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
 
 class BatchAddVideosRequest(BaseModel):
     draft_folder: Optional[str] = None
@@ -95,8 +97,6 @@ class BatchAddVideosRequest(BaseModel):
     mask_round_corner: Optional[float] = None
     filter_type: Optional[str] = None
     filter_intensity: float = 100.0
-    fade_in_duration: float = 0.0
-    fade_out_duration: float = 0.0
     background_blur: Optional[int] = None
     mode: str = "cover"
 
@@ -219,8 +219,6 @@ async def batch_add_videos(request: BatchAddVideosRequest, response: Response):
             mask_round_corner=request.mask_round_corner,
             filter_type=request.filter_type,
             filter_intensity=request.filter_intensity,
-            fade_in_duration=request.fade_in_duration,
-            fade_out_duration=request.fade_out_duration,
             background_blur=request.background_blur,
             default_mode=request.mode,
         )

@@ -290,9 +290,11 @@ def _prepare_video_segment_payload(
         except AttributeError:
             raise ValueError(f"Unsupported transition type: {transition}, transition setting skipped")
 
-    # Add fade effect
+    # Add fade effect (convert seconds to microseconds)
     if fade_in_duration > 0 or fade_out_duration > 0:
-        video_segment.add_fade(fade_in_duration, fade_out_duration)
+        fade_in_us = int(fade_in_duration * 1e6)  # seconds to microseconds
+        fade_out_us = int(fade_out_duration * 1e6)  # seconds to microseconds
+        video_segment.add_fade(fade_in_us, fade_out_us)
 
     return VideoSegmentPayload(
         video_url=video_url,
@@ -563,8 +565,6 @@ async def batch_add_video_track(
     mask_round_corner: Optional[float] = None,
     filter_type: Optional[str] = None,
     filter_intensity: float = 100.0,
-    fade_in_duration: float = 0.0,
-    fade_out_duration: float = 0.0,
     background_blur: Optional[int] = None,
     default_mode: str = "cover",
 ) -> Dict[str, Any]:
@@ -647,8 +647,8 @@ async def batch_add_video_track(
                 transition_duration=video.get("transition_duration", transition_duration),
                 filter_type=video.get("filter_type", filter_type),
                 filter_intensity=video.get("filter_intensity", filter_intensity),
-                fade_in_duration=video.get("fade_in_duration", fade_in_duration),
-                fade_out_duration=video.get("fade_out_duration", fade_out_duration),
+                fade_in_duration=video.get("fade_in_duration", 0.0),
+                fade_out_duration=video.get("fade_out_duration", 0.0),
                 mask_type=video.get("mask_type", mask_type),
                 mask_center_x=video.get("mask_center_x", mask_center_x),
                 mask_center_y=video.get("mask_center_y", mask_center_y),
