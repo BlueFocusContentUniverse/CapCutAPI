@@ -5,17 +5,24 @@ API endpoints for managing draft archives stored in PostgreSQL.
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from repositories.draft_archive_repository import get_postgres_archive_storage
 from util.cos_client import get_cos_client
+from util.cognito.cognito_auth import get_current_user_claims
 
 logger = logging.getLogger(__name__)
 
 # Create a router for draft archive management
 router = APIRouter(
+    prefix="/api/draft_archives",
+    tags=["draft_archives"],
+)
+
+# Create a separate router for callback (requires Cognito M2M token authentication)
+callback_router = APIRouter(
     prefix="/api/draft_archives",
     tags=["draft_archives"],
 )
@@ -348,7 +355,7 @@ class LambdaCallbackRequest(BaseModel):
     message: Optional[str] = None
 
 
-@router.patch("/callback")
+@callback_router.patch("/callback", dependencies=[Depends(get_current_user_claims)])  # 使用 Cognito M2M token 认证
 async def archive_callback(request: LambdaCallbackRequest):
     """Lambda 回调接口,更新打包进度"""
     result = {"success": False, "output": "", "error": ""}

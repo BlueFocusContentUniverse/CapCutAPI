@@ -8,6 +8,8 @@ import string
 import subprocess
 import threading
 import uuid
+import base64
+import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Literal, Optional, Tuple
 
@@ -31,6 +33,67 @@ LAMBDA_FUNCTION_NAME = os.getenv("ARCHIVE_LAMBDA_FUNCTION", "draft-archive-funct
 LAMBDA_REGION = os.getenv("AWS_REGION", "us-west-2")
 ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL", "")
 
+
+def get_m2m_token() -> Optional[str]:
+    """获取 Cognito M2M token（用于 Lambda 回调认证）"""
+    try:
+        region = os.getenv("COGNITO_REGION", "").strip()
+        user_pool_id = os.getenv("COGNITO_USER_POOL_ID", "").strip()
+        client_id = os.getenv("COGNITO_CLIENT_ID", "").strip()
+        client_secret = os.getenv("COGNITO_CLIENT_SECRET", "").strip()
+        cognito_domain = os.getenv("COGNITO_DOMAIN", "").strip()
+        scope = os.getenv("COGNITO_SCOPE", "").strip()
+        
+        if not all([region, user_pool_id, client_id, client_secret]):
+            logger.warning("缺少 Cognito M2M 配置，无法获取 token")
+            return None
+        
+        # 构建 token 端点
+        if cognito_domain:
+            if cognito_domain.startswith("http"):
+                token_endpoint = f"{cognito_domain.rstrip('/')}/oauth2/token"
+            else:
+                token_endpoint = f"https://{cognito_domain}/oauth2/token"
+        else:
+            metadata_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/openid-configuration"
+            response = requests.get(metadata_url, timeout=10)
+            response.raise_for_status()
+            metadata = response.json()
+            token_endpoint = metadata.get("token_endpoint")
+            if not token_endpoint:
+                logger.error("Metadata 响应中缺少 token_endpoint")
+                return None
+        
+        # 准备 Basic 认证
+        auth_string = f"{client_id}:{client_secret}"
+        auth_header = base64.b64encode(auth_string.encode("utf-8")).decode("utf-8")
+        
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Basic {auth_header}",
+        }
+        
+        data = {"grant_type": "client_credentials"}
+        if scope:
+            data["scope"] = scope
+        
+        # 获取 token
+        response = requests.post(token_endpoint, headers=headers, data=data, timeout=10)
+        response.raise_for_status()
+        token_data = response.json()
+        access_token = token_data.get("access_token")
+        
+        if access_token:
+            logger.debug("成功获取 M2M token")
+            return access_token
+        else:
+            logger.error("Token 响应中缺少 access_token")
+            return None
+            
+    except Exception as e:
+        logger.warning(f"获取 M2M token 失败: {e}")
+        return None
+
 # Lambda 客户端（延迟初始化）
 _lambda_client = None
 
@@ -39,7 +102,22 @@ def get_lambda_client():
     """获取 Lambda 客户端（单例）"""
     global _lambda_client
     if _lambda_client is None and USE_LAMBDA_ARCHIVE:
-        _lambda_client = boto3.client("lambda", region_name=LAMBDA_REGION)
+        # 从环境变量获取 AWS 凭证
+        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        
+        # 构建客户端参数
+        client_kwargs = {"region_name": LAMBDA_REGION}
+        
+        # 如果环境变量中有凭证，显式传递
+        if aws_access_key_id and aws_secret_access_key:
+            client_kwargs["aws_access_key_id"] = aws_access_key_id
+            client_kwargs["aws_secret_access_key"] = aws_secret_access_key
+            logger.info("使用环境变量中的 AWS 凭证创建 Lambda 客户端")
+        else:
+            logger.warning("未找到 AWS_ACCESS_KEY_ID 或 AWS_SECRET_ACCESS_KEY，将使用默认凭证链（可能失败）")
+        
+        _lambda_client = boto3.client("lambda", **client_kwargs)
     return _lambda_client
 
 
@@ -623,6 +701,10 @@ def _invoke_lambda_archive(
 
     # 准备 Lambda 参数
     draft_content = json.loads(script.dumps())
+    
+    # 获取 M2M token 用于回调认证
+    m2m_token = get_m2m_token()
+    
     payload = {
         "archive_id": archive_id,
         "draft_id": draft_id,
@@ -630,6 +712,7 @@ def _invoke_lambda_archive(
         "draft_content": draft_content,
         "folder_name": folder_name,
         "callback_url": ARCHIVE_CALLBACK_URL,
+        "callback_token": m2m_token  # 传递 M2M token 给 Lambda
     }
 
     # 序列化 payload 并检查大小
