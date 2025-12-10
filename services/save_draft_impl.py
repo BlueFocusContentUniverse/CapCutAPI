@@ -712,10 +712,7 @@ def _invoke_lambda_archive(
         "draft_content": draft_content,
         "folder_name": folder_name,
         "callback_url": ARCHIVE_CALLBACK_URL,
-<<<<<<< HEAD
-=======
         "callback_token": m2m_token  # 传递 M2M token 给 Lambda
->>>>>>> a6ff0ea (Adjust callback interface authentication)
     }
 
     # 序列化 payload 并检查大小

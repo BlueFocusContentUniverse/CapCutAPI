@@ -357,17 +357,8 @@ class LambdaCallbackRequest(BaseModel):
 
 @callback_router.patch("/callback", dependencies=[Depends(get_current_user_claims)])  # 使用 Cognito M2M token 认证
 async def archive_callback(request: LambdaCallbackRequest):
-<<<<<<< HEAD
     """Lambda 回调接口,更新打包进度"""
     result = {"success": False, "output": "", "error": ""}
-=======
-    """Lambda 回调接口,更新打包进度（需要 Cognito M2M token 认证）"""
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
->>>>>>> a6ff0ea (Adjust callback interface authentication)
 
     try:
         # TODO: 验证请求来源（后续可添加签名验证）
