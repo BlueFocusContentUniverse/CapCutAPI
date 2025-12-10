@@ -39,7 +39,22 @@ def get_lambda_client():
     """获取 Lambda 客户端（单例）"""
     global _lambda_client
     if _lambda_client is None and USE_LAMBDA_ARCHIVE:
-        _lambda_client = boto3.client("lambda", region_name=LAMBDA_REGION)
+        # 从环境变量获取 AWS 凭证
+        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        
+        # 构建客户端参数
+        client_kwargs = {"region_name": LAMBDA_REGION}
+        
+        # 如果环境变量中有凭证，显式传递
+        if aws_access_key_id and aws_secret_access_key:
+            client_kwargs["aws_access_key_id"] = aws_access_key_id
+            client_kwargs["aws_secret_access_key"] = aws_secret_access_key
+            logger.info("使用环境变量中的 AWS 凭证创建 Lambda 客户端")
+        else:
+            logger.warning("未找到 AWS_ACCESS_KEY_ID 或 AWS_SECRET_ACCESS_KEY，将使用默认凭证链（可能失败）")
+        
+        _lambda_client = boto3.client("lambda", **client_kwargs)
     return _lambda_client
 
 

@@ -20,6 +20,12 @@ router = APIRouter(
     tags=["draft_archives"],
 )
 
+# Create a separate router for callback (no authentication required)
+callback_router = APIRouter(
+    prefix="/api/draft_archives",
+    tags=["draft_archives"],
+)
+
 
 @router.get("/list")
 async def list_archives(
@@ -348,7 +354,7 @@ class LambdaCallbackRequest(BaseModel):
     message: Optional[str] = None
 
 
-@router.patch("/callback")
+@callback_router.patch("/callback")  # 使用单独的 router，无需认证
 async def archive_callback(request: LambdaCallbackRequest):
     """Lambda 回调接口,更新打包进度"""
     result = {"success": False, "output": "", "error": ""}
