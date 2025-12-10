@@ -132,6 +132,10 @@ class UpdateArchiveRequest(BaseModel):
     message: Optional[str] = None
 
 
+class BatchDeleteRequest(BaseModel):
+    archive_ids: list[str]
+
+
 @router.put("/update/{archive_id}")
 @router.patch("/update/{archive_id}")
 async def update_archive(archive_id: str, request: UpdateArchiveRequest):
@@ -222,6 +226,75 @@ async def delete_archive(archive_id: str):
     except Exception as e:
         result["error"] = f"Failed to delete archive: {e!s}"
         logger.error(f"Error deleting archive {archive_id}: {e!s}", exc_info=True)
+        return JSONResponse(status_code=500, content=result)
+
+
+@router.delete("/batch_delete")
+async def batch_delete_archives(request: BatchDeleteRequest):
+    """
+    Batch delete multiple archives by archive_ids
+    """
+    result = {
+        "success": False,
+        "output": "",
+        "error": ""
+    }
+
+    if not request.archive_ids:
+        result["error"] = "archive_ids array is empty"
+        return JSONResponse(status_code=400, content=result)
+
+    try:
+        storage = get_postgres_archive_storage()
+        cos_client = get_cos_client()
+        
+        deleted = []
+        failed = []
+        
+        for archive_id in request.archive_ids:
+            try:
+                # Get archive details first
+                archive = storage.get_archive_by_id(archive_id)
+                
+                if not archive:
+                    failed.append({"archive_id": archive_id, "reason": "not_found"})
+                    continue
+                
+                # Delete COS object if exists
+                download_url = archive.get("download_url")
+                if download_url and cos_client.is_available():
+                    cos_deleted = cos_client.delete_object_from_url(download_url)
+                    if not cos_deleted:
+                        logger.warning(f"Failed to delete COS object for archive {archive_id}")
+                
+                # Delete from database
+                success = storage.delete_archive(archive_id)
+                if success:
+                    deleted.append(archive_id)
+                else:
+                    failed.append({"archive_id": archive_id, "reason": "db_delete_failed"})
+                    
+            except Exception as e:
+                logger.error(f"Error deleting archive {archive_id}: {e!s}")
+                failed.append({"archive_id": archive_id, "reason": str(e)})
+        
+        result["success"] = len(failed) == 0
+        result["output"] = {
+            "deleted": deleted,
+            "deleted_count": len(deleted),
+            "failed": failed,
+            "failed_count": len(failed)
+        }
+        
+        logger.info(f"Batch delete completed: {len(deleted)} deleted, {len(failed)} failed")
+        
+        if failed:
+            return JSONResponse(status_code=207, content=result)  # 207 Multi-Status
+        return result
+
+    except Exception as e:
+        result["error"] = f"Failed to batch delete archives: {e!s}"
+        logger.error(f"Error in batch delete: {e!s}", exc_info=True)
         return JSONResponse(status_code=500, content=result)
 
 
