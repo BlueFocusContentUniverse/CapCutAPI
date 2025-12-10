@@ -1,6 +1,7 @@
 """
 API endpoints for segment management in tracks
 """
+
 import logging
 from typing import Optional
 
@@ -28,26 +29,30 @@ async def get_segment_details_api(request: GetSegmentDetailsRequest):
     """
     Get detailed information about a specific segment
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     if not request.track_name:
-        result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        )
         return result
 
     if not request.segment_id:
-        result["error"] = "Hi, the required parameter 'segment_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'segment_id' is missing. Please add it and try again."
+        )
         return result
 
     try:
-        segment_details = get_segment_details(request.draft_id, request.track_name, request.segment_id)
+        segment_details = get_segment_details(
+            request.draft_id, request.track_name, request.segment_id
+        )
 
         result["success"] = True
         result["output"] = segment_details
@@ -74,26 +79,30 @@ async def delete_segment_api(request: DeleteSegmentRequest):
     """
     Delete a segment from a track by index or ID
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     if not request.track_name:
-        result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        )
         return result
 
-    if (request.segment_index is None and request.segment_id is None):
-        result["error"] = "Hi, you must provide either 'segment_index' or 'segment_id'. Please add one and try again."
+    if request.segment_index is None and request.segment_id is None:
+        result["error"] = (
+            "Hi, you must provide either 'segment_index' or 'segment_id'. Please add one and try again."
+        )
         return result
 
-    if (request.segment_index is not None and request.segment_id is not None):
-        result["error"] = "Hi, you can only provide one of 'segment_index' or 'segment_id', not both. Please remove one and try again."
+    if request.segment_index is not None and request.segment_id is not None:
+        result["error"] = (
+            "Hi, you can only provide one of 'segment_index' or 'segment_id', not both. Please remove one and try again."
+        )
         return result
 
     try:
@@ -101,7 +110,7 @@ async def delete_segment_api(request: DeleteSegmentRequest):
             request.draft_id,
             request.track_name,
             segment_index=request.segment_index,
-            segment_id=request.segment_id
+            segment_id=request.segment_id,
         )
 
         result["success"] = True
@@ -119,6 +128,7 @@ async def delete_segment_api(request: DeleteSegmentRequest):
 
 class ClipSettingsRequest(BaseModel):
     """Clip settings for visual segments"""
+
     alpha: Optional[float] = None  # Opacity 0-1
     flip_horizontal: Optional[bool] = None
     flip_vertical: Optional[bool] = None
@@ -147,26 +157,34 @@ async def modify_segment_api(request: ModifySegmentRequest):
     - **volume**: Audio volume level (0-1)
     - **speed**: Playback speed multiplier
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     if not request.track_name:
-        result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        )
         return result
 
     if not request.segment_id:
-        result["error"] = "Hi, the required parameter 'segment_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'segment_id' is missing. Please add it and try again."
+        )
         return result
 
-    if request.clip_settings is None and request.volume is None and request.speed is None:
-        result["error"] = "Hi, you must provide at least one of 'clip_settings', 'volume', or 'speed'. Please add one and try again."
+    if (
+        request.clip_settings is None
+        and request.volume is None
+        and request.speed is None
+    ):
+        result["error"] = (
+            "Hi, you must provide at least one of 'clip_settings', 'volume', or 'speed'. Please add one and try again."
+        )
         return result
 
     try:
@@ -181,7 +199,7 @@ async def modify_segment_api(request: ModifySegmentRequest):
             request.segment_id,
             clip_settings=clip_settings_dict,
             volume=request.volume,
-            speed=request.speed
+            speed=request.speed,
         )
 
         result["success"] = True

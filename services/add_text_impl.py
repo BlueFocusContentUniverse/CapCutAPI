@@ -118,7 +118,9 @@ def add_text_impl(
         try:
             font_type = getattr(FontType, font)
         except Exception:
-            raise ValueError(f"Unsupported font: {font}, please get suported fonts from [get_font_types]")
+            raise ValueError(
+                f"Unsupported font: {font}, please get suported fonts from [get_font_types]"
+            )
 
     # Validate alpha value range
     if not 0.0 <= font_alpha <= 1.0:
@@ -153,9 +155,7 @@ def add_text_impl(
     text_border = None
     if border_width > 0:
         text_border = draft.Text_border(
-            alpha=border_alpha,
-            color=rgb_border_color,
-            width=border_width
+            alpha=border_alpha, color=rgb_border_color, width=border_width
         )
 
     # Create text_background
@@ -169,7 +169,7 @@ def add_text_impl(
             height=background_height,
             width=background_width,
             horizontal_offset=background_horizontal_offset,
-            vertical_offset=background_vertical_offset
+            vertical_offset=background_vertical_offset,
         )
 
     # 创建text_shadow (阴影)
@@ -181,29 +181,26 @@ def add_text_impl(
             angle=shadow_angle,
             color=shadow_color,
             distance=shadow_distance,
-            smoothing=shadow_smoothing
+            smoothing=shadow_smoothing,
         )
 
     # Create bubble effect
     text_bubble = None
     if bubble_effect_id and bubble_resource_id:
         text_bubble = TextBubble(
-            effect_id=bubble_effect_id,
-            resource_id=bubble_resource_id
+            effect_id=bubble_effect_id, resource_id=bubble_resource_id
         )
 
     # Create text effect
     text_effect = None
     if effect_effect_id:
-        text_effect = TextEffect(
-            effect_id=effect_effect_id
-        )
+        text_effect = TextEffect(effect_id=effect_effect_id)
 
     # Convert ratio to pixel value
     pixel_fixed_width = -1
     pixel_fixed_height = -1
     if fixed_width > 0:
-        pixel_fixed_width = int(fixed_width * 720) # 720 is capcut fixed width number
+        pixel_fixed_width = int(fixed_width * 720)  # 720 is capcut fixed width number
     if fixed_height > 0:
         pixel_fixed_height = int(fixed_height * (script.height / script.width) * 720)
 
@@ -220,22 +217,30 @@ def add_text_impl(
             underline=underline,
             align=align,
             vertical=vertical,  # Set whether to display vertically
-            alpha=font_alpha  # Set transparency
+            alpha=font_alpha,  # Set transparency
         ),
-        clip_settings=draft.ClipSettings(transform_y=transform_y, transform_x=transform_x),
+        clip_settings=draft.ClipSettings(
+            transform_y=transform_y, transform_x=transform_x
+        ),
         border=text_border,
         background=text_background,
         shadow=text_shadow,
         fixed_width=pixel_fixed_width,
-        fixed_height=pixel_fixed_height
+        fixed_height=pixel_fixed_height,
     )
 
     # 应用多样式文本设置
     if text_styles:
         for style_range in text_styles:
             # 验证范围有效性
-            if style_range.start < 0 or style_range.end > len(text) or style_range.start >= style_range.end:
-                raise ValueError(f"无效的文本范围: [{style_range.start}, {style_range.end}), 文本长度: {len(text)}")
+            if (
+                style_range.start < 0
+                or style_range.end > len(text)
+                or style_range.start >= style_range.end
+            ):
+                raise ValueError(
+                    f"无效的文本范围: [{style_range.start}, {style_range.end}), 文本长度: {len(text)}"
+                )
 
             # 应用样式到特定文本范围
             text_segment.add_text_style(style_range)
@@ -254,9 +259,13 @@ def add_text_impl(
                 animation_type = getattr(draft.TextIntro, intro_animation)
             # Convert seconds to microseconds
             duration_microseconds = int(intro_duration * 1000000)
-            text_segment.add_animation(animation_type, duration_microseconds)  # Add intro animation, set duration
+            text_segment.add_animation(
+                animation_type, duration_microseconds
+            )  # Add intro animation, set duration
         except Exception:
-            print(f"Warning: Unsupported intro animation type {intro_animation}, this parameter will be ignored")
+            print(
+                f"Warning: Unsupported intro animation type {intro_animation}, this parameter will be ignored"
+            )
 
     # Add outro animation
     if outro_animation:
@@ -267,9 +276,13 @@ def add_text_impl(
                 animation_type = getattr(draft.TextOutro, outro_animation)
             # Convert seconds to microseconds
             duration_microseconds = int(outro_duration * 1000000)
-            text_segment.add_animation(animation_type, duration_microseconds)  # Add outro animation, set duration
+            text_segment.add_animation(
+                animation_type, duration_microseconds
+            )  # Add outro animation, set duration
         except Exception:
-            print(f"Warning: Unsupported outro animation type {outro_animation}, this parameter will be ignored")
+            print(
+                f"Warning: Unsupported outro animation type {outro_animation}, this parameter will be ignored"
+            )
 
     # Add text segment to track
     script.add_segment(text_segment, track_name=track_name)

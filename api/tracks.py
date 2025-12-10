@@ -1,6 +1,7 @@
 """
 API endpoints for track management in drafts
 """
+
 import logging
 
 from fastapi import APIRouter
@@ -21,14 +22,12 @@ async def get_tracks_api(request: GetTracksRequest):
     """
     Get all tracks from a draft
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     try:
@@ -56,18 +55,18 @@ async def delete_track_api(request: DeleteTrackRequest):
     """
     Delete a track from a draft by name
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     if not request.track_name:
-        result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        )
         return result
 
     try:
@@ -95,18 +94,18 @@ async def get_track_details_api(request: GetTrackDetailsRequest):
     """
     Get detailed information about a specific track
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     if not request.track_name:
-        result["error"] = "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'track_name' is missing. Please add it and try again."
+        )
         return result
 
     try:
@@ -122,4 +121,3 @@ async def get_track_details_api(request: GetTrackDetailsRequest):
     except Exception as e:
         result["error"] = f"Error occurred while getting track details: {e!s}"
         return result
-

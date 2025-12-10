@@ -10,11 +10,13 @@ from services.get_video_task_status_impl import get_video_task_status_impl
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["generate"])
 
+
 class GenerateVideoRequest(BaseModel):
     draft_id: str
     resolution: Optional[Literal["720P", "1080P", "2K", "4K"]] = "720P"
     framerate: Optional[Literal["30fps", "50fps", "60fps"]] = "30fps"
     name: Optional[str] = None
+
 
 @router.get("/video_task_status")
 def get_video_task_status(task_id: str):
@@ -48,7 +50,9 @@ def generate_video_api(request: GenerateVideoRequest, response: Response):
     Returns:
         JSON response with success status and task_id
     """
-    logger.info(f"Generating video for draft_id: {request.draft_id}, resolution: {request.resolution}, framerate: {request.framerate}")
+    logger.info(
+        f"Generating video for draft_id: {request.draft_id}, resolution: {request.resolution}, framerate: {request.framerate}"
+    )
 
     result = generate_video_impl(
         draft_id=request.draft_id,
@@ -58,5 +62,3 @@ def generate_video_api(request: GenerateVideoRequest, response: Response):
     )
 
     return result
-
-

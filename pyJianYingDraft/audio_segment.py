@@ -40,8 +40,18 @@ class AudioEffect:
 
     audio_adjust_params: List[EffectParamInstance]
 
-    def __init__(self, effect_meta: Union[AudioSceneEffectType, ToneEffectType, SpeechToSongType, CapCutVoiceFiltersEffectType, CapCutVoiceCharactersEffectType, CapCutSpeechToSongEffectType],
-                 params: Optional[List[Optional[float]]] = None):
+    def __init__(
+        self,
+        effect_meta: Union[
+            AudioSceneEffectType,
+            ToneEffectType,
+            SpeechToSongType,
+            CapCutVoiceFiltersEffectType,
+            CapCutVoiceCharactersEffectType,
+            CapCutSpeechToSongEffectType,
+        ],
+        params: Optional[List[Optional[float]]] = None,
+    ):
         """根据给定的音效元数据及参数列表构造一个音频特效对象, params的范围是0~100"""
 
         self.name = effect_meta.value.name
@@ -74,7 +84,9 @@ class AudioEffect:
 
     def export_json(self) -> Dict[str, Any]:
         return {
-            "audio_adjust_params": [param.export_json() for param in self.audio_adjust_params],
+            "audio_adjust_params": [
+                param.export_json() for param in self.audio_adjust_params
+            ],
             "category_id": self.category_id,
             "category_name": self.category_name,
             "id": self.effect_id,
@@ -85,9 +97,10 @@ class AudioEffect:
             "speaker_id": "",
             "sub_type": 1,
             "time_range": {"duration": 0, "start": 0},  # 似乎并未用到
-            "type": "audio_effect"
+            "type": "audio_effect",
             # 不导出path和constant_material_id
         }
+
 
 class AudioSegment(MediaSegment):
     """安放在轨道上的一个音频片段"""
@@ -107,8 +120,15 @@ class AudioSegment(MediaSegment):
     在放入轨道时自动添加到素材列表中
     """
 
-    def __init__(self, material: AudioMaterial, target_timerange: Timerange, *,
-                 source_timerange: Optional[Timerange] = None, speed: Optional[float] = None, volume: float = 1.0):
+    def __init__(
+        self,
+        material: AudioMaterial,
+        target_timerange: Timerange,
+        *,
+        source_timerange: Optional[Timerange] = None,
+        speed: Optional[float] = None,
+        volume: float = 1.0,
+    ):
         """利用给定的音频素材构建一个轨道片段, 并指定其时间信息及播放速度/音量
 
         Args:
@@ -122,7 +142,9 @@ class AudioSegment(MediaSegment):
             `ValueError`: 指定的或计算出的`source_timerange`超出了素材的时长范围
         """
         if source_timerange is not None and speed is not None:
-            target_timerange = Timerange(target_timerange.start, round(source_timerange.duration / speed))
+            target_timerange = Timerange(
+                target_timerange.start, round(source_timerange.duration / speed)
+            )
         elif source_timerange is not None and speed is None:
             speed = source_timerange.duration / target_timerange.duration
         else:  # source_timerange is None
@@ -132,15 +154,27 @@ class AudioSegment(MediaSegment):
         # if source_timerange.end > material.duration:
         #     raise ValueError(f"截取的素材时间范围 {source_timerange} 超出了素材时长({material.duration})")
 
-        super().__init__(material.material_id, source_timerange, target_timerange, speed, volume)
+        super().__init__(
+            material.material_id, source_timerange, target_timerange, speed, volume
+        )
 
         self.material_instance = deepcopy(material)
         self.fade = None
         self.effects = []
 
-    def add_effect(self, effect_type: Union[AudioSceneEffectType, ToneEffectType, SpeechToSongType, CapCutVoiceFiltersEffectType, CapCutVoiceCharactersEffectType, CapCutSpeechToSongEffectType],
-                   params: Optional[List[Optional[float]]] = None,
-                   effect_id: Optional[str] = None) -> "AudioSegment":
+    def add_effect(
+        self,
+        effect_type: Union[
+            AudioSceneEffectType,
+            ToneEffectType,
+            SpeechToSongType,
+            CapCutVoiceFiltersEffectType,
+            CapCutVoiceCharactersEffectType,
+            CapCutSpeechToSongEffectType,
+        ],
+        params: Optional[List[Optional[float]]] = None,
+        effect_id: Optional[str] = None,
+    ) -> "AudioSegment":
         """为音频片段添加一个作用于整个片段的音频效果, 目前"声音成曲"效果不能自动被剪映所识别
 
         Args:
@@ -159,13 +193,17 @@ class AudioSegment(MediaSegment):
         if effect_id is not None:
             effect_inst.effect_id = effect_id
         if effect_inst.category_id in [eff.category_id for eff in self.effects]:
-            raise ValueError("当前音频片段已经有此类型 (%s) 的音效了" % effect_inst.category_name)
+            raise ValueError(
+                "当前音频片段已经有此类型 (%s) 的音效了" % effect_inst.category_name
+            )
         self.effects.append(effect_inst)
         self.extra_material_refs.append(effect_inst.effect_id)
 
         return self
 
-    def add_fade(self, in_duration: Union[str, int], out_duration: Union[str, int]) -> "AudioSegment":
+    def add_fade(
+        self, in_duration: Union[str, int], out_duration: Union[str, int]
+    ) -> "AudioSegment":
         """为音频片段添加淡入淡出效果
 
         Args:
@@ -178,8 +216,10 @@ class AudioSegment(MediaSegment):
         if self.fade is not None:
             raise ValueError("当前片段已存在淡入淡出效果")
 
-        if isinstance(in_duration, str): in_duration = tim(in_duration)
-        if isinstance(out_duration, str): out_duration = tim(out_duration)
+        if isinstance(in_duration, str):
+            in_duration = tim(in_duration)
+        if isinstance(out_duration, str):
+            out_duration = tim(out_duration)
 
         self.fade = AudioFade(in_duration, out_duration)
         self.extra_material_refs.append(self.fade.fade_id)
@@ -205,8 +245,5 @@ class AudioSegment(MediaSegment):
 
     def export_json(self) -> Dict[str, Any]:
         json_dict = super().export_json()
-        json_dict.update({
-            "clip": None,
-            "hdr_settings": None
-        })
+        json_dict.update({"clip": None, "hdr_settings": None})
         return json_dict

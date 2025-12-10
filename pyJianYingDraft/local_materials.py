@@ -15,10 +15,18 @@ class CropSettings:
     lower_right_x: float
     lower_right_y: float
 
-    def __init__(self, *, upper_left_x: float = 0.0, upper_left_y: float = 0.0,
-                 upper_right_x: float = 1.0, upper_right_y: float = 0.0,
-                 lower_left_x: float = 0.0, lower_left_y: float = 1.0,
-                 lower_right_x: float = 1.0, lower_right_y: float = 1.0):
+    def __init__(
+        self,
+        *,
+        upper_left_x: float = 0.0,
+        upper_left_y: float = 0.0,
+        upper_right_x: float = 1.0,
+        upper_right_y: float = 0.0,
+        lower_left_x: float = 0.0,
+        lower_left_y: float = 1.0,
+        lower_right_x: float = 1.0,
+        lower_right_y: float = 1.0,
+    ):
         """初始化裁剪设置, 默认参数表示不裁剪"""
         self.upper_left_x = upper_left_x
         self.upper_left_y = upper_left_y
@@ -38,8 +46,9 @@ class CropSettings:
             "lower_left_x": self.lower_left_x,
             "lower_left_y": self.lower_left_y,
             "lower_right_x": self.lower_right_x,
-            "lower_right_y": self.lower_right_y
+            "lower_right_y": self.lower_right_y,
         }
+
 
 class VideoMaterial:
     """本地视频素材（视频或图片）, 一份素材可以在多个片段中使用"""
@@ -67,15 +76,18 @@ class VideoMaterial:
     replace_path: Optional[str] = None
     """替换路径, 如果设置了这个值, 在导出json时会用这个路径替代原始path"""
 
-    def __init__(self, material_type: Literal["video", "photo"],
-                 duration: int,
-                 width: int,
-                 height: int,
-                 path: Optional[str] = None,
-                 replace_path: Optional[str] = None,
-                 material_name: Optional[str] = None,
-                 crop_settings: CropSettings = CropSettings(),
-                 remote_url: Optional[str] = None):
+    def __init__(
+        self,
+        material_type: Literal["video", "photo"],
+        duration: int,
+        width: int,
+        height: int,
+        path: Optional[str] = None,
+        replace_path: Optional[str] = None,
+        material_name: Optional[str] = None,
+        crop_settings: CropSettings = CropSettings(),
+        remote_url: Optional[str] = None,
+    ):
         """从指定位置加载视频（或图片）素材
 
         Args:
@@ -156,7 +168,7 @@ class VideoMaterial:
             lower_left_x=crop_data.get("lower_left_x", 0.0),
             lower_left_y=crop_data.get("lower_left_y", 1.0),
             lower_right_x=crop_data.get("lower_right_x", 1.0),
-            lower_right_y=crop_data.get("lower_right_y", 1.0)
+            lower_right_y=crop_data.get("lower_right_y", 1.0),
         )
 
         return instance
@@ -180,9 +192,10 @@ class VideoMaterial:
             "path": self.replace_path if self.replace_path is not None else self.path,
             "remote_url": self.remote_url,
             "type": self.material_type,
-            "width": self.width
+            "width": self.width,
         }
         return video_material_json
+
 
 class AudioMaterial:
     """本地音频素材"""
@@ -204,8 +217,14 @@ class AudioMaterial:
     duration: int
     """素材时长, 单位为微秒"""
 
-    def __init__(self, duration: int, path: Optional[str] = None, replace_path = None, material_name: Optional[str] = None,
-                 remote_url: Optional[str] = None):
+    def __init__(
+        self,
+        duration: int,
+        path: Optional[str] = None,
+        replace_path=None,
+        material_name: Optional[str] = None,
+        remote_url: Optional[str] = None,
+    ):
         """从指定位置加载音频素材, 注意视频文件不应该作为音频素材使用
 
         Args:
@@ -227,11 +246,21 @@ class AudioMaterial:
 
         # 从URL中获取文件名作为material_name
         if not material_name and remote_url:
-            original_filename = os.path.basename(remote_url.split("?")[0])  # 修复：使用remote_url而不是audio_url
-            name_without_ext = os.path.splitext(original_filename)[0]  # 获取不带扩展名的文件名
-            material_name = f"{name_without_ext}.mp3"  # 使用原始文件名+时间戳+固定mp3扩展名
+            original_filename = os.path.basename(
+                remote_url.split("?")[0]
+            )  # 修复：使用remote_url而不是audio_url
+            name_without_ext = os.path.splitext(original_filename)[
+                0
+            ]  # 获取不带扩展名的文件名
+            material_name = (
+                f"{name_without_ext}.mp3"  # 使用原始文件名+时间戳+固定mp3扩展名
+            )
 
-        self.material_name = material_name if material_name else (os.path.basename(path) if path else "unknown")
+        self.material_name = (
+            material_name
+            if material_name
+            else (os.path.basename(path) if path else "unknown")
+        )
         self.material_id = uuid.uuid4().hex
         self.path = path if path else ""
         self.replace_path = replace_path
@@ -266,7 +295,9 @@ class AudioMaterial:
             "app_id": 0,
             "category_id": "",
             "category_name": "local",
-            "check_flag": 3 if hasattr(self, "has_audio_effect") and self.has_audio_effect else 1,
+            "check_flag": 3
+            if hasattr(self, "has_audio_effect") and self.has_audio_effect
+            else 1,
             "copyright_limit_type": "none",
             "duration": self.duration,
             "effect_id": "",
@@ -300,5 +331,5 @@ class AudioMaterial:
             "tone_type": "",
             "type": "extract_music",
             "video_id": "",
-            "wave_points": []
+            "wave_points": [],
         }

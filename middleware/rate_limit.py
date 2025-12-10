@@ -171,7 +171,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         except HTTPException as e:
             # Return 429 response directly to avoid FastAPI exception handling causing 500 errors
             if e.status_code == 429:
-                logger.warning(f"Rate limit exceeded: {identifier} on {request.url.path}")
+                logger.warning(
+                    f"Rate limit exceeded: {identifier} on {request.url.path}"
+                )
                 return JSONResponse(
                     status_code=starlette_status.HTTP_429_TOO_MANY_REQUESTS,
                     content=e.detail,
@@ -189,7 +191,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             rate_limit_info = limiter.get_rate_limit_info(identifier)
             response.headers["X-RateLimit-Limit"] = str(rate_limit_info["limit"])
-            response.headers["X-RateLimit-Remaining"] = str(rate_limit_info["remaining"])
+            response.headers["X-RateLimit-Remaining"] = str(
+                rate_limit_info["remaining"]
+            )
         except Exception as e:
             logger.error(f"Failed to add rate limit headers: {e}", exc_info=True)
 

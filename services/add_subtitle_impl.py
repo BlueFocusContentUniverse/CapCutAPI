@@ -23,21 +23,17 @@ def add_subtitle_impl(
     italic: bool = False,
     underline: bool = False,
     font_color: str = "#FFFFFF",
-
     # Border parameters
     border_alpha: float = 1.0,
     border_color: str = "#000000",
     border_width: float = 0.0,  # Default no border display
-
     # Background parameters
     background_color: str = "#000000",
     background_style: int = 1,
     background_alpha: float = 0.0,  # Default no background display
-
     # Bubble effect
     bubble_effect_id: Optional[str] = None,
     bubble_resource_id: Optional[str] = None,
-
     # Text effect
     effect_effect_id: Optional[str] = None,
     # Image adjustment parameters
@@ -99,18 +95,14 @@ def add_subtitle_impl(
     text_border = None
     if border_width > 0:
         text_border = draft.Text_border(
-            alpha=border_alpha,
-            color=hex_to_rgb(border_color),
-            width=border_width
+            alpha=border_alpha, color=hex_to_rgb(border_color), width=border_width
         )
 
     # Create text_background
     text_background = None
     if background_alpha > 0:
         text_background = draft.Text_background(
-            color=background_color,
-            style=background_style,
-            alpha=background_alpha
+            color=background_color, style=background_style, alpha=background_alpha
         )
 
     # Create text_style
@@ -122,23 +114,21 @@ def add_subtitle_impl(
         color=rgb_color,
         align=align,  # Keep center alignment
         vertical=vertical,  # Use the passed vertical parameter
-        alpha=alpha  # Use the passed alpha parameter
+        alpha=alpha,  # Use the passed alpha parameter
     )
 
     # Create bubble effect
     text_bubble = None
     if bubble_effect_id and bubble_resource_id:
         text_bubble = TextBubble(
-            effect_id=bubble_effect_id,
-            resource_id=bubble_resource_id
+            effect_id=bubble_effect_id, resource_id=bubble_resource_id
         )
 
     # Create text effect
     text_effect = None
     if effect_effect_id:
         text_effect = TextEffect(
-            effect_id=effect_effect_id,
-            resource_id=effect_effect_id
+            effect_id=effect_effect_id, resource_id=effect_effect_id
         )
 
     # Create clip_settings
@@ -147,7 +137,7 @@ def add_subtitle_impl(
         transform_y=transform_y,
         scale_x=scale_x,
         scale_y=scale_y,
-        rotation=rotation
+        rotation=rotation,
     )
 
     script.import_srt(
@@ -161,7 +151,7 @@ def add_subtitle_impl(
         border=text_border,
         background=text_background,
         bubble=text_bubble,
-        effect=text_effect
+        effect=text_effect,
     )
 
     # Persist updated script

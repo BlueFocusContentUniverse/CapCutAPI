@@ -6,6 +6,7 @@ from typing import List
 
 from .script_file import ScriptFile
 
+
 class DraftFolder:
     """管理一个文件夹及其内的一系列草稿"""
 
@@ -31,7 +32,11 @@ class DraftFolder:
 
         注意: 本函数只是如实地列出子文件夹的名称, 并不检查它们是否符合草稿的格式
         """
-        return [f for f in os.listdir(self.folder_path) if os.path.isdir(os.path.join(self.folder_path, f))]
+        return [
+            f
+            for f in os.listdir(self.folder_path)
+            if os.path.isdir(os.path.join(self.folder_path, f))
+        ]
 
     def has_draft(self, draft_name: str) -> bool:
         """检查文件夹中是否存在指定名称的草稿
@@ -58,8 +63,15 @@ class DraftFolder:
 
         shutil.rmtree(draft_path)
 
-    def create_draft(self, draft_name: str, width: int, height: int, fps: int = 30, *,
-                     maintrack_adsorb: bool = True) -> ScriptFile:
+    def create_draft(
+        self,
+        draft_name: str,
+        width: int,
+        height: int,
+        fps: int = 30,
+        *,
+        maintrack_adsorb: bool = True,
+    ) -> ScriptFile:
         """创建一个新草稿对象, 用于后续导出草稿压缩包
 
         Args:
@@ -73,7 +85,9 @@ class DraftFolder:
             `ScriptFile`: 草稿对象, 仅用于导出压缩包
         """
         # 创建草稿对象
-        return ScriptFile(width, height, fps, name=draft_name, maintrack_adsorb=maintrack_adsorb)
+        return ScriptFile(
+            width, height, fps, name=draft_name, maintrack_adsorb=maintrack_adsorb
+        )
 
     def inspect_material(self, draft_name: str) -> None:
         """输出指定名称草稿中的贴纸素材元数据
@@ -115,7 +129,9 @@ class DraftFolder:
             )
         return ScriptFile.load_template(draft_info_path)
 
-    def duplicate_as_template(self, template_name: str, new_draft_name: str, allow_replace: bool = False) -> ScriptFile:
+    def duplicate_as_template(
+        self, template_name: str, new_draft_name: str, allow_replace: bool = False
+    ) -> ScriptFile:
         """复制一份给定的草稿, 并在复制出的新草稿上进行编辑
 
         Args:

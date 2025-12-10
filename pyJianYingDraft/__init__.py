@@ -103,5 +103,5 @@ __all__ = [
     "VideoSceneEffectType",
     "VideoSegment",
     "tim",
-    "trange"
+    "trange",
 ]

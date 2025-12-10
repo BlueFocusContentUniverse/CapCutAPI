@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Literal, Optional, Tuple
 
 import boto3
+
 import pyJianYingDraft as draft
 from downloader import download_file
 from draft_cache import get_from_cache_with_version
@@ -33,12 +34,14 @@ ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL", "")
 # Lambda 客户端（延迟初始化）
 _lambda_client = None
 
+
 def get_lambda_client():
     """获取 Lambda 客户端（单例）"""
     global _lambda_client
     if _lambda_client is None and USE_LAMBDA_ARCHIVE:
         _lambda_client = boto3.client("lambda", region_name=LAMBDA_REGION)
     return _lambda_client
+
 
 # --- Get your Logger instance ---
 # The name here must match the logger name you configured in app.py
@@ -94,7 +97,10 @@ def _get_image_metadata(remote_url: str) -> Tuple[int, int]:
         logger.warning(f"Failed to get photo metadata for {remote_url}: {e}")
         return 0, 0
 
-def build_asset_path(draft_folder: str, draft_id: str, asset_type: str, material_name: str) -> str:
+
+def build_asset_path(
+    draft_folder: str, draft_id: str, asset_type: str, material_name: str
+) -> str:
     """
     Build asset file path
     :param draft_folder: Draft folder path
@@ -104,18 +110,33 @@ def build_asset_path(draft_folder: str, draft_id: str, asset_type: str, material
     :return: Built path
     """
     if is_windows_path(draft_folder):
-        if os.name == "nt": # 'nt' for Windows
-            draft_real_path = os.path.join(draft_folder, draft_id, "assets", asset_type, material_name)
+        if os.name == "nt":  # 'nt' for Windows
+            draft_real_path = os.path.join(
+                draft_folder, draft_id, "assets", asset_type, material_name
+            )
         else:
-            windows_drive, windows_path = re.match(r"([a-zA-Z]:)(.*)", draft_folder).groups()
+            windows_drive, windows_path = re.match(
+                r"([a-zA-Z]:)(.*)", draft_folder
+            ).groups()
             parts = [p for p in windows_path.split("\\") if p]
-            draft_real_path = os.path.join(windows_drive, *parts, draft_id, "assets", asset_type, material_name)
+            draft_real_path = os.path.join(
+                windows_drive, *parts, draft_id, "assets", asset_type, material_name
+            )
             draft_real_path = draft_real_path.replace("/", "\\")
     else:
-        draft_real_path = os.path.join(draft_folder, draft_id, "assets", asset_type, material_name)
+        draft_real_path = os.path.join(
+            draft_folder, draft_id, "assets", asset_type, material_name
+        )
     return draft_real_path
 
-def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id: str, draft_version: Optional[int] = None, archive_name: Optional[str] = None):
+
+def save_draft_background(
+    draft_id: str,
+    draft_folder: Optional[str],
+    archive_id: str,
+    draft_version: Optional[int] = None,
+    archive_name: Optional[str] = None,
+):
     """Background save draft to OSS
 
     Args:
@@ -132,6 +153,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         if draft_version is not None:
             # Retrieve specific version from PostgreSQL
             from repositories.draft_repository import get_postgres_storage
+
             pg_storage = get_postgres_storage()
             script = pg_storage.get_draft_version(draft_id, draft_version)
             if script is None:
@@ -142,25 +164,29 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                     downloaded_files=0,
                     total_files=0,
                     message=error_msg,
-                    draft_version=draft_version
+                    draft_version=draft_version,
                 )
                 logger.error(f"{error_msg}, archive {archive_id} failed.")
                 return
             # Use the specified version
             actual_version = draft_version
-            logger.info(f"Successfully retrieved draft {draft_id} version {draft_version} from storage.")
+            logger.info(
+                f"Successfully retrieved draft {draft_id} version {draft_version} from storage."
+            )
         else:
             # Get current version draft information from cache (memory first, then PostgreSQL)
             script, actual_version = get_from_cache_with_version(draft_id)
             if script is None:
-                error_msg = f"Draft {draft_id} does not exist in cache (memory or PostgreSQL)"
+                error_msg = (
+                    f"Draft {draft_id} does not exist in cache (memory or PostgreSQL)"
+                )
                 archive_storage.update_archive(
                     archive_id,
                     progress=0.0,
                     downloaded_files=0,
                     total_files=0,
                     message=error_msg,
-                    draft_version=actual_version
+                    draft_version=actual_version,
                 )
                 logger.error(f"{error_msg}, archive {archive_id} failed.")
                 return
@@ -170,21 +196,29 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                 progress=0.0,
                 downloaded_files=0,
                 total_files=0,
-                draft_version=actual_version
+                draft_version=actual_version,
             )
-            logger.info(f"Successfully retrieved draft {draft_id} version {actual_version} from cache.")
+            logger.info(
+                f"Successfully retrieved draft {draft_id} version {actual_version} from cache."
+            )
 
         # Determine the folder name to use: archive_name if provided, else draft_id
         if archive_name:
-            random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=2))
+            random_suffix = "".join(
+                random.choices(string.ascii_lowercase + string.digits, k=2)
+            )
             folder_name = f"{archive_name}_{random_suffix}"
         else:
             folder_name = draft_id
-        logger.info(f"Using folder name: {folder_name} (archive_name: {archive_name}, draft_id: {draft_id})")
+        logger.info(
+            f"Using folder name: {folder_name} (archive_name: {archive_name}, draft_id: {draft_id})"
+        )
 
         # Delete possibly existing folder
         if os.path.exists(folder_name):
-            logger.warning(f"Deleting existing draft folder (current working directory): {folder_name}")
+            logger.warning(
+                f"Deleting existing draft folder (current working directory): {folder_name}"
+            )
             shutil.rmtree(folder_name)
 
         logger.info(f"Starting to save draft: {draft_id}")
@@ -198,16 +232,24 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
 
         # Copy template directories to draft_archive if they don't exist
         # This is needed because Draft_folder expects templates in the same directory tree
-        template_src_dir = os.path.join(current_dir, "template" if IS_CAPCUT_ENV else "template_jianying")
-        template_dst_dir = os.path.join(draft_archive_dir, "template" if IS_CAPCUT_ENV else "template_jianying")
+        template_src_dir = os.path.join(
+            current_dir, "template" if IS_CAPCUT_ENV else "template_jianying"
+        )
+        template_dst_dir = os.path.join(
+            draft_archive_dir, "template" if IS_CAPCUT_ENV else "template_jianying"
+        )
         if not os.path.exists(template_dst_dir):
-            logger.info(f"Copying template directory to draft_archive: {template_src_dir} -> {template_dst_dir}")
+            logger.info(
+                f"Copying template directory to draft_archive: {template_src_dir} -> {template_dst_dir}"
+            )
             shutil.copytree(template_src_dir, template_dst_dir)
 
         # Delete possibly existing folder in draft_archive
         draft_path_in_archive = os.path.join(draft_archive_dir, folder_name)
         if os.path.exists(draft_path_in_archive):
-            logger.warning(f"Deleting existing draft folder in draft_archive: {draft_path_in_archive}")
+            logger.warning(
+                f"Deleting existing draft folder in draft_archive: {draft_path_in_archive}"
+            )
             shutil.rmtree(draft_path_in_archive)
 
         draft_folder_for_duplicate = draft.DraftFolder(draft_archive_dir)
@@ -230,18 +272,30 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                 material_name = audio.material_name
                 # Use helper function to build path
                 if draft_folder:
-                    audio.replace_path = build_asset_path(draft_folder, folder_name, "audio", material_name)
+                    audio.replace_path = build_asset_path(
+                        draft_folder, folder_name, "audio", material_name
+                    )
                 if not remote_url:
-                    logger.warning(f"Audio file {material_name} has no remote_url, skipping download.")
+                    logger.warning(
+                        f"Audio file {material_name} has no remote_url, skipping download."
+                    )
                     continue
 
                 # Add audio download task
-                download_tasks.append({
-                    "type": "audio",
-                    "func": download_file,
-                    "args": (remote_url, os.path.join(draft_archive_dir, f"{folder_name}/assets/audio/{material_name}")),
-                    "material": audio
-                })
+                download_tasks.append(
+                    {
+                        "type": "audio",
+                        "func": download_file,
+                        "args": (
+                            remote_url,
+                            os.path.join(
+                                draft_archive_dir,
+                                f"{folder_name}/assets/audio/{material_name}",
+                            ),
+                        ),
+                        "material": audio,
+                    }
+                )
 
         # Collect video and image download tasks
         videos = script.materials.videos
@@ -253,47 +307,73 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                 if video.material_type == "photo":
                     # Use helper function to build path
                     if draft_folder:
-                        video.replace_path = build_asset_path(draft_folder, folder_name, "image", material_name)
+                        video.replace_path = build_asset_path(
+                            draft_folder, folder_name, "image", material_name
+                        )
                     if not remote_url:
-                        logger.warning(f"Image file {material_name} has no remote_url, skipping download.")
+                        logger.warning(
+                            f"Image file {material_name} has no remote_url, skipping download."
+                        )
                         continue
 
                     # Add image download task
-                    download_tasks.append({
-                        "type": "image",
-                        "func": download_file,
-                        "args": (remote_url, os.path.join(draft_archive_dir, f"{folder_name}/assets/image/{material_name}")),
-                        "material": video
-                    })
+                    download_tasks.append(
+                        {
+                            "type": "image",
+                            "func": download_file,
+                            "args": (
+                                remote_url,
+                                os.path.join(
+                                    draft_archive_dir,
+                                    f"{folder_name}/assets/image/{material_name}",
+                                ),
+                            ),
+                            "material": video,
+                        }
+                    )
 
                 elif video.material_type == "video":
                     # Use helper function to build path
                     if draft_folder:
-                        video.replace_path = build_asset_path(draft_folder, folder_name, "video", material_name)
+                        video.replace_path = build_asset_path(
+                            draft_folder, folder_name, "video", material_name
+                        )
                     if not remote_url:
-                        logger.warning(f"Video file {material_name} has no remote_url, skipping download.")
+                        logger.warning(
+                            f"Video file {material_name} has no remote_url, skipping download."
+                        )
                         continue
 
                     # Add video download task
-                    download_tasks.append({
-                        "type": "video",
-                        "func": download_file,
-                        "args": (remote_url, os.path.join(draft_archive_dir, f"{folder_name}/assets/video/{material_name}")),
-                        "material": video
-                    })
+                    download_tasks.append(
+                        {
+                            "type": "video",
+                            "func": download_file,
+                            "args": (
+                                remote_url,
+                                os.path.join(
+                                    draft_archive_dir,
+                                    f"{folder_name}/assets/video/{material_name}",
+                                ),
+                            ),
+                            "material": video,
+                        }
+                    )
 
         archive_storage.update_archive(
-            archive_id,
-            progress=10.0,
-            total_files=len(download_tasks)
+            archive_id, progress=10.0, total_files=len(download_tasks)
         )
-        logger.info(f"Archive {archive_id} progress 10%: Collected {len(download_tasks)} download tasks in total.")
+        logger.info(
+            f"Archive {archive_id} progress 10%: Collected {len(download_tasks)} download tasks in total."
+        )
 
         # Execute all download tasks concurrently
         downloaded_paths = []
         completed_files = 0
         if download_tasks:
-            logger.info(f"Starting concurrent download of {len(download_tasks)} files...")
+            logger.info(
+                f"Starting concurrent download of {len(download_tasks)} files..."
+            )
 
             # Use thread pool for concurrent downloads, maximum concurrency of 16
             with ThreadPoolExecutor(max_workers=16) as executor:
@@ -318,22 +398,31 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
                         archive_storage.update_archive(
                             archive_id,
                             downloaded_files=completed_files,
-                            progress=float(download_progress)
+                            progress=float(download_progress),
                         )
 
-                        logger.info(f"Archive {archive_id}: Successfully downloaded {task['type']} file, progress {download_progress}.")
+                        logger.info(
+                            f"Archive {archive_id}: Successfully downloaded {task['type']} file, progress {download_progress}."
+                        )
                     except Exception as e:
-                        logger.error(f"Archive {archive_id}: Download {task['type']} file failed: {e!s}", exc_info=True)
+                        logger.error(
+                            f"Archive {archive_id}: Download {task['type']} file failed: {e!s}",
+                            exc_info=True,
+                        )
                         # Continue processing other files, don't interrupt the entire process
 
-            logger.info(f"Archive {archive_id}: Concurrent download completed, downloaded {len(downloaded_paths)} files in total.")
+            logger.info(
+                f"Archive {archive_id}: Concurrent download completed, downloaded {len(downloaded_paths)} files in total."
+            )
 
         # Update archive status - Start saving draft information
         archive_storage.update_archive(archive_id, progress=70.0)
         logger.info(f"Archive {archive_id} progress 70%: Saving draft information.")
 
         script.dump(os.path.join(draft_archive_dir, f"{folder_name}/draft_info.json"))
-        logger.info(f"Draft information has been saved to {os.path.join(draft_archive_dir, folder_name)}/draft_info.json.")
+        logger.info(
+            f"Draft information has been saved to {os.path.join(draft_archive_dir, folder_name)}/draft_info.json."
+        )
 
         draft_url = ""
 
@@ -344,7 +433,9 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         # Compress the entire draft directory
         draft_dir_path = os.path.join(draft_archive_dir, folder_name)
         zip_path = zip_draft(folder_name, draft_dir_path)
-        logger.info(f"Draft directory {draft_dir_path} has been compressed to {zip_path}.")
+        logger.info(
+            f"Draft directory {draft_dir_path} has been compressed to {zip_path}."
+        )
 
         # Update archive status - Start uploading to OSS
         archive_storage.update_archive(archive_id, progress=90.0)
@@ -357,7 +448,9 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             raise Exception("Cloud storage service is not available")
 
         # Generate object key with draft_id and version for better organization
-        object_key = f"draft_archives/{draft_id}/v{actual_version}/{os.path.basename(zip_path)}"
+        object_key = (
+            f"draft_archives/{draft_id}/v{actual_version}/{os.path.basename(zip_path)}"
+        )
         draft_url = cos_client.upload_file(zip_path, object_key=object_key)
 
         if not draft_url:
@@ -370,10 +463,14 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
         try:
             # Remove draft folder using draft_folder_for_duplicate.remove()
             draft_folder_for_duplicate.remove(folder_name)
-            logger.info(f"Cleaned up temporary draft folder: {os.path.join(draft_archive_dir, folder_name)}")
+            logger.info(
+                f"Cleaned up temporary draft folder: {os.path.join(draft_archive_dir, folder_name)}"
+            )
         except FileNotFoundError:
             # Folder might already be removed or doesn't exist
-            logger.warning(f"Draft folder {folder_name} not found for cleanup, may already be removed")
+            logger.warning(
+                f"Draft folder {folder_name} not found for cleanup, may already be removed"
+            )
         except Exception as e:
             logger.error(f"Failed to remove draft folder {folder_name}: {e}")
 
@@ -387,7 +484,7 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
             archive_id,
             progress=100.0,
             download_url=draft_url,
-            message="Draft creation completed successfully"
+            message="Draft creation completed successfully",
         )
         logger.info(f"Archive {archive_id} completed, draft URL: {draft_url}")
         return draft_url
@@ -395,12 +492,12 @@ def save_draft_background(draft_id: str, draft_folder: Optional[str], archive_id
     except Exception as e:
         # Update archive status - Failed
         error_msg = f"Failed to save draft: {e!s}"
-        archive_storage.update_archive(
-            archive_id,
-            message=error_msg
+        archive_storage.update_archive(archive_id, message=error_msg)
+        logger.error(
+            f"Saving draft {draft_id} archive {archive_id} failed: {e!s}", exc_info=True
         )
-        logger.error(f"Saving draft {draft_id} archive {archive_id} failed: {e!s}", exc_info=True)
         return ""
+
 
 def save_draft_impl(
     draft_id: str,
@@ -408,10 +505,12 @@ def save_draft_impl(
     draft_version: Optional[int] = None,
     user_id: Optional[str] = None,
     user_name: Optional[str] = None,
-    archive_name: Optional[str] = None
+    archive_name: Optional[str] = None,
 ) -> Dict[str, str]:
     """Start a background task to save the draft (via Lambda or local thread)"""
-    logger.info(f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}, archive_name={archive_name}")
+    logger.info(
+        f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}, archive_name={archive_name}"
+    )
     try:
         archive_storage = get_postgres_archive_storage()
 
@@ -420,12 +519,14 @@ def save_draft_impl(
 
         if existing_archive and existing_archive.get("download_url"):
             # Archive already exists and has a download URL, return it immediately
-            logger.info(f"Archive already exists for draft {draft_id} version {draft_version}, returning existing URL")
+            logger.info(
+                f"Archive already exists for draft {draft_id} version {draft_version}, returning existing URL"
+            )
             return {
                 "success": True,
                 "draft_url": existing_archive["download_url"],
                 "archive_id": existing_archive["archive_id"],
-                "message": "Draft archive already exists"
+                "message": "Draft archive already exists",
             }
 
         # 获取草稿数据
@@ -438,16 +539,15 @@ def save_draft_impl(
 
         if script is None:
             logger.error(f"Draft {draft_id} not found in cache or storage")
-            return {
-                "success": False,
-                "error": f"Draft {draft_id} not found"
-            }
+            return {"success": False, "error": f"Draft {draft_id} not found"}
 
         # Create or get archive_id
         if existing_archive:
             # Archive exists but no download_url yet (possibly failed or in progress)
             archive_id = existing_archive["archive_id"]
-            logger.info(f"Using existing archive {archive_id} for draft {draft_id} version {draft_version}")
+            logger.info(
+                f"Using existing archive {archive_id} for draft {draft_id} version {draft_version}"
+            )
         else:
             # Create new archive record
             archive_id = archive_storage.create_archive(
@@ -455,11 +555,13 @@ def save_draft_impl(
                 draft_version=actual_version,
                 user_id=user_id,
                 user_name=user_name,
-                archive_name=archive_name
+                archive_name=archive_name,
             )
             if not archive_id:
                 raise Exception("Failed to create draft archive record")
-            logger.info(f"Created new archive {archive_id} for draft {draft_id} version {actual_version} with archive_name={archive_name}")
+            logger.info(
+                f"Created new archive {archive_id} for draft {draft_id} version {actual_version} with archive_name={archive_name}"
+            )
 
         # 决定使用 Lambda 还是本地线程
         if USE_LAMBDA_ARCHIVE:
@@ -469,30 +571,31 @@ def save_draft_impl(
                 archive_id=archive_id,
                 draft_version=actual_version,
                 archive_name=archive_name,
-                script=script
+                script=script,
             )
         else:
             # 使用本地线程（原有逻辑）
             thread = threading.Thread(
                 target=save_draft_background,
                 args=(draft_id, draft_folder, archive_id, actual_version, archive_name),
-                daemon=True
+                daemon=True,
             )
             thread.start()
-            logger.info(f"Started background thread for archive {archive_id} (version: {actual_version}, archive_name: {archive_name})")
+            logger.info(
+                f"Started background thread for archive {archive_id} (version: {actual_version}, archive_name: {archive_name})"
+            )
 
             return {
                 "success": True,
                 "archive_id": archive_id,
-                "message": "Draft archiving started in background"
+                "message": "Draft archiving started in background",
             }
 
     except Exception as e:
-        logger.error(f"Failed to start save draft task {draft_id}: {e!s}", exc_info=True)
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        logger.error(
+            f"Failed to start save draft task {draft_id}: {e!s}", exc_info=True
+        )
+        return {"success": False, "error": str(e)}
 
 
 # Lambda invoke payload 上限 (256KB，预留 10KB 给其他字段)
@@ -505,10 +608,10 @@ def _invoke_lambda_archive(
     archive_id: str,
     draft_version: int,
     archive_name: Optional[str],
-    script
+    script,
 ) -> Dict[str, str]:
     """调用 Lambda 执行草稿打包
-    
+
     注意：Lambda invoke payload 上限为 256KB (Amazon SQS 限制)
     如果 draft_content 超过此限制，将回退到本地线程处理
     """
@@ -526,40 +629,46 @@ def _invoke_lambda_archive(
         "draft_version": draft_version,
         "draft_content": draft_content,
         "folder_name": folder_name,
-        "callback_url": ARCHIVE_CALLBACK_URL
+        "callback_url": ARCHIVE_CALLBACK_URL,
     }
-    
+
     # 序列化 payload 并检查大小
-    payload_bytes = json.dumps(payload).encode('utf-8')
+    payload_bytes = json.dumps(payload).encode("utf-8")
     payload_size = len(payload_bytes)
-    
+
     if payload_size > LAMBDA_PAYLOAD_LIMIT:
         # Payload 超过 Lambda 限制，使用本地线程
         logger.warning(
             f"Draft {draft_id} payload size ({payload_size / 1024:.1f}KB) exceeds Lambda limit "
             f"({LAMBDA_PAYLOAD_LIMIT / 1024:.0f}KB), using local thread"
         )
-        return _fallback_to_local_thread(draft_id, draft_folder, archive_id, draft_version, archive_name)
+        return _fallback_to_local_thread(
+            draft_id, draft_folder, archive_id, draft_version, archive_name
+        )
 
     try:
         lambda_client = get_lambda_client()
         if lambda_client is None:
-            raise Exception("Lambda client not available. Check USE_LAMBDA_ARCHIVE and AWS credentials.")
+            raise Exception(
+                "Lambda client not available. Check USE_LAMBDA_ARCHIVE and AWS credentials."
+            )
 
         # 异步调用 Lambda
         response = lambda_client.invoke(
             FunctionName=LAMBDA_FUNCTION_NAME,
             InvocationType="Event",  # 异步调用
-            Payload=payload_bytes
+            Payload=payload_bytes,
         )
 
         status_code = response.get("StatusCode", 0)
         if status_code == 202:  # 异步调用成功返回 202
-            logger.info(f"Successfully invoked Lambda for archive {archive_id}, draft {draft_id}")
+            logger.info(
+                f"Successfully invoked Lambda for archive {archive_id}, draft {draft_id}"
+            )
             return {
                 "success": True,
                 "archive_id": archive_id,
-                "message": "Draft archiving started via Lambda"
+                "message": "Draft archiving started via Lambda",
             }
         else:
             logger.error(f"Lambda invocation returned unexpected status: {status_code}")
@@ -567,7 +676,9 @@ def _invoke_lambda_archive(
 
     except Exception as e:
         logger.error(f"Failed to invoke Lambda for archive {archive_id}: {e!s}")
-        return _fallback_to_local_thread(draft_id, draft_folder, archive_id, draft_version, archive_name)
+        return _fallback_to_local_thread(
+            draft_id, draft_folder, archive_id, draft_version, archive_name
+        )
 
 
 def _fallback_to_local_thread(
@@ -575,20 +686,20 @@ def _fallback_to_local_thread(
     draft_folder: Optional[str],
     archive_id: str,
     draft_version: int,
-    archive_name: Optional[str]
+    archive_name: Optional[str],
 ) -> Dict[str, str]:
     """回退到本地线程处理草稿打包"""
     logger.warning(f"Falling back to local thread for archive {archive_id}")
     thread = threading.Thread(
         target=save_draft_background,
         args=(draft_id, draft_folder, archive_id, draft_version, archive_name),
-        daemon=True
+        daemon=True,
     )
     thread.start()
     return {
         "success": True,
         "archive_id": archive_id,
-        "message": "Draft archiving started in background (local thread)"
+        "message": "Draft archiving started in background (local thread)",
     }
 
 
@@ -609,19 +720,27 @@ def update_media_metadata(script, task_id=None):
             remote_url = audio.remote_url
             material_name = audio.material_name
             if not remote_url:
-                logger.warning(f"Warning: Audio file {material_name} has no remote_url, skipped.")
+                logger.warning(
+                    f"Warning: Audio file {material_name} has no remote_url, skipped."
+                )
                 continue
 
             try:
                 video_command = [
                     "ffprobe",
-                    "-v", "error",
-                    "-select_streams", "v:0",
-                    "-show_entries", "stream=codec_type",
-                    "-of", "json",
-                    remote_url
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=codec_type",
+                    "-of",
+                    "json",
+                    remote_url,
                 ]
-                video_result = subprocess.check_output(video_command, stderr=subprocess.STDOUT)
+                video_result = subprocess.check_output(
+                    video_command, stderr=subprocess.STDOUT
+                )
                 video_result_str = video_result.decode("utf-8")
                 # Find JSON start position (first '{')
                 video_json_start = video_result_str.find("{")
@@ -629,10 +748,15 @@ def update_media_metadata(script, task_id=None):
                     video_json_str = video_result_str[video_json_start:]
                     video_info = json.loads(video_json_str)
                     if "streams" in video_info and len(video_info["streams"]) > 0:
-                        logger.warning(f"Warning: Audio file {material_name} contains video tracks, skipped its metadata update.")
+                        logger.warning(
+                            f"Warning: Audio file {material_name} contains video tracks, skipped its metadata update."
+                        )
                         continue
             except Exception as e:
-                logger.error(f"Error occurred while checking if audio {material_name} contains video streams: {e!s}", exc_info=True)
+                logger.error(
+                    f"Error occurred while checking if audio {material_name} contains video streams: {e!s}",
+                    exc_info=True,
+                )
 
             # Get audio duration and set it
             try:
@@ -640,38 +764,63 @@ def update_media_metadata(script, task_id=None):
                 if duration_result["success"]:
                     # Convert seconds to microseconds
                     audio.duration = int(duration_result["output"] * 1000000)
-                    logger.info(f"Successfully obtained audio {material_name} duration: {duration_result['output']:.2f} seconds ({audio.duration} microseconds).")
+                    logger.info(
+                        f"Successfully obtained audio {material_name} duration: {duration_result['output']:.2f} seconds ({audio.duration} microseconds)."
+                    )
 
                     # Update timerange for all segments using this audio material
                     for track_name, track in script.tracks.items():
                         if track.track_type == draft.TrackType.audio:
                             for segment in track.segments:
-                                if isinstance(segment, draft.AudioSegment) and segment.material_id == audio.material_id:
+                                if (
+                                    isinstance(segment, draft.AudioSegment)
+                                    and segment.material_id == audio.material_id
+                                ):
                                     # Get current settings
                                     current_target = segment.target_timerange
                                     current_source = segment.source_timerange
                                     speed = segment.speed.speed
 
                                     # If the end time of source_timerange exceeds the new audio duration, adjust it
-                                    if current_source.end > audio.duration or current_source.end <= 0:
+                                    if (
+                                        current_source.end > audio.duration
+                                        or current_source.end <= 0
+                                    ):
                                         # Adjust source_timerange to fit the new audio duration
-                                        new_source_duration = audio.duration - current_source.start
+                                        new_source_duration = (
+                                            audio.duration - current_source.start
+                                        )
                                         if new_source_duration <= 0:
-                                            logger.warning(f"Warning: Audio segment {segment.segment_id} start time {current_source.start} exceeds audio duration {audio.duration}, will skip this segment.")
+                                            logger.warning(
+                                                f"Warning: Audio segment {segment.segment_id} start time {current_source.start} exceeds audio duration {audio.duration}, will skip this segment."
+                                            )
                                             continue
 
                                         # Update source_timerange
-                                        segment.source_timerange = draft.Timerange(current_source.start, new_source_duration)
+                                        segment.source_timerange = draft.Timerange(
+                                            current_source.start, new_source_duration
+                                        )
 
                                         # Update target_timerange based on new source_timerange and speed
-                                        new_target_duration = int(new_source_duration / speed)
-                                        segment.target_timerange = draft.Timerange(current_target.start, new_target_duration)
+                                        new_target_duration = int(
+                                            new_source_duration / speed
+                                        )
+                                        segment.target_timerange = draft.Timerange(
+                                            current_target.start, new_target_duration
+                                        )
 
-                                        logger.info(f"Adjusted audio segment {segment.segment_id} timerange to fit the new audio duration.")
+                                        logger.info(
+                                            f"Adjusted audio segment {segment.segment_id} timerange to fit the new audio duration."
+                                        )
                 else:
-                    logger.warning(f"Warning: Unable to get audio {material_name} duration: {duration_result['error']}.")
+                    logger.warning(
+                        f"Warning: Unable to get audio {material_name} duration: {duration_result['error']}."
+                    )
             except Exception as e:
-                logger.error(f"Error occurred while getting audio {material_name} duration: {e!s}", exc_info=True)
+                logger.error(
+                    f"Error occurred while getting audio {material_name} duration: {e!s}",
+                    exc_info=True,
+                )
 
     # Process video and image file metadata
     videos = script.materials.videos
@@ -682,7 +831,9 @@ def update_media_metadata(script, task_id=None):
             remote_url = video.remote_url
             material_name = video.material_name
             if not remote_url:
-                logger.warning(f"Warning: Media file {material_name} has no remote_url, skipped.")
+                logger.warning(
+                    f"Warning: Media file {material_name} has no remote_url, skipped."
+                )
                 continue
 
             if video.material_type == "photo":
@@ -690,7 +841,9 @@ def update_media_metadata(script, task_id=None):
                     width, height = _get_image_metadata(remote_url)
                     video.width = width or 1920
                     video.height = height or 1080
-                    logger.info(f"Successfully set image {material_name} dimensions: {video.width}x{video.height}.")
+                    logger.info(
+                        f"Successfully set image {material_name} dimensions: {video.width}x{video.height}."
+                    )
                 except Exception as e:
                     logger.error(
                         f"Failed to set image {material_name} dimensions using ffprobe: {e!s}, using default values 1920x1080.",
@@ -705,12 +858,17 @@ def update_media_metadata(script, task_id=None):
                     # Use ffprobe to get video information
                     command = [
                         "ffprobe",
-                        "-v", "error",
-                        "-select_streams", "v:0",  # Select the first video stream
-                        "-show_entries", "stream=width,height,duration",
-                        "-show_entries", "format=duration",
-                        "-of", "json",
-                        remote_url
+                        "-v",
+                        "error",
+                        "-select_streams",
+                        "v:0",  # Select the first video stream
+                        "-show_entries",
+                        "stream=width,height,duration",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "json",
+                        remote_url,
                     ]
                     result = subprocess.check_output(command, stderr=subprocess.STDOUT)
                     result_str = result.decode("utf-8")
@@ -725,28 +883,45 @@ def update_media_metadata(script, task_id=None):
                             # Set width and height
                             video.width = int(stream.get("width", 0))
                             video.height = int(stream.get("height", 0))
-                            logger.info(f"Successfully set video {material_name} dimensions: {video.width}x{video.height}.")
+                            logger.info(
+                                f"Successfully set video {material_name} dimensions: {video.width}x{video.height}."
+                            )
 
                             # Set duration
                             # Prefer stream duration, if not available use format duration
-                            duration = stream.get("duration") or info["format"].get("duration", "0")
-                            video.duration = int(float(duration) * 1000000)  # Convert to microseconds
-                            logger.info(f"Successfully obtained video {material_name} duration: {float(duration):.2f} seconds ({video.duration} microseconds).")
+                            duration = stream.get("duration") or info["format"].get(
+                                "duration", "0"
+                            )
+                            video.duration = int(
+                                float(duration) * 1000000
+                            )  # Convert to microseconds
+                            logger.info(
+                                f"Successfully obtained video {material_name} duration: {float(duration):.2f} seconds ({video.duration} microseconds)."
+                            )
 
                             # Update timerange for all segments using this video material
                             for track_name, track in script.tracks.items():
                                 if track.track_type == draft.TrackType.video:
                                     for segment in track.segments:
-                                        if isinstance(segment, draft.VideoSegment) and segment.material_id == video.material_id:
+                                        if (
+                                            isinstance(segment, draft.VideoSegment)
+                                            and segment.material_id == video.material_id
+                                        ):
                                             # Get current settings
                                             current_target = segment.target_timerange
                                             current_source = segment.source_timerange
                                             speed = segment.speed.speed
 
                                             # If the end time of source_timerange exceeds the new video duration, adjust it
-                                            if current_source.end > video.duration or current_source.end <= 0:
+                                            if (
+                                                current_source.end > video.duration
+                                                or current_source.end <= 0
+                                            ):
                                                 # Adjust source_timerange to fit the new video duration
-                                                new_source_duration = video.duration - current_source.start
+                                                new_source_duration = (
+                                                    video.duration
+                                                    - current_source.start
+                                                )
 
                                                 # ========== 新增：防止start超出视频时长导致黑屏 ==========
                                                 if new_source_duration <= 0:
@@ -764,25 +939,46 @@ def update_media_metadata(script, task_id=None):
                                                     continue
 
                                                 # Update source_timerange
-                                                segment.source_timerange = draft.Timerange(current_source.start, new_source_duration)
+                                                segment.source_timerange = (
+                                                    draft.Timerange(
+                                                        current_source.start,
+                                                        new_source_duration,
+                                                    )
+                                                )
 
                                                 # Update target_timerange based on new source_timerange and speed
-                                                new_target_duration = int(new_source_duration / speed)
-                                                segment.target_timerange = draft.Timerange(current_target.start, new_target_duration)
+                                                new_target_duration = int(
+                                                    new_source_duration / speed
+                                                )
+                                                segment.target_timerange = (
+                                                    draft.Timerange(
+                                                        current_target.start,
+                                                        new_target_duration,
+                                                    )
+                                                )
 
-                                                logger.info(f"Adjusted video segment {segment.segment_id} timerange to fit the new video duration.")
+                                                logger.info(
+                                                    f"Adjusted video segment {segment.segment_id} timerange to fit the new video duration."
+                                                )
                         else:
-                            logger.warning(f"Warning: Unable to get video {material_name} stream information.")
+                            logger.warning(
+                                f"Warning: Unable to get video {material_name} stream information."
+                            )
                             # Set default values
                             video.width = 1920
                             video.height = 1080
                     else:
-                        logger.warning("Warning: Could not find JSON data in ffprobe output.")
+                        logger.warning(
+                            "Warning: Could not find JSON data in ffprobe output."
+                        )
                         # Set default values
                         video.width = 1920
                         video.height = 1080
                 except Exception as e:
-                    logger.error(f"Error occurred while getting video {material_name} information: {e!s}, using default values 1920x1080.", exc_info=True)
+                    logger.error(
+                        f"Error occurred while getting video {material_name} information: {e!s}, using default values 1920x1080.",
+                        exc_info=True,
+                    )
                     # Set default values
                     video.width = 1920
                     video.height = 1080
@@ -793,11 +989,18 @@ def update_media_metadata(script, task_id=None):
                         if duration_result["success"]:
                             # Convert seconds to microseconds
                             video.duration = int(duration_result["output"] * 1000000)
-                            logger.info(f"Successfully obtained video {material_name} duration: {duration_result['output']:.2f} seconds ({video.duration} microseconds).")
+                            logger.info(
+                                f"Successfully obtained video {material_name} duration: {duration_result['output']:.2f} seconds ({video.duration} microseconds)."
+                            )
                         else:
-                            logger.warning(f"Warning: Unable to get video {material_name} duration: {duration_result['error']}.")
+                            logger.warning(
+                                f"Warning: Unable to get video {material_name} duration: {duration_result['error']}."
+                            )
                     except Exception as e2:
-                        logger.error(f"Error occurred while getting video {material_name} duration: {e2!s}.", exc_info=True)
+                        logger.error(
+                            f"Error occurred while getting video {material_name} duration: {e2!s}.",
+                            exc_info=True,
+                        )
 
     # After updating all segments' timerange, check if there are time range conflicts in each track, and delete the later segment in case of conflict
     logger.info("Checking track segment time range conflicts...")
@@ -820,7 +1023,9 @@ def update_media_metadata(script, task_id=None):
                 if track.segments[i].overlaps(track.segments[j]):
                     # Always keep the segment with the smaller index (added first)
                     later_index = max(i, j)
-                    logger.warning(f"Time range conflict between segments {track.segments[min(i, j)].segment_id} and {track.segments[later_index].segment_id} in track {track_name}, deleting the later segment")
+                    logger.warning(
+                        f"Time range conflict between segments {track.segments[min(i, j)].segment_id} and {track.segments[later_index].segment_id} in track {track_name}, deleting the later segment"
+                    )
                     to_remove.add(later_index)
 
         # Delete marked segments from back to front to avoid index change issues
@@ -839,9 +1044,12 @@ def update_media_metadata(script, task_id=None):
     logger.info("Processing pending keyframes...")
     for track_name, track in script.tracks.items():
         if hasattr(track, "pending_keyframes") and track.pending_keyframes:
-            logger.info(f"Processing {len(track.pending_keyframes)} pending keyframes in track {track_name}...")
+            logger.info(
+                f"Processing {len(track.pending_keyframes)} pending keyframes in track {track_name}..."
+            )
             track.process_pending_keyframes()
             logger.info(f"Pending keyframes in track {track_name} have been processed.")
+
 
 def query_script_impl(draft_id: str, force_update: bool = False):
     """
@@ -854,7 +1062,9 @@ def query_script_impl(draft_id: str, force_update: bool = False):
     # Get draft information from cache (memory first, then PostgreSQL)
     script, version = get_from_cache_with_version(draft_id)
     if script is None:
-        logger.warning(f"Draft {draft_id} does not exist in cache (memory or PostgreSQL).")
+        logger.warning(
+            f"Draft {draft_id} does not exist in cache (memory or PostgreSQL)."
+        )
         return None
 
     logger.info(f"Retrieved draft {draft_id} version {version} from cache.")

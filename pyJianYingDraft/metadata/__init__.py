@@ -79,5 +79,5 @@ __all__ = [
     "VideoSceneEffectType",
     "VideoCharacterEffectType",
     "CapCutVideoSceneEffectType",
-    "CapCutVideoCharacterEffectType"
+    "CapCutVideoCharacterEffectType",
 ]

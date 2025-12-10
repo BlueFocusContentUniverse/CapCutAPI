@@ -19,7 +19,9 @@ def hex_to_rgb(hex_color: str) -> tuple:
     """Convert hexadecimal color code to RGB tuple (range 0.0-1.0)"""
     hex_color = hex_color.lstrip("#")
     if len(hex_color) == 3:
-        hex_color = "".join([c*2 for c in hex_color])  # Handle shorthand form (e.g. #fff)
+        hex_color = "".join(
+            [c * 2 for c in hex_color]
+        )  # Handle shorthand form (e.g. #fff)
     try:
         r = int(hex_color[0:2], 16) / 255.0
         g = int(hex_color[2:4], 16) / 255.0
@@ -54,6 +56,7 @@ def zip_draft(draft_id, draft_dir):
     shutil.make_archive(os.path.join(zip_dir, draft_id), "zip", draft_dir)
     return zip_path
 
+
 def url_to_hash(url, length=16):
     """
     Convert URL to a fixed-length hash string (without extension)
@@ -77,6 +80,7 @@ def url_to_hash(url, length=16):
 
 def timing_decorator(func_name):
     """Decorator: Used to monitor function execution time"""
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -86,20 +90,30 @@ def timing_decorator(func_name):
                 result = func(*args, **kwargs)
                 end_time = time.time()
                 duration = end_time - start_time
-                print(f"[{func_name}] Execution completed, time taken: {duration:.3f} seconds")
+                print(
+                    f"[{func_name}] Execution completed, time taken: {duration:.3f} seconds"
+                )
                 return result
             except Exception as e:
                 end_time = time.time()
                 duration = end_time - start_time
-                print(f"[{func_name}] Execution failed, time taken: {duration:.3f} seconds, error: {e}")
+                print(
+                    f"[{func_name}] Execution failed, time taken: {duration:.3f} seconds, error: {e}"
+                )
                 raise
+
         return wrapper
+
     return decorator
+
 
 def generate_draft_url(draft_id):
     return f"{DRAFT_DOMAIN}{PREVIEW_ROUTER}?draft_id={draft_id}&is_capcut={1 if IS_CAPCUT_ENV else 0}"
 
-async def get_ffprobe_info(media_path: str, select_streams: str = "v:0", show_entries: list = None) -> dict:
+
+async def get_ffprobe_info(
+    media_path: str, select_streams: str = "v:0", show_entries: list = None
+) -> dict:
     """
     Run ffprobe to get media information asynchronously.
 
@@ -112,14 +126,12 @@ async def get_ffprobe_info(media_path: str, select_streams: str = "v:0", show_en
         Parsed JSON output from ffprobe
     """
     if show_entries is None:
-        show_entries = ["stream=width,height,duration,codec_type", "format=duration,format_name"]
+        show_entries = [
+            "stream=width,height,duration,codec_type",
+            "format=duration,format_name",
+        ]
 
-    args = [
-        "-v", "error",
-        "-select_streams", select_streams,
-        "-of", "json",
-        media_path
-    ]
+    args = ["-v", "error", "-select_streams", select_streams, "-of", "json", media_path]
 
     for entry in show_entries:
         args.extend(["-show_entries", entry])
@@ -129,7 +141,7 @@ async def get_ffprobe_info(media_path: str, select_streams: str = "v:0", show_en
             "ffprobe",
             *args,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await process.communicate()
 
@@ -158,25 +170,40 @@ def get_extension_from_format(format_name: str, default: str) -> str:
     format_name = format_name.lower()
 
     # Common video formats
-    if "mp4" in format_name: return ".mp4"
-    if "mov" in format_name: return ".mov"
-    if "avi" in format_name: return ".avi"
-    if "webm" in format_name: return ".webm"
-    if "mkv" in format_name or "matroska" in format_name: return ".mkv"
+    if "mp4" in format_name:
+        return ".mp4"
+    if "mov" in format_name:
+        return ".mov"
+    if "avi" in format_name:
+        return ".avi"
+    if "webm" in format_name:
+        return ".webm"
+    if "mkv" in format_name or "matroska" in format_name:
+        return ".mkv"
 
     # Common audio formats
-    if "mp3" in format_name: return ".mp3"
-    if "wav" in format_name: return ".wav"
-    if "aac" in format_name: return ".aac"
-    if "m4a" in format_name: return ".m4a"
-    if "flac" in format_name: return ".flac"
-    if "ogg" in format_name: return ".ogg"
+    if "mp3" in format_name:
+        return ".mp3"
+    if "wav" in format_name:
+        return ".wav"
+    if "aac" in format_name:
+        return ".aac"
+    if "m4a" in format_name:
+        return ".m4a"
+    if "flac" in format_name:
+        return ".flac"
+    if "ogg" in format_name:
+        return ".ogg"
 
     # Common image formats
-    if "png" in format_name: return ".png"
-    if "jpeg" in format_name or "jpg" in format_name: return ".jpg"
-    if "gif" in format_name: return ".gif"
-    if "webp" in format_name: return ".webp"
+    if "png" in format_name:
+        return ".png"
+    if "jpeg" in format_name or "jpg" in format_name:
+        return ".jpg"
+    if "gif" in format_name:
+        return ".gif"
+    if "webp" in format_name:
+        return ".webp"
 
     # Fallback: use the first format name as extension if it looks like one
     first = format_name.split(",")[0].strip()
@@ -184,4 +211,3 @@ def get_extension_from_format(format_name: str, default: str) -> str:
         return f".{first}"
 
     return default
-

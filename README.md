@@ -41,4 +41,23 @@ Enjoy It!  😀😀😀
   - Jianying or CapCut International version
   - FFmpeg
 
+  ## Development Workflow
+
+  ### Pre-commit (Ruff formatting + lint)
+
+  1. Install dev dependencies (inside your virtual environment):
+    ```bash
+    pip install -e .[dev]
+    ```
+  2. Install the git hook once:
+    ```bash
+    pre-commit install
+    ```
+  3. Commit as usual. `pre-commit` will automatically run:
+    - `ruff --fix` (linting with auto-fixes)
+    - `ruff format` (code formatting)
+
+  Need to run the checks manually? Use `pre-commit run --all-files`.
+
+
 

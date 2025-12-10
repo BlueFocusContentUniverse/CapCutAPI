@@ -5,6 +5,7 @@ Revises: 0009
 Create Date: 2025-01-01 00:00:00.000000
 
 """
+
 import logging
 
 import sqlalchemy as sa
@@ -34,4 +35,3 @@ def downgrade() -> None:
     op.add_column("video_tasks", sa.Column("draft_url", sa.Text(), nullable=True))
     logger.info("Migration 0010 downgrade completed")
     # ### end Alembic commands ###
-

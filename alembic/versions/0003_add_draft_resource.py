@@ -5,6 +5,7 @@ Revises: 0002_add_draft_name
 Create Date: 2025-09-19 00:00:00
 
 """
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -27,5 +28,3 @@ def downgrade() -> None:
     op.drop_column("drafts", "resource")
     # Drop enum type
     sa.Enum(name="draft_resource").drop(op.get_bind(), checkfirst=True)
-
-

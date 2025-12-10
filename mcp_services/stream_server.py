@@ -16,7 +16,6 @@ from fastmcp import FastMCP
 
 # pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
-
 from mcp_services.mcp_tools import TOOLS, execute_tool
 from services.add_audio_track import add_audio_track, batch_add_audio_track
 from services.add_effect_impl import add_effect_impl
@@ -38,12 +37,22 @@ logger = logging.getLogger(__name__)
 if not logging.getLogger().hasHandlers():
     logging.basicConfig(level=logging.INFO)
 
+
 # Manual tool handlers with flattened parameters (required first)
-def tool_create_draft(width: int = 1080, height: int = 1920,framerate: float = 30.0, name: str = "mcp_draft", resource: str = "mcp") -> Dict[str, Any]:
-    _, draft_id = create_draft(width=width, height=height, framerate=framerate, name=name, resource=resource)
+def tool_create_draft(
+    width: int = 1080,
+    height: int = 1920,
+    framerate: float = 30.0,
+    name: str = "mcp_draft",
+    resource: str = "mcp",
+) -> Dict[str, Any]:
+    _, draft_id = create_draft(
+        width=width, height=height, framerate=framerate, name=name, resource=resource
+    )
     return {
         "draft_id": draft_id,
     }
+
 
 async def tool_batch_add_videos(
     videos: List[Dict[str, Any]],
@@ -128,8 +137,7 @@ async def tool_batch_add_videos(
     # If some videos were skipped, treat the result as an error response to signal attention is needed.
     if skipped:
         skipped_descriptions = [
-            entry.get("video_url") or f"index {entry.get('index')}"
-            for entry in skipped
+            entry.get("video_url") or f"index {entry.get('index')}" for entry in skipped
         ]
         error_obj = {
             "code": "skipped_items",
@@ -284,8 +292,7 @@ async def tool_batch_add_audios(
     # If some audios were skipped, treat the result as an error response to signal attention is needed.
     if skipped:
         skipped_descriptions = [
-            entry.get("audio_url") or f"index {entry.get('index')}"
-            for entry in skipped
+            entry.get("audio_url") or f"index {entry.get('index')}" for entry in skipped
         ]
         error_obj = {
             "code": "skipped_items",
@@ -336,6 +343,7 @@ async def tool_add_image(
         transition=transition,
         mask_type=mask_type,
     )
+
 
 def tool_add_text(
     text: str,
@@ -422,6 +430,7 @@ def tool_add_text(
         underline=underline,
     )
 
+
 def tool_add_subtitle(
     srt_path: str,
     draft_id: str,
@@ -461,6 +470,7 @@ def tool_add_subtitle(
     arguments = {k: v for k, v in arguments.items() if v is not None}
     return execute_tool("add_subtitle", arguments)
 
+
 def tool_add_effect(
     effect_type: str,
     draft_id: str,
@@ -479,6 +489,7 @@ def tool_add_effect(
         track_name=track_name,
         params=params,
     )
+
 
 def tool_add_sticker(
     resource_id: str,
@@ -553,6 +564,7 @@ def tool_generate_video(
 def tool_get_video_task_status(task_id: str) -> Dict[str, Any]:
     """Get the status of a video generation task."""
     from services.get_video_task_status_impl import get_video_task_status_impl
+
     return get_video_task_status_impl(task_id=task_id)
 
 
@@ -564,6 +576,7 @@ def tool_get_font_types() -> Dict[str, Any]:
 def tool_get_audio_effect_types() -> Dict[str, Any]:
     """Fetch available audio effect types."""
     return get_audio_effect_types_impl()
+
 
 def tool_get_tracks(draft_id: str) -> Dict[str, Any]:
     """Get all tracks from a draft."""
@@ -580,23 +593,27 @@ def tool_get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     return get_track_details(draft_id=draft_id, track_name=track_name)
 
 
-def tool_get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict[str, Any]:
+def tool_get_segment_details(
+    draft_id: str, track_name: str, segment_id: str
+) -> Dict[str, Any]:
     """Get detailed information about a specific segment."""
-    return get_segment_details(draft_id=draft_id, track_name=track_name, segment_id=segment_id)
+    return get_segment_details(
+        draft_id=draft_id, track_name=track_name, segment_id=segment_id
+    )
 
 
 def tool_delete_segment(
     draft_id: str,
     track_name: str,
     segment_index: Optional[int] = None,
-    segment_id: Optional[str] = None
+    segment_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Delete a segment from a track by index or ID."""
     return delete_segment(
         draft_id=draft_id,
         track_name=track_name,
         segment_index=segment_index,
-        segment_id=segment_id
+        segment_id=segment_id,
     )
 
 
@@ -654,7 +671,9 @@ def tool_modify_segment(
 
     # Validate that at least one parameter is provided
     if clip_settings is None and volume is None and speed is None:
-        raise ValueError("At least one of clip_settings parameters, volume, or speed must be provided")
+        raise ValueError(
+            "At least one of clip_settings parameters, volume, or speed must be provided"
+        )
 
     return modify_segment(
         draft_id=draft_id,
@@ -662,15 +681,13 @@ def tool_modify_segment(
         segment_id=segment_id,
         clip_settings=clip_settings,
         volume=volume,
-        speed=speed
+        speed=speed,
     )
 
 
 def _register_tools(app: FastMCP) -> None:
     """Register tools with explicit flat-parameter handlers."""
-    app.tool(
-        tool_create_draft, name="create_draft", description="创建新的CapCut草稿"
-    )
+    app.tool(tool_create_draft, name="create_draft", description="创建新的CapCut草稿")
     app.tool(
         tool_batch_add_videos,
         name="batch_add_videos",
@@ -715,11 +732,9 @@ def _register_tools(app: FastMCP) -> None:
     app.tool(
         tool_get_video_task_status,
         name="get_video_task_status",
-        description="查询视频渲染任务状态"
+        description="查询视频渲染任务状态",
     )
-    app.tool(
-        tool_get_font_types, name="get_font_types", description="获取字体类型列表"
-    )
+    app.tool(tool_get_font_types, name="get_font_types", description="获取字体类型列表")
     app.tool(
         tool_get_audio_effect_types,
         name="get_audio_effect_types",

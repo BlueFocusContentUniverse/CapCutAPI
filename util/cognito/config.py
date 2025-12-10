@@ -63,4 +63,3 @@ class CognitoConfig:
             return False
 
         return True
-

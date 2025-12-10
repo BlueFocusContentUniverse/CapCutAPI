@@ -41,7 +41,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             log_level: Logging level (default: INFO)
         """
         super().__init__(app)
-        self.exclude_paths = exclude_paths or ["/health", "/docs", "/openapi.json", "/redoc"]
+        self.exclude_paths = exclude_paths or [
+            "/health",
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+        ]
         self.log_level = log_level
 
     def _should_log(self, path: str) -> bool:
@@ -78,7 +83,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             query_str = f"?{query}" if query else ""
             logger.log(
                 self.log_level,
-                f"[{request_id}] --> {method} {path}{query_str} | Client: {client_host}"
+                f"[{request_id}] --> {method} {path}{query_str} | Client: {client_host}",
             )
 
         # Record start time
@@ -98,7 +103,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
                 logger.log(
                     log_level,
-                    f"[{request_id}] <-- {method} {path} | Status: {status_code} | Duration: {duration:.3f}s"
+                    f"[{request_id}] <-- {method} {path} | Status: {status_code} | Duration: {duration:.3f}s",
                 )
 
             # Add request ID to response headers for tracing

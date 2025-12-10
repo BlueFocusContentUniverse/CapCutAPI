@@ -9,6 +9,7 @@ from services.add_image_impl import add_image_impl
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["image"])
 
+
 class AddImageRequest(BaseModel):
     draft_folder: Optional[str] = None
     image_url: str
@@ -41,13 +42,10 @@ class AddImageRequest(BaseModel):
     mask_round_corner: Optional[float] = None
     background_blur: Optional[int] = None
 
+
 @router.post("/add_image")
 async def add_image(request: AddImageRequest, response: Response):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         draft_result = await add_image_impl(
@@ -80,7 +78,7 @@ async def add_image(request: AddImageRequest, response: Response):
             mask_invert=request.mask_invert,
             mask_rect_width=request.mask_rect_width,
             mask_round_corner=request.mask_round_corner,
-            background_blur=request.background_blur
+            background_blur=request.background_blur,
         )
 
         result["success"] = True
@@ -91,5 +89,3 @@ async def add_image(request: AddImageRequest, response: Response):
         result["error"] = f"Error occurred while processing image: {e!s}."
         response.status_code = 400
         return result
-
-

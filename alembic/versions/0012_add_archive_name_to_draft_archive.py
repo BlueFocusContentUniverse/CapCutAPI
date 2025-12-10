@@ -5,6 +5,7 @@ Revises: 0011
 Create Date: 2025-01-15 00:00:00.000000
 
 """
+
 import logging
 
 import sqlalchemy as sa
@@ -37,5 +38,3 @@ def downgrade() -> None:
     op.drop_column("draft_archives", "archive_name")
     logger.info("Migration 0012 downgrade completed")
     # ### end Alembic commands ###
-
-

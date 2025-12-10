@@ -17,10 +17,17 @@ class Effect_segment(BaseSegment):
     在放入轨道时自动添加到素材列表中
     """
 
-    def __init__(self, effect_type: Union[VideoSceneEffectType, VideoCharacterEffectType],
-                 target_timerange: Timerange, params: Optional[List[Optional[float]]] = None):
-        self.effect_inst = Video_effect(effect_type, params, apply_target_type=2)  # 作用域为全局
+    def __init__(
+        self,
+        effect_type: Union[VideoSceneEffectType, VideoCharacterEffectType],
+        target_timerange: Timerange,
+        params: Optional[List[Optional[float]]] = None,
+    ):
+        self.effect_inst = Video_effect(
+            effect_type, params, apply_target_type=2
+        )  # 作用域为全局
         super().__init__(self.effect_inst.global_id, target_timerange)
+
 
 class Filter_segment(BaseSegment):
     """放置在独立滤镜轨道上的滤镜片段"""

@@ -40,10 +40,13 @@ async def create_video(request: CreateVideoRequest):
     try:
         if not request.task_id or not request.oss_url:
             logger.warning("Missing required fields: task_id or oss_url")
-            return JSONResponse(status_code=400, content={
-                "success": False,
-                "error": "Missing required fields: task_id and oss_url are required"
-            })
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "Missing required fields: task_id and oss_url are required",
+                },
+            )
 
         # Get draft_id from VideoTask
         task_repo = get_video_task_repository()
@@ -51,10 +54,13 @@ async def create_video(request: CreateVideoRequest):
 
         if task is None:
             logger.warning(f"VideoTask {request.task_id} not found")
-            return JSONResponse(status_code=404, content={
-                "success": False,
-                "error": f"VideoTask {request.task_id} not found"
-            })
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": f"VideoTask {request.task_id} not found",
+                },
+            )
 
         draft_id = task["draft_id"]
 
@@ -76,27 +82,28 @@ async def create_video(request: CreateVideoRequest):
             # Link video_id to the task
             task_repo.link_video_to_task(request.task_id, video_id)
 
-            logger.info(f"Successfully created video {video_id} for task {request.task_id}, draft {draft_id}")
+            logger.info(
+                f"Successfully created video {video_id} for task {request.task_id}, draft {draft_id}"
+            )
             return {
                 "success": True,
                 "output": {
                     "video_id": video_id,
                     "draft_id": draft_id,
-                    "task_id": request.task_id
-                }
+                    "task_id": request.task_id,
+                },
             }
         else:
-            return JSONResponse(status_code=500, content={
-                "success": False,
-                "error": "Failed to create video record"
-            })
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to create video record"},
+            )
 
     except Exception as e:
         logger.error(f"Error creating video: {e}")
-        return JSONResponse(status_code=500, content={
-            "success": False,
-            "error": str(e)
-        })
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
 
 
 @router.get("/{video_id}")
@@ -110,22 +117,17 @@ async def get_video(video_id: str):
 
         if video is None:
             logger.warning(f"Video {video_id} not found")
-            return JSONResponse(status_code=404, content={
-                "success": False,
-                "error": "Video not found"
-            })
+            return JSONResponse(
+                status_code=404, content={"success": False, "error": "Video not found"}
+            )
 
-        return {
-            "success": True,
-            "output": video
-        }
+        return {"success": True, "output": video}
 
     except Exception as e:
         logger.error(f"Error retrieving video {video_id}: {e}")
-        return JSONResponse(status_code=500, content={
-            "success": False,
-            "error": str(e)
-        })
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
 
 
 @router.get("/by-draft/{draft_id}")
@@ -137,20 +139,13 @@ async def get_videos_by_draft(draft_id: str):
         repo = get_video_repository()
         videos = repo.get_videos_by_draft(draft_id)
 
-        return {
-            "success": True,
-            "output": {
-                "videos": videos,
-                "count": len(videos)
-            }
-        }
+        return {"success": True, "output": {"videos": videos, "count": len(videos)}}
 
     except Exception as e:
         logger.error(f"Error retrieving videos for draft {draft_id}: {e}")
-        return JSONResponse(status_code=500, content={
-            "success": False,
-            "error": str(e)
-        })
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
 
 
 class UpdateVideoRequest(BaseModel):
@@ -185,28 +180,24 @@ async def update_video(video_id: str, request: UpdateVideoRequest):
 
         if success:
             logger.info(f"Successfully updated video {video_id}")
-            return {
-                "success": True,
-                "output": {"video_id": video_id}
-            }
+            return {"success": True, "output": {"video_id": video_id}}
         else:
-            return JSONResponse(status_code=404, content={
-                "success": False,
-                "error": "Video not found or update failed"
-            })
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "Video not found or update failed"},
+            )
 
     except Exception as e:
         logger.error(f"Error updating video {video_id}: {e}")
-        return JSONResponse(status_code=500, content={
-            "success": False,
-            "error": str(e)
-        })
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
 
 
 @router.delete("/{video_id}")
 async def delete_video(
     video_id: str,
-    delete_oss: bool = Query(True, description="Whether to delete remote OSS object")
+    delete_oss: bool = Query(True, description="Whether to delete remote OSS object"),
 ):
     """
     Delete a video record and optionally its remote OSS object.
@@ -216,33 +207,34 @@ async def delete_video(
         success = repo.delete_video(video_id, delete_oss=delete_oss)
 
         if success:
-            logger.info(f"Successfully deleted video {video_id} (delete_oss={delete_oss})")
+            logger.info(
+                f"Successfully deleted video {video_id} (delete_oss={delete_oss})"
+            )
             return {
                 "success": True,
-                "output": {
-                    "video_id": video_id,
-                    "deleted_oss": delete_oss
-                }
+                "output": {"video_id": video_id, "deleted_oss": delete_oss},
             }
         else:
-            return JSONResponse(status_code=404, content={
-                "success": False,
-                "error": "Video not found or deletion failed"
-            })
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": "Video not found or deletion failed",
+                },
+            )
 
     except Exception as e:
         logger.error(f"Error deleting video {video_id}: {e}")
-        return JSONResponse(status_code=500, content={
-            "success": False,
-            "error": str(e)
-        })
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
 
 
 @router.get("")
 async def list_videos(
     page: int = Query(1, description="Page number (1-indexed)"),
     page_size: int = Query(100, description="Number of items per page"),
-    draft_id: Optional[str] = Query(None, description="Filter by draft_id")
+    draft_id: Optional[str] = Query(None, description="Filter by draft_id"),
 ):
     """
     List videos with pagination.
@@ -253,16 +245,11 @@ async def list_videos(
 
         return {
             "success": True,
-            "output": {
-                "videos": result["videos"],
-                "pagination": result["pagination"]
-            }
+            "output": {"videos": result["videos"], "pagination": result["pagination"]},
         }
 
     except Exception as e:
         logger.error(f"Error listing videos: {e}")
-        return JSONResponse(status_code=500, content={
-            "success": False,
-            "error": str(e)
-        })
-
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )

@@ -96,7 +96,9 @@ def _prepare_video_segment_payload(
             raise ValueError(
                 f"❌ 参数错误：mode='fill' 时必须提供有效的 target_duration 参数（当前值：{target_duration}）"
             )
-        print(f"✅ 使用 fill 模式：将根据 target_duration={target_duration}秒 自动计算播放速度")
+        print(
+            f"✅ 使用 fill 模式：将根据 target_duration={target_duration}秒 自动计算播放速度"
+        )
     else:
         print(f"✅ 使用 cover 模式：使用提供的 speed={speed} 参数")
 
@@ -125,14 +127,18 @@ def _prepare_video_segment_payload(
     draft_video_path = None
     if draft_folder:
         if is_windows_path(draft_folder):
-            windows_drive, windows_path = re.match(r"([a-zA-Z]:)(.*)", draft_folder).groups()
+            windows_drive, windows_path = re.match(
+                r"([a-zA-Z]:)(.*)", draft_folder
+            ).groups()
             parts = [p for p in windows_path.split("\\") if p]
             draft_video_path = os.path.join(
                 windows_drive, *parts, draft_id, "assets", "video", material_name
             )
             draft_video_path = draft_video_path.replace("/", "\\")
         else:
-            draft_video_path = os.path.join(draft_folder, draft_id, "assets", "video", material_name)
+            draft_video_path = os.path.join(
+                draft_folder, draft_id, "assets", "video", material_name
+            )
         print("replace_path:", draft_video_path)
 
     # 3. 确定裁剪终点
@@ -210,7 +216,7 @@ def _prepare_video_segment_payload(
             material_name=material_name,
             duration=int(video_duration * 1e6),
             width=width,
-            height=height
+            height=height,
         )
     else:
         video_material = draft.VideoMaterial(
@@ -219,7 +225,7 @@ def _prepare_video_segment_payload(
             material_name=material_name,
             duration=int(video_duration * 1e6),
             width=width,
-            height=height
+            height=height,
         )
 
     source_timerange = trange(f"{start}s", f"{source_duration}s")
@@ -239,7 +245,7 @@ def _prepare_video_segment_payload(
         volume=volume,
     )
 
-     # Add entrance animation (prioritize intro_animation, then use animation)
+    # Add entrance animation (prioritize intro_animation, then use animation)
     if intro_animation:
         try:
             if IS_CAPCUT_ENV:
@@ -252,7 +258,7 @@ def _prepare_video_segment_payload(
                 f"Warning: Unsupported entrance animation type {intro_animation}, this parameter will be ignored"
             )
 
-     # Add exit animation
+    # Add exit animation
     if outro_animation:
         try:
             if IS_CAPCUT_ENV:
@@ -286,9 +292,13 @@ def _prepare_video_segment_payload(
             else:
                 transition_type = getattr(draft.TransitionType, transition)
             duration_microseconds = int((transition_duration or 0) * 1e6)
-            video_segment.add_transition(transition_type, duration=duration_microseconds)
+            video_segment.add_transition(
+                transition_type, duration=duration_microseconds
+            )
         except AttributeError:
-            raise ValueError(f"Unsupported transition type: {transition}, transition setting skipped")
+            raise ValueError(
+                f"Unsupported transition type: {transition}, transition setting skipped"
+            )
 
     # Add fade effect (convert seconds to microseconds)
     if fade_in_duration > 0 or fade_out_duration > 0:
@@ -394,7 +404,9 @@ def _apply_video_segment_to_script(
             3: 0.75,
             4: 1.0,
         }
-        payload.segment.add_background_filling("blur", blur=blur_values[payload.background_blur])
+        payload.segment.add_background_filling(
+            "blur", blur=blur_values[payload.background_blur]
+        )
         logger.debug(f"Added background blur: level {payload.background_blur}")
 
     script.add_segment(payload.segment, track_name=payload.track_name)
@@ -407,7 +419,9 @@ async def add_video_track(
     start: float = 0,
     end: Optional[float] = None,
     mode: str = "cover",  # Mode: "cover" (use speed parameter) or "fill" (calculate speed from target_duration)
-    target_duration: Optional[float] = None,  # Target duration for fill mode (required when mode="fill")
+    target_duration: Optional[
+        float
+    ] = None,  # Target duration for fill mode (required when mode="fill")
     target_start: float = 0,
     draft_id: Optional[str] = None,
     transform_y: float = 0,
@@ -418,7 +432,9 @@ async def add_video_track(
     track_name: str = "main",
     relative_index: int = 0,
     video_name: Optional[str] = None,
-    intro_animation: Optional[str] = None,  # New entrance animation parameter, higher priority than animation
+    intro_animation: Optional[
+        str
+    ] = None,  # New entrance animation parameter, higher priority than animation
     intro_animation_duration: float = 0.5,  # New entrance animation duration parameter, default 0.5 seconds
     outro_animation: Optional[str] = None,  # Exit animation parameter
     outro_animation_duration: float = 0.5,  # Exit animation duration parameter, default 0.5 seconds
@@ -439,10 +455,16 @@ async def add_video_track(
     mask_rotation: float = 0.0,  # Mask rotation angle (degrees)
     mask_feather: float = 0.0,  # Mask feather level (0-1)
     mask_invert: bool = False,  # Whether to invert mask
-    mask_rect_width: Optional[float] = None,  # Rectangle mask width (only for rectangle mask)
-    mask_round_corner: Optional[float] = None,  # Rectangle mask rounded corner (only for rectangle mask, 0-100)
+    mask_rect_width: Optional[
+        float
+    ] = None,  # Rectangle mask width (only for rectangle mask)
+    mask_round_corner: Optional[
+        float
+    ] = None,  # Rectangle mask rounded corner (only for rectangle mask, 0-100)
     volume: float = 1.0,  # Volume level, default 1.0
-    background_blur: Optional[int] = None  # Background blur level, optional values: 1 (light), 2 (medium), 3 (strong), 4 (maximum), default None (no background blur)
+    background_blur: Optional[
+        int
+    ] = None,  # Background blur level, optional values: 1 (light), 2 (medium), 3 (strong), 4 (maximum), default None (no background blur)
 ) -> Dict[str, str]:
     """
     Add video track to specified draft.
@@ -515,12 +537,12 @@ async def add_video_track(
     def modify_draft(script):
         _apply_video_segment_to_script(script, payload, draft_id)
 
-    success, last_error = update_draft_with_retry(draft_id, modify_draft, return_error=True)
+    success, last_error = update_draft_with_retry(
+        draft_id, modify_draft, return_error=True
+    )
 
     if not success:
-        error_msg = (
-            f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
-        )
+        error_msg = f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
         if last_error:
             error_msg = f"{error_msg}. Last error: {last_error}"
             logger.error(error_msg, exc_info=True)
@@ -575,7 +597,9 @@ async def batch_add_video_track(
         raise ValueError("videos parameter must contain at least one video entry")
 
     draft_id, _ = get_draft(draft_id=draft_id)
-    logger.info(f"Starting batch video track addition to draft {draft_id} (count={len(videos)})")
+    logger.info(
+        f"Starting batch video track addition to draft {draft_id} (count={len(videos)})"
+    )
 
     payloads: List[VideoSegmentPayload] = []
     skipped: List[Dict[str, Any]] = []
@@ -587,7 +611,9 @@ async def batch_add_video_track(
         if video_url:
             metadata_tasks.append(_get_video_metadata(video_url))
         else:
-            metadata_tasks.append(asyncio.sleep(0, result=(0.0, 0, 0, None))) # Dummy task
+            metadata_tasks.append(
+                asyncio.sleep(0, result=(0.0, 0, 0, None))
+            )  # Dummy task
 
     metadatas = await asyncio.gather(*metadata_tasks)
 
@@ -634,17 +660,25 @@ async def batch_add_video_track(
                 track_name=video.get("track_name", track_name),
                 relative_index=video.get("relative_index", relative_index),
                 intro_animation=video.get("intro_animation", intro_animation),
-                intro_animation_duration=video.get("intro_animation_duration", intro_animation_duration),
+                intro_animation_duration=video.get(
+                    "intro_animation_duration", intro_animation_duration
+                ),
                 outro_animation=video.get("outro_animation", outro_animation),
-                outro_animation_duration=video.get("outro_animation_duration", outro_animation_duration),
+                outro_animation_duration=video.get(
+                    "outro_animation_duration", outro_animation_duration
+                ),
                 combo_animation=video.get("combo_animation", combo_animation),
-                combo_animation_duration=video.get("combo_animation_duration", combo_animation_duration),
+                combo_animation_duration=video.get(
+                    "combo_animation_duration", combo_animation_duration
+                ),
                 video_name=video_name,
                 duration=duration,
                 width=width,
                 height=height,
                 transition=video.get("transition", transition),
-                transition_duration=video.get("transition_duration", transition_duration),
+                transition_duration=video.get(
+                    "transition_duration", transition_duration
+                ),
                 filter_type=video.get("filter_type", filter_type),
                 filter_intensity=video.get("filter_intensity", filter_intensity),
                 fade_in_duration=video.get("fade_in_duration", 0.0),
@@ -664,7 +698,9 @@ async def batch_add_video_track(
             )
             payloads.append(payload)
         except Exception as exc:
-            logger.error(f"Failed to prepare video at index {idx}: {exc}", exc_info=True)
+            logger.error(
+                f"Failed to prepare video at index {idx}: {exc}", exc_info=True
+            )
             skipped.append(
                 {
                     "index": idx,
@@ -691,11 +727,11 @@ async def batch_add_video_track(
                     f"for URL {payload.video_url}: {exc}"
                 ) from exc
 
-    success, last_error = update_draft_with_retry(draft_id, modify_draft, return_error=True)
+    success, last_error = update_draft_with_retry(
+        draft_id, modify_draft, return_error=True
+    )
     if not success:
-        error_msg = (
-            f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
-        )
+        error_msg = f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
         if last_error:
             error_msg = f"{error_msg}. Last error: {last_error}"
             logger.error(error_msg, exc_info=True)
@@ -729,7 +765,7 @@ async def _get_video_metadata(video_url: str) -> Tuple[float, int, int, Optional
 
         format_name = None
         if "format" in info:
-             format_name = info["format"].get("format_name")
+            format_name = info["format"].get("format_name")
 
         if "streams" in info and len(info["streams"]) > 0:
             stream = info["streams"][0]
@@ -742,4 +778,6 @@ async def _get_video_metadata(video_url: str) -> Tuple[float, int, int, Optional
             return 0.0, 0, 0, format_name
     except Exception as e:
         logger.error(f"Failed to get video metadata for {video_url}: {e}")
-        raise ValueError(f"Failed to get video metadata for {video_url}. Please check if the URL is valid and accessible.") from e
+        raise ValueError(
+            f"Failed to get video metadata for {video_url}. Please check if the URL is valid and accessible."
+        ) from e

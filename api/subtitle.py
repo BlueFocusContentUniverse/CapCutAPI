@@ -39,11 +39,7 @@ class AddSubtitleRequest(BaseModel):
 
 @router.post("/add_subtitle")
 async def add_subtitle(request: AddSubtitleRequest):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.srt:
         result["error"] = "Hi, the required parameters 'srt' are missing."
@@ -76,7 +72,7 @@ async def add_subtitle(request: AddSubtitleRequest):
             scale_y=request.scale_y,
             rotation=request.rotation,
             width=request.width,
-            height=request.height
+            height=request.height,
         )
 
         result["success"] = True
@@ -86,5 +82,3 @@ async def add_subtitle(request: AddSubtitleRequest):
     except Exception as e:
         result["error"] = f"Error occurred while processing subtitle: {e!s}."
         return result
-
-

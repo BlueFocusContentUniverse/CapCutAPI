@@ -75,7 +75,9 @@ class VideoTaskRepository:
 
                 task.updated_at = datetime.now(timezone.utc)
 
-                logger.info(f"Updated VideoTask {task_id}: status={status}, render_status={render_status}, progress={progress}")
+                logger.info(
+                    f"Updated VideoTask {task_id}: status={status}, render_status={render_status}, progress={progress}"
+                )
                 return True
 
         except SQLAlchemyError as e:
@@ -145,7 +147,9 @@ class VideoTaskRepository:
                     "video_id": task.video_id,
                     "video_name": task.video_name,
                     "status": task.status,
-                    "render_status": task.render_status.value if task.render_status else None,
+                    "render_status": task.render_status.value
+                    if task.render_status
+                    else None,
                     "progress": task.progress,
                     "message": task.message,
                     "extra": task.extra,
@@ -225,4 +229,3 @@ def get_video_task_repository() -> VideoTaskRepository:
     if _video_task_repository is None:
         _video_task_repository = VideoTaskRepository()
     return _video_task_repository
-

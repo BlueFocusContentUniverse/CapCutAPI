@@ -5,6 +5,7 @@ Revises: 0003_add_draft_resource
 Create Date: 2025-09-20 00:00:00
 
 """
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -105,5 +106,3 @@ def downgrade() -> None:
         existing_nullable=False,
         postgresql_using="created_at AT TIME ZONE 'UTC'",
     )
-
-

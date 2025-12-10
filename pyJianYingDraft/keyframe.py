@@ -1,7 +1,7 @@
 import uuid
-
 from enum import Enum
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 
 class Keyframe:
     """一个关键帧（关键点）, 目前只支持线性插值"""
@@ -30,8 +30,9 @@ class Keyframe:
             # 自定义属性
             "id": self.kf_id,
             "time_offset": self.time_offset,
-            "values": self.values
+            "values": self.values,
         }
+
 
 class KeyframeProperty(Enum):
     """关键帧所控制的属性类型"""
@@ -62,6 +63,7 @@ class KeyframeProperty(Enum):
     volume = "KFTypeVolume"
     """音量, 1.0为原始音量, 仅对`Audio_segment`和`Video_segment`有效"""
 
+
 class Keyframe_list:
     """关键帧列表, 记录与某个特定属性相关的一系列关键帧"""
 
@@ -90,5 +92,5 @@ class Keyframe_list:
             "id": self.list_id,
             "keyframe_list": [kf.export_json() for kf in self.keyframes],
             "material_id": "",
-            "property_type": self.keyframe_property.value
+            "property_type": self.keyframe_property.value,
         }

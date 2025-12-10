@@ -18,6 +18,7 @@ router = APIRouter(
     tags=["video-tasks"],
 )
 
+
 class UpdateTaskStatusRequest(BaseModel):
     status: Optional[str] = None
     render_status: Optional[str] = None
@@ -26,8 +27,10 @@ class UpdateTaskStatusRequest(BaseModel):
     video_id: Optional[str] = None
     extra: Optional[Dict[str, Any]] = None
 
+
 class LinkVideoRequest(BaseModel):
     video_id: str
+
 
 def _parse_render_status(status_str: str) -> VideoTaskStatus:
     """
@@ -50,11 +53,15 @@ def _parse_render_status(status_str: str) -> VideoTaskStatus:
         for status in VideoTaskStatus:
             if status.value.upper() == status_str_upper:
                 return status
-        raise ValueError(f"Invalid render_status: {status_str}. Valid values: {[s.value for s in VideoTaskStatus]}") from None
+        raise ValueError(
+            f"Invalid render_status: {status_str}. Valid values: {[s.value for s in VideoTaskStatus]}"
+        ) from None
 
 
 @router.put("/{task_id}/status")
-def update_task_status(task_id: str, request: UpdateTaskStatusRequest, response: Response):
+def update_task_status(
+    task_id: str, request: UpdateTaskStatusRequest, response: Response
+):
     """
     Update VideoTask status fields (for Celery workers).
 
@@ -92,19 +99,18 @@ def update_task_status(task_id: str, request: UpdateTaskStatusRequest, response:
             except ValueError as e:
                 logger.warning(f"Invalid render_status for task {task_id}: {e}")
                 response.status_code = 400
-                return {
-                    "success": False,
-                    "error": str(e)
-                }
+                return {"success": False, "error": str(e)}
 
         # Validate progress if provided
         if request.progress is not None:
             if request.progress < 0.0 or request.progress > 100.0:
-                logger.warning(f"Invalid progress value for task {task_id}: {request.progress}")
+                logger.warning(
+                    f"Invalid progress value for task {task_id}: {request.progress}"
+                )
                 response.status_code = 400
                 return {
                     "success": False,
-                    "error": "Progress must be between 0.0 and 100.0"
+                    "error": "Progress must be between 0.0 and 100.0",
                 }
 
         # Update task status
@@ -121,24 +127,15 @@ def update_task_status(task_id: str, request: UpdateTaskStatusRequest, response:
 
         if success:
             logger.info(f"Successfully updated VideoTask {task_id}")
-            return {
-                "success": True,
-                "output": {"task_id": task_id}
-            }
+            return {"success": True, "output": {"task_id": task_id}}
         else:
             response.status_code = 404
-            return {
-                "success": False,
-                "error": "Task not found or update failed"
-            }
+            return {"success": False, "error": "Task not found or update failed"}
 
     except Exception as e:
         logger.error(f"Error updating VideoTask {task_id}: {e}")
         response.status_code = 500
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
 
 
 @router.get("/{task_id}")
@@ -159,23 +156,14 @@ def get_task(task_id: str, response: Response):
         if task is None:
             logger.warning(f"VideoTask {task_id} not found")
             response.status_code = 404
-            return {
-                "success": False,
-                "error": "Task not found"
-            }
+            return {"success": False, "error": "Task not found"}
 
-        return {
-            "success": True,
-            "output": task
-        }
+        return {"success": True, "output": task}
 
     except Exception as e:
         logger.error(f"Error retrieving VideoTask {task_id}: {e}")
         response.status_code = 500
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
 
 
 @router.post("/{task_id}/link-video")
@@ -199,26 +187,18 @@ def link_video_to_task(task_id: str, request: LinkVideoRequest, response: Respon
         success = repo.link_video_to_task(task_id, request.video_id)
 
         if success:
-            logger.info(f"Successfully linked video {request.video_id} to task {task_id}")
+            logger.info(
+                f"Successfully linked video {request.video_id} to task {task_id}"
+            )
             return {
                 "success": True,
-                "output": {
-                    "task_id": task_id,
-                    "video_id": request.video_id
-                }
+                "output": {"task_id": task_id, "video_id": request.video_id},
             }
         else:
             response.status_code = 404
-            return {
-                "success": False,
-                "error": "Task not found or link failed"
-            }
+            return {"success": False, "error": "Task not found or link failed"}
 
     except Exception as e:
         logger.error(f"Error linking video to task {task_id}: {e}")
         response.status_code = 500
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
+        return {"success": False, "error": str(e)}

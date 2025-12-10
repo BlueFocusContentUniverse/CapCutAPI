@@ -10,6 +10,7 @@ from services.add_video_track import add_video_track, batch_add_video_track
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["video"])
 
+
 class AddVideoRequest(BaseModel):
     draft_folder: Optional[str] = None
     video_url: str
@@ -52,6 +53,7 @@ class AddVideoRequest(BaseModel):
     fade_out_duration: float = 0.0
     background_blur: Optional[int] = None
 
+
 class VideoItem(BaseModel):
     video_url: str
     start: float = 0
@@ -64,6 +66,7 @@ class VideoItem(BaseModel):
     video_name: Optional[str] = None
     fade_in_duration: float = 0.0
     fade_out_duration: float = 0.0
+
 
 class BatchAddVideosRequest(BaseModel):
     draft_folder: Optional[str] = None
@@ -100,6 +103,7 @@ class BatchAddVideosRequest(BaseModel):
     background_blur: Optional[int] = None
     mode: str = "cover"
 
+
 class AddVideoKeyframeRequest(BaseModel):
     draft_id: Optional[str] = None
     track_name: str = "video_main"
@@ -110,13 +114,10 @@ class AddVideoKeyframeRequest(BaseModel):
     times: Optional[List[float]] = None
     values: Optional[List[Any]] = None
 
+
 @router.post("/add_video")
 async def add_video(request: AddVideoRequest, response: Response):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         draft_result = await add_video_track(
@@ -159,7 +160,7 @@ async def add_video(request: AddVideoRequest, response: Response):
             filter_intensity=request.filter_intensity,
             fade_in_duration=request.fade_in_duration,
             fade_out_duration=request.fade_out_duration,
-            background_blur=request.background_blur
+            background_blur=request.background_blur,
         )
 
         result["success"] = True
@@ -174,11 +175,7 @@ async def add_video(request: AddVideoRequest, response: Response):
 
 @router.post("/batch_add_videos")
 async def batch_add_videos(request: BatchAddVideosRequest, response: Response):
-    result = {
-        "success": False,
-        "output": [],
-        "error": ""
-    }
+    result = {"success": False, "output": [], "error": ""}
 
     if not request.videos:
         result["error"] = "Hi, the required parameter 'videos' is missing or empty."
@@ -237,7 +234,9 @@ async def batch_add_videos(request: BatchAddVideosRequest, response: Response):
         return result
 
     except Exception as e:
-        logger.error(f"Error occurred while processing batch videos: {e!s}", exc_info=True)
+        logger.error(
+            f"Error occurred while processing batch videos: {e!s}", exc_info=True
+        )
         result["error"] = f"Error occurred while processing batch videos: {e!s}."
         response.status_code = 400
         return result
@@ -245,11 +244,7 @@ async def batch_add_videos(request: BatchAddVideosRequest, response: Response):
 
 @router.post("/add_video_keyframe")
 def add_video_keyframe(request: AddVideoKeyframeRequest, response: Response):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         draft_result = add_video_keyframe_impl(
@@ -260,7 +255,7 @@ def add_video_keyframe(request: AddVideoKeyframeRequest, response: Response):
             value=request.value,
             property_types=request.property_types,
             times=request.times,
-            values=request.values
+            values=request.values,
         )
 
         result["success"] = True
@@ -271,5 +266,3 @@ def add_video_keyframe(request: AddVideoKeyframeRequest, response: Response):
         result["error"] = f"Error occurred while adding keyframe: {e!s}."
         response.status_code = 400
         return result
-
-

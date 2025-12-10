@@ -45,7 +45,9 @@ class COSClient:
             self.bucket_name = bucket_name
             self.region = region
 
-            logger.info(f"COS client initialized successfully for bucket: {bucket_name}, region: {region}")
+            logger.info(
+                f"COS client initialized successfully for bucket: {bucket_name}, region: {region}"
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize COS client: {e}")
@@ -81,7 +83,7 @@ class COSClient:
         self,
         local_file_path: str,
         object_key: Optional[str] = None,
-        content_type: Optional[str] = None
+        content_type: Optional[str] = None,
     ) -> Optional[str]:
         """
         Upload a file to COS.
@@ -128,7 +130,7 @@ class COSClient:
                     Bucket=self.bucket_name,
                     Body=fp,
                     Key=object_key,
-                    ContentType=content_type
+                    ContentType=content_type,
                 )
 
             # Generate CDN URL
@@ -170,12 +172,11 @@ class COSClient:
             if not object_key:
                 return False
 
-            logger.info(f"Deleting object from COS: bucket={self.bucket_name}, key={object_key}")
-
-            self.client.delete_object(
-                Bucket=self.bucket_name,
-                Key=object_key
+            logger.info(
+                f"Deleting object from COS: bucket={self.bucket_name}, key={object_key}"
             )
+
+            self.client.delete_object(Bucket=self.bucket_name, Key=object_key)
 
             # COS returns 204 for successful deletion
             logger.info(f"Successfully deleted object: {object_key}")
@@ -197,7 +198,11 @@ class COSClient:
         """
         if not self.is_available():
             logger.warning("COS client not available, cannot delete objects")
-            return {"success_count": 0, "failed_count": len(oss_urls), "errors": ["COS client not configured"]}
+            return {
+                "success_count": 0,
+                "failed_count": len(oss_urls),
+                "errors": ["COS client not configured"],
+            }
 
         if not oss_urls:
             return {"success_count": 0, "failed_count": 0, "errors": []}
@@ -215,7 +220,11 @@ class COSClient:
 
         if not objects_to_delete:
             logger.warning("No valid object keys found to delete")
-            return {"success_count": 0, "failed_count": len(oss_urls), "errors": parse_errors}
+            return {
+                "success_count": 0,
+                "failed_count": len(oss_urls),
+                "errors": parse_errors,
+            }
 
         try:
             logger.info(f"Deleting {len(objects_to_delete)} objects from COS in batch")
@@ -224,8 +233,8 @@ class COSClient:
                 Bucket=self.bucket_name,
                 Delete={
                     "Object": objects_to_delete,
-                    "Quiet": "false"  # Get detailed response
-                }
+                    "Quiet": "false",  # Get detailed response
+                },
             )
 
             # Parse response
@@ -235,14 +244,19 @@ class COSClient:
             success_count = len(deleted)
             failed_count = len(errors) + len(parse_errors)
 
-            error_messages = parse_errors + [f"{err.get('Key', 'unknown')}: {err.get('Message', 'unknown error')}" for err in errors]
+            error_messages = parse_errors + [
+                f"{err.get('Key', 'unknown')}: {err.get('Message', 'unknown error')}"
+                for err in errors
+            ]
 
-            logger.info(f"Batch deletion completed: {success_count} succeeded, {failed_count} failed")
+            logger.info(
+                f"Batch deletion completed: {success_count} succeeded, {failed_count} failed"
+            )
 
             return {
                 "success_count": success_count,
                 "failed_count": failed_count,
-                "errors": error_messages
+                "errors": error_messages,
             }
 
         except Exception as e:
@@ -250,7 +264,7 @@ class COSClient:
             return {
                 "success_count": 0,
                 "failed_count": len(oss_urls),
-                "errors": [str(e), *parse_errors]
+                "errors": [str(e), *parse_errors],
             }
 
 
@@ -264,4 +278,3 @@ def get_cos_client() -> COSClient:
     if _cos_client is None:
         _cos_client = COSClient()
     return _cos_client
-

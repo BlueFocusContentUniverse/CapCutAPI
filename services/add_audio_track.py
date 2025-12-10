@@ -81,7 +81,9 @@ def _prepare_audio_segment_payload(
     else:
         # Use default audio duration of 0 seconds, real duration will be obtained when downloading the draft
         audio_duration = 0.0  # Default audio duration is 0 seconds
-        logger.warning("No duration provided, audio duration will be detected during download")
+        logger.warning(
+            "No duration provided, audio duration will be detected during download"
+        )
 
     if audio_name:
         material_name = audio_name
@@ -95,14 +97,20 @@ def _prepare_audio_segment_payload(
     if draft_folder:
         if is_windows_path(draft_folder):
             # Windows path processing
-            windows_drive, windows_path = re.match(r"([a-zA-Z]:)(.*)", draft_folder).groups()
+            windows_drive, windows_path = re.match(
+                r"([a-zA-Z]:)(.*)", draft_folder
+            ).groups()
             parts = [p for p in windows_path.split("\\") if p]
-            draft_audio_path = os.path.join(windows_drive, *parts, draft_id, "assets", "audio", material_name)
+            draft_audio_path = os.path.join(
+                windows_drive, *parts, draft_id, "assets", "audio", material_name
+            )
             # Normalize path (ensure consistent separators)
             draft_audio_path = draft_audio_path.replace("/", "\\")
         else:
             # macOS/Linux path processing
-            draft_audio_path = os.path.join(draft_folder, draft_id, "assets", "audio", material_name)
+            draft_audio_path = os.path.join(
+                draft_folder, draft_id, "assets", "audio", material_name
+            )
 
         logger.debug(f"Audio replace path: {draft_audio_path}")
 
@@ -115,7 +123,9 @@ def _prepare_audio_segment_payload(
 
     # Calculate audio segment duration
     segment_duration = audio_end - start
-    logger.debug(f"Audio segment: start={start}s, end={audio_end}s, duration={segment_duration}s")
+    logger.debug(
+        f"Audio segment: start={start}s, end={audio_end}s, duration={segment_duration}s"
+    )
 
     # Create audio material
     if draft_audio_path:
@@ -123,13 +133,13 @@ def _prepare_audio_segment_payload(
             replace_path=draft_audio_path,
             remote_url=audio_url,
             material_name=material_name,
-            duration=int(audio_duration * 1e6)
+            duration=int(audio_duration * 1e6),
         )
     else:
         audioMaterial = draft.AudioMaterial(
             remote_url=audio_url,
             material_name=material_name,
-            duration=int(audio_duration * 1e6)
+            duration=int(audio_duration * 1e6),
         )
 
     # Create audio segment
@@ -138,7 +148,7 @@ def _prepare_audio_segment_payload(
         target_timerange=trange(f"{target_start}s", f"{segment_duration}s"),
         source_timerange=trange(f"{start}s", f"{segment_duration}s"),
         speed=speed,
-        volume=volume
+        volume=volume,
     )
 
     # Add fade effect (convert seconds to microseconds)
@@ -146,7 +156,9 @@ def _prepare_audio_segment_payload(
         fade_in_us = int(fade_in_duration * 1e6)  # seconds to microseconds
         fade_out_us = int(fade_out_duration * 1e6)  # seconds to microseconds
         audio_segment.add_fade(fade_in_us, fade_out_us)
-        logger.debug(f"Added fade effect: in={fade_in_duration}s ({fade_in_us}us), out={fade_out_duration}s ({fade_out_us}us)")
+        logger.debug(
+            f"Added fade effect: in={fade_in_duration}s ({fade_in_us}us), out={fade_out_duration}s ({fade_out_us}us)"
+        )
 
     return AudioSegmentPayload(
         audio_url=audio_url,
@@ -270,7 +282,9 @@ async def add_audio_track(
     def modify_draft(script):
         _apply_audio_segment_to_script(script, payload, draft_id)
 
-    success, last_error = update_draft_with_retry(draft_id, modify_draft, return_error=True)
+    success, last_error = update_draft_with_retry(
+        draft_id, modify_draft, return_error=True
+    )
 
     if not success:
         error_msg = f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
@@ -302,7 +316,9 @@ async def batch_add_audio_track(
         raise ValueError("audios parameter must contain at least one audio entry")
 
     draft_id, _ = get_draft(draft_id=draft_id)
-    logger.info(f"Starting batch audio track addition to draft {draft_id} (count={len(audios)})")
+    logger.info(
+        f"Starting batch audio track addition to draft {draft_id} (count={len(audios)})"
+    )
 
     payloads: List[AudioSegmentPayload] = []
     skipped: List[Dict[str, Any]] = []
@@ -314,7 +330,7 @@ async def batch_add_audio_track(
         if audio_url:
             metadata_tasks.append(_get_audio_metadata(audio_url))
         else:
-            metadata_tasks.append(asyncio.sleep(0, result=(0.0, None))) # Dummy task
+            metadata_tasks.append(asyncio.sleep(0, result=(0.0, None)))  # Dummy task
 
     metadata_results = await asyncio.gather(*metadata_tasks)
 
@@ -355,7 +371,9 @@ async def batch_add_audio_track(
             )
             payloads.append(payload)
         except Exception as exc:
-            logger.error(f"Failed to prepare audio at index {idx}: {exc}", exc_info=True)
+            logger.error(
+                f"Failed to prepare audio at index {idx}: {exc}", exc_info=True
+            )
             skipped.append(
                 {
                     "index": idx,
@@ -382,11 +400,11 @@ async def batch_add_audio_track(
                     f"for URL {payload.audio_url}: {exc}"
                 ) from exc
 
-    success, last_error = update_draft_with_retry(draft_id, modify_draft, return_error=True)
+    success, last_error = update_draft_with_retry(
+        draft_id, modify_draft, return_error=True
+    )
     if not success:
-        error_msg = (
-            f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
-        )
+        error_msg = f"Failed to update draft {draft_id} after multiple retries due to concurrent modifications"
         if last_error:
             error_msg = f"{error_msg}. Last error: {last_error}"
             logger.error(error_msg, exc_info=True)
@@ -414,12 +432,12 @@ async def _get_audio_metadata(audio_url: str) -> Tuple[float, Optional[str]]:
         info = await get_ffprobe_info(
             audio_url,
             select_streams="a:0",
-            show_entries=["stream=duration", "format=duration,format_name"]
+            show_entries=["stream=duration", "format=duration,format_name"],
         )
 
         format_name = None
         if "format" in info:
-             format_name = info["format"].get("format_name")
+            format_name = info["format"].get("format_name")
 
         if "streams" in info and len(info["streams"]) > 0:
             stream = info["streams"][0]
@@ -429,4 +447,6 @@ async def _get_audio_metadata(audio_url: str) -> Tuple[float, Optional[str]]:
             return 0.0, format_name
     except Exception as e:
         logger.error(f"Failed to get audio metadata for {audio_url}: {e}")
-        raise ValueError(f"Failed to get audio metadata for {audio_url}. Please check if the URL is valid and accessible.") from e
+        raise ValueError(
+            f"Failed to get audio metadata for {audio_url}. Please check if the URL is valid and accessible."
+        ) from e

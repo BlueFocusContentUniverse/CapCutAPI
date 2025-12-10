@@ -32,6 +32,7 @@ class BaseSegment:
     def start(self) -> int:
         """片段开始时间, 单位为微秒"""
         return self.target_timerange.start
+
     @start.setter
     def start(self, value: int):
         self.target_timerange.start = value
@@ -40,6 +41,7 @@ class BaseSegment:
     def duration(self) -> int:
         """片段持续时间, 单位为微秒"""
         return self.target_timerange.duration
+
     @duration.setter
     def duration(self, value: int):
         self.target_timerange.duration = value
@@ -72,10 +74,12 @@ class BaseSegment:
             "id": self.segment_id,
             "material_id": self.material_id,
             "target_timerange": self.target_timerange.export_json(),
-
-            "common_keyframes": [kf_list.export_json() for kf_list in self.common_keyframes],
+            "common_keyframes": [
+                kf_list.export_json() for kf_list in self.common_keyframes
+            ],
             "keyframe_refs": [],  # 意义不明
         }
+
 
 class Speed:
     """播放速度对象, 目前只支持固定速度"""
@@ -95,8 +99,9 @@ class Speed:
             "id": self.global_id,
             "mode": 0,
             "speed": self.speed,
-            "type": "speed"
+            "type": "speed",
         }
+
 
 class AudioFade:
     """音频淡入淡出效果"""
@@ -122,7 +127,7 @@ class AudioFade:
             "fade_in_duration": self.in_duration,
             "fade_out_duration": self.out_duration,
             "fade_type": 0,
-            "type": "audio_fade"
+            "type": "audio_fade",
         }
 
 
@@ -146,11 +151,18 @@ class ClipSettings:
     transform_y: float
     """垂直位移, 单位为半个画布高"""
 
-    def __init__(self, *, alpha: float = 1.0,
-                 flip_horizontal: bool = False, flip_vertical: bool = False,
-                 rotation: float = 0.0,
-                 scale_x: float = 1.0, scale_y: float = 1.0,
-                 transform_x: float = 0.0, transform_y: float = 0.0):
+    def __init__(
+        self,
+        *,
+        alpha: float = 1.0,
+        flip_horizontal: bool = False,
+        flip_vertical: bool = False,
+        rotation: float = 0.0,
+        scale_x: float = 1.0,
+        scale_y: float = 1.0,
+        transform_x: float = 0.0,
+        transform_y: float = 0.0,
+    ):
         """初始化图像调节设置, 默认不作任何图像变换
 
         Args:
@@ -173,12 +185,16 @@ class ClipSettings:
     def export_json(self) -> Dict[str, Any]:
         clip_settings_json = {
             "alpha": self.alpha,
-            "flip": {"horizontal": self.flip_horizontal, "vertical": self.flip_vertical},
+            "flip": {
+                "horizontal": self.flip_horizontal,
+                "vertical": self.flip_vertical,
+            },
             "rotation": self.rotation,
             "scale": {"x": self.scale_x, "y": self.scale_y},
-            "transform": {"x": self.transform_x, "y": self.transform_y}
+            "transform": {"x": self.transform_x, "y": self.transform_y},
         }
         return clip_settings_json
+
 
 class MediaSegment(BaseSegment):
     """媒体片段基类"""
@@ -193,7 +209,14 @@ class MediaSegment(BaseSegment):
     extra_material_refs: List[str]
     """附加的素材id列表, 用于链接动画/特效等"""
 
-    def __init__(self, material_id: str, source_timerange: Optional[Timerange], target_timerange: Timerange, speed: float, volume: float):
+    def __init__(
+        self,
+        material_id: str,
+        source_timerange: Optional[Timerange],
+        target_timerange: Timerange,
+        speed: float,
+        volume: float,
+    ):
         super().__init__(material_id, target_timerange)
 
         self.source_timerange = source_timerange
@@ -205,13 +228,18 @@ class MediaSegment(BaseSegment):
     def export_json(self) -> Dict[str, Any]:
         """返回通用于音频和视频片段的默认属性"""
         ret = super().export_json()
-        ret.update({
-            "source_timerange": self.source_timerange.export_json() if self.source_timerange else None,
-            "speed": self.speed.speed,
-            "volume": self.volume,
-            "extra_material_refs": self.extra_material_refs,
-        })
+        ret.update(
+            {
+                "source_timerange": self.source_timerange.export_json()
+                if self.source_timerange
+                else None,
+                "speed": self.speed.speed,
+                "volume": self.volume,
+                "extra_material_refs": self.extra_material_refs,
+            }
+        )
         return ret
+
 
 class VisualSegment(MediaSegment):
     """视觉片段基类，用于处理所有可见片段（视频、贴纸、文本）的共同属性和行为"""
@@ -228,8 +256,16 @@ class VisualSegment(MediaSegment):
     在放入轨道时自动添加到素材列表中
     """
 
-    def __init__(self, material_id: str, source_timerange: Optional[Timerange], target_timerange: Timerange,
-                 speed: float, volume: float, *, clip_settings: Optional[ClipSettings]):
+    def __init__(
+        self,
+        material_id: str,
+        source_timerange: Optional[Timerange],
+        target_timerange: Timerange,
+        speed: float,
+        volume: float,
+        *,
+        clip_settings: Optional[ClipSettings],
+    ):
         """初始化视觉片段基类
 
         Args:
@@ -242,11 +278,15 @@ class VisualSegment(MediaSegment):
         """
         super().__init__(material_id, source_timerange, target_timerange, speed, volume)
 
-        self.clip_settings = clip_settings if clip_settings is not None else ClipSettings()
+        self.clip_settings = (
+            clip_settings if clip_settings is not None else ClipSettings()
+        )
         self.uniform_scale = True
         self.animations_instance = None
 
-    def add_keyframe(self, _property: KeyframeProperty, time_offset: Union[int, str], value: float) -> "VisualSegment":
+    def add_keyframe(
+        self, _property: KeyframeProperty, time_offset: Union[int, str], value: float
+    ) -> "VisualSegment":
         """为给定属性创建一个关键帧, 并自动加入到关键帧列表中
 
         Args:
@@ -257,14 +297,20 @@ class VisualSegment(MediaSegment):
         Raises:
             `ValueError`: 试图同时设置`uniform_scale`以及`scale_x`或`scale_y`其中一者
         """
-        if (_property == KeyframeProperty.scale_x or _property == KeyframeProperty.scale_y) and self.uniform_scale:
+        if (
+            _property == KeyframeProperty.scale_x
+            or _property == KeyframeProperty.scale_y
+        ) and self.uniform_scale:
             self.uniform_scale = False
         elif _property == KeyframeProperty.uniform_scale:
             if not self.uniform_scale:
-                raise ValueError("已设置 scale_x 或 scale_y 时, 不能再设置 uniform_scale")
+                raise ValueError(
+                    "已设置 scale_x 或 scale_y 时, 不能再设置 uniform_scale"
+                )
             _property = KeyframeProperty.scale_x
 
-        if isinstance(time_offset, str): time_offset = tim(time_offset)
+        if isinstance(time_offset, str):
+            time_offset = tim(time_offset)
 
         for kf_list in self.common_keyframes:
             if kf_list.keyframe_property == _property:
@@ -278,8 +324,10 @@ class VisualSegment(MediaSegment):
     def export_json(self) -> Dict[str, Any]:
         """导出通用于所有视觉片段的JSON数据"""
         json_dict = super().export_json()
-        json_dict.update({
-            "clip": self.clip_settings.export_json(),
-            "uniform_scale": {"on": self.uniform_scale, "value": 1.0},
-        })
+        json_dict.update(
+            {
+                "clip": self.clip_settings.export_json(),
+                "uniform_scale": {"on": self.uniform_scale, "value": 1.0},
+            }
+        )
         return json_dict

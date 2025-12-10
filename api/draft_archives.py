@@ -3,7 +3,7 @@ API endpoints for managing draft archives stored in PostgreSQL.
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
@@ -26,24 +26,17 @@ async def list_archives(
     draft_id: Optional[str] = Query(None, description="Filter by draft_id"),
     user_id: Optional[str] = Query(None, description="Filter by user_id"),
     page: int = Query(1, description="Page number (1-indexed)"),
-    page_size: int = Query(100, description="Number of items per page")
+    page_size: int = Query(100, description="Number of items per page"),
 ):
     """
     List draft archives with optional filtering and pagination
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         storage = get_postgres_archive_storage()
         archives_data = storage.list_archives(
-            draft_id=draft_id,
-            user_id=user_id,
-            page=page,
-            page_size=page_size
+            draft_id=draft_id, user_id=user_id, page=page, page_size=page_size
         )
 
         result["success"] = True
@@ -65,11 +58,7 @@ async def get_archive(archive_id: str):
     """
     Get a specific archive by archive_id
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         storage = get_postgres_archive_storage()
@@ -93,23 +82,21 @@ async def get_archive(archive_id: str):
 @router.get("/get_by_draft")
 async def get_archive_by_draft(
     draft_id: str = Query(..., description="The draft ID"),
-    draft_version: Optional[int] = Query(None, description="The draft version")
+    draft_version: Optional[int] = Query(None, description="The draft version"),
 ):
     """
     Get archive by draft_id and optional draft_version
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         storage = get_postgres_archive_storage()
         archive = storage.get_archive_by_draft(draft_id, draft_version)
 
         if archive is None:
-            result["error"] = f"Archive not found for draft {draft_id} version {draft_version}"
+            result["error"] = (
+                f"Archive not found for draft {draft_id} version {draft_version}"
+            )
             return JSONResponse(status_code=404, content=result)
 
         result["success"] = True
@@ -142,11 +129,7 @@ async def update_archive(archive_id: str, request: UpdateArchiveRequest):
     """
     Update archive fields
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         # Extract allowed fields
@@ -160,12 +143,19 @@ async def update_archive(archive_id: str, request: UpdateArchiveRequest):
         success = storage.update_archive(archive_id, **update_data)
 
         if not success:
-            result["error"] = f"Failed to update archive {archive_id}. Archive may not exist."
+            result["error"] = (
+                f"Failed to update archive {archive_id}. Archive may not exist."
+            )
             return JSONResponse(status_code=404, content=result)
 
         result["success"] = True
-        result["output"] = {"message": "Archive updated successfully", "archive_id": archive_id}
-        logger.info(f"Updated archive {archive_id} with fields: {list(update_data.keys())}")
+        result["output"] = {
+            "message": "Archive updated successfully",
+            "archive_id": archive_id,
+        }
+        logger.info(
+            f"Updated archive {archive_id} with fields: {list(update_data.keys())}"
+        )
         return result
 
     except Exception as e:
@@ -179,11 +169,7 @@ async def delete_archive(archive_id: str):
     """
     Delete an archive
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         storage = get_postgres_archive_storage()
@@ -203,13 +189,21 @@ async def delete_archive(archive_id: str):
             if cos_client.is_available():
                 cos_deleted = cos_client.delete_object_from_url(download_url)
                 if cos_deleted:
-                    logger.info(f"Successfully deleted COS object for archive {archive_id}")
+                    logger.info(
+                        f"Successfully deleted COS object for archive {archive_id}"
+                    )
                 else:
-                    logger.warning(f"Failed to delete COS object for archive {archive_id}, but continuing with database deletion")
+                    logger.warning(
+                        f"Failed to delete COS object for archive {archive_id}, but continuing with database deletion"
+                    )
             else:
-                logger.warning(f"COS client not available, skipping object deletion for archive {archive_id}")
+                logger.warning(
+                    f"COS client not available, skipping object deletion for archive {archive_id}"
+                )
         else:
-            logger.info(f"Archive {archive_id} has no download_url, skipping COS object deletion")
+            logger.info(
+                f"Archive {archive_id} has no download_url, skipping COS object deletion"
+            )
 
         # Delete archive record from database
         success = storage.delete_archive(archive_id)
@@ -219,7 +213,10 @@ async def delete_archive(archive_id: str):
             return JSONResponse(status_code=500, content=result)
 
         result["success"] = True
-        result["output"] = {"message": "Archive deleted successfully", "archive_id": archive_id}
+        result["output"] = {
+            "message": "Archive deleted successfully",
+            "archive_id": archive_id,
+        }
         logger.info(f"Deleted archive {archive_id} from database")
         return result
 
@@ -234,11 +231,7 @@ async def batch_delete_archives(request: BatchDeleteRequest):
     """
     Batch delete multiple archives by archive_ids
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.archive_ids:
         result["error"] = "archive_ids array is empty"
@@ -247,47 +240,53 @@ async def batch_delete_archives(request: BatchDeleteRequest):
     try:
         storage = get_postgres_archive_storage()
         cos_client = get_cos_client()
-        
+
         deleted = []
         failed = []
-        
+
         for archive_id in request.archive_ids:
             try:
                 # Get archive details first
                 archive = storage.get_archive_by_id(archive_id)
-                
+
                 if not archive:
                     failed.append({"archive_id": archive_id, "reason": "not_found"})
                     continue
-                
+
                 # Delete COS object if exists
                 download_url = archive.get("download_url")
                 if download_url and cos_client.is_available():
                     cos_deleted = cos_client.delete_object_from_url(download_url)
                     if not cos_deleted:
-                        logger.warning(f"Failed to delete COS object for archive {archive_id}")
-                
+                        logger.warning(
+                            f"Failed to delete COS object for archive {archive_id}"
+                        )
+
                 # Delete from database
                 success = storage.delete_archive(archive_id)
                 if success:
                     deleted.append(archive_id)
                 else:
-                    failed.append({"archive_id": archive_id, "reason": "db_delete_failed"})
-                    
+                    failed.append(
+                        {"archive_id": archive_id, "reason": "db_delete_failed"}
+                    )
+
             except Exception as e:
                 logger.error(f"Error deleting archive {archive_id}: {e!s}")
                 failed.append({"archive_id": archive_id, "reason": str(e)})
-        
+
         result["success"] = len(failed) == 0
         result["output"] = {
             "deleted": deleted,
             "deleted_count": len(deleted),
             "failed": failed,
-            "failed_count": len(failed)
+            "failed_count": len(failed),
         }
-        
-        logger.info(f"Batch delete completed: {len(deleted)} deleted, {len(failed)} failed")
-        
+
+        logger.info(
+            f"Batch delete completed: {len(deleted)} deleted, {len(failed)} failed"
+        )
+
         if failed:
             return JSONResponse(status_code=207, content=result)  # 207 Multi-Status
         return result
@@ -301,16 +300,12 @@ async def batch_delete_archives(request: BatchDeleteRequest):
 @router.get("/stats")
 async def get_stats(
     draft_id: Optional[str] = Query(None, description="Get stats for a specific draft"),
-    user_id: Optional[str] = Query(None, description="Get stats for a specific user")
+    user_id: Optional[str] = Query(None, description="Get stats for a specific user"),
 ):
     """
     Get statistics about archives
     """
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         storage = get_postgres_archive_storage()
@@ -318,12 +313,12 @@ async def get_stats(
             draft_id=draft_id,
             user_id=user_id,
             page=1,
-            page_size=1  # We only need the count
+            page_size=1,  # We only need the count
         )
 
         stats = {
             "total_archives": archives_data["pagination"]["total_count"],
-            "filters": {}
+            "filters": {},
         }
 
         if draft_id:
@@ -341,8 +336,10 @@ async def get_stats(
         logger.error(f"Error getting archive stats: {e!s}", exc_info=True)
         return JSONResponse(status_code=500, content=result)
 
+
 class LambdaCallbackRequest(BaseModel):
     """Lambda 回调请求体"""
+
     archive_id: str
     download_url: Optional[str] = None
     total_files: Optional[int] = None
@@ -354,24 +351,20 @@ class LambdaCallbackRequest(BaseModel):
 @router.patch("/callback")
 async def archive_callback(request: LambdaCallbackRequest):
     """Lambda 回调接口,更新打包进度"""
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         # TODO: 验证请求来源（后续可添加签名验证）
-        
+
         if not request.archive_id:
             result["error"] = "archive_id is required"
             return JSONResponse(status_code=400, content=result)
 
         storage = get_postgres_archive_storage()
-        
+
         # 提取需要更新的字段（排除 archive_id）
         update_data = request.dict(exclude_unset=True, exclude={"archive_id"})
-        
+
         if not update_data:
             result["error"] = "No fields to update"
             return JSONResponse(status_code=400, content=result)
@@ -380,15 +373,25 @@ async def archive_callback(request: LambdaCallbackRequest):
 
         if not success:
             result["error"] = f"Failed to update archive {request.archive_id}"
-            logger.warning(f"Lambda callback failed to update archive {request.archive_id}")
+            logger.warning(
+                f"Lambda callback failed to update archive {request.archive_id}"
+            )
             return JSONResponse(status_code=404, content=result)
 
         result["success"] = True
-        result["output"] = {"archive_id": request.archive_id, "updated_fields": list(update_data.keys())}
-        logger.info(f"Lambda callback updated archive {request.archive_id}: progress={request.progress}, message={request.message}")
+        result["output"] = {
+            "archive_id": request.archive_id,
+            "updated_fields": list(update_data.keys()),
+        }
+        logger.info(
+            f"Lambda callback updated archive {request.archive_id}: progress={request.progress}, message={request.message}"
+        )
         return result
 
     except Exception as e:
         result["error"] = f"Callback failed: {e!s}"
-        logger.error(f"Lambda callback error for archive {request.archive_id}: {e!s}", exc_info=True)
+        logger.error(
+            f"Lambda callback error for archive {request.archive_id}: {e!s}",
+            exc_info=True,
+        )
         return JSONResponse(status_code=500, content=result)

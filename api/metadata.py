@@ -55,7 +55,9 @@ async def get_intro_animation_types():
         return result
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting entrance animation types: {e!s}"
+        result["error"] = (
+            f"Error occurred while getting entrance animation types: {e!s}"
+        )
         return result
 
 
@@ -112,7 +114,9 @@ async def get_transition_types():
         return result
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting transition animation types: {e!s}"
+        result["error"] = (
+            f"Error occurred while getting transition animation types: {e!s}"
+        )
         return result
 
 
@@ -175,7 +179,9 @@ async def get_text_intro_types():
         return result
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting text entrance animation types: {e!s}"
+        result["error"] = (
+            f"Error occurred while getting text entrance animation types: {e!s}"
+        )
         return result
 
 
@@ -194,7 +200,9 @@ async def get_text_outro_types():
         return result
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting text exit animation types: {e!s}"
+        result["error"] = (
+            f"Error occurred while getting text exit animation types: {e!s}"
+        )
         return result
 
 
@@ -213,7 +221,9 @@ async def get_text_loop_anim_types():
         return result
     except Exception as e:
         result["success"] = False
-        result["error"] = f"Error occurred while getting text loop animation types: {e!s}"
+        result["error"] = (
+            f"Error occurred while getting text loop animation types: {e!s}"
+        )
         return result
 
 
@@ -253,5 +263,3 @@ async def get_video_character_effect_types():
         result["success"] = False
         result["error"] = f"Error occurred while getting character effect types: {e!s}"
         return result
-
-

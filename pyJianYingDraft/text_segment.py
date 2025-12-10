@@ -46,10 +46,20 @@ class Text_style:
     line_spacing: int
     """行间距"""
 
-    def __init__(self, *, size: float = 8.0, bold: bool = False, italic: bool = False, underline: bool = False,
-                 color: Tuple[float, float, float] = (1.0, 1.0, 1.0), alpha: float = 1.0,
-                 align: Literal[0, 1, 2] = 0, vertical: bool = False,
-                 letter_spacing: int = 0, line_spacing: int = 0):
+    def __init__(
+        self,
+        *,
+        size: float = 8.0,
+        bold: bool = False,
+        italic: bool = False,
+        underline: bool = False,
+        color: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+        alpha: float = 1.0,
+        align: Literal[0, 1, 2] = 0,
+        vertical: bool = False,
+        letter_spacing: int = 0,
+        line_spacing: int = 0,
+    ):
         """
         Args:
             size (`float`, optional): 字体大小, 默认为8.0
@@ -77,6 +87,7 @@ class Text_style:
         self.letter_spacing = letter_spacing
         self.line_spacing = line_spacing
 
+
 class Text_border:
     """文本描边的参数"""
 
@@ -87,7 +98,13 @@ class Text_border:
     width: float
     """描边宽度"""
 
-    def __init__(self, *, alpha: float = 1.0, color: Tuple[float, float, float] = (0.0, 0.0, 0.0), width: float = 40.0):
+    def __init__(
+        self,
+        *,
+        alpha: float = 1.0,
+        color: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+        width: float = 40.0,
+    ):
         """
         Args:
             alpha (`float`, optional): 描边不透明度, 取值范围[0, 1], 默认为1.0
@@ -107,8 +124,9 @@ class Text_border:
                     "color": list(self.color),
                 }
             },
-            "width": self.width
+            "width": self.width,
         }
+
 
 class Text_background:
     """文本背景参数"""
@@ -131,9 +149,18 @@ class Text_background:
     vertical_offset: float
     """背景竖直偏移"""
 
-    def __init__(self, *, color: str, style: Literal[1, 2] = 1, alpha: float = 1.0, round_radius: float = 0.0,
-                 height: float = 0.14, width: float = 0.14,
-                 horizontal_offset: float = 0.5, vertical_offset: float = 0.5):
+    def __init__(
+        self,
+        *,
+        color: str,
+        style: Literal[1, 2] = 1,
+        alpha: float = 1.0,
+        round_radius: float = 0.0,
+        height: float = 0.14,
+        width: float = 0.14,
+        horizontal_offset: float = 0.5,
+        vertical_offset: float = 0.5,
+    ):
         """
         Args:
             color (`str`): 背景颜色, 格式为'#RRGGBB'
@@ -168,6 +195,7 @@ class Text_background:
             "background_vertical_offset": self.vertical_offset,
         }
 
+
 class Text_shadow:
     """文本阴影参数"""
 
@@ -184,8 +212,16 @@ class Text_shadow:
     smoothing: float
     """阴影平滑度"""
 
-    def __init__(self, *, has_shadow: bool = False, alpha: float = 0.9, angle: float = -45.0,
-                 color: str = "#000000", distance: float = 5.0, smoothing: float = 0.45):
+    def __init__(
+        self,
+        *,
+        has_shadow: bool = False,
+        alpha: float = 0.9,
+        angle: float = -45.0,
+        color: str = "#000000",
+        distance: float = 5.0,
+        smoothing: float = 0.45,
+    ):
         """
         Args:
             has_shadow (`bool`, optional): 是否启用阴影，默认为False
@@ -210,8 +246,9 @@ class Text_shadow:
             "shadow_angle": self.angle,
             "shadow_color": self.color,
             "shadow_distance": self.distance,
-            "shadow_smoothing": self.smoothing * 3
+            "shadow_smoothing": self.smoothing * 3,
         }
+
 
 class TextBubble:
     """文本气泡素材, 与滤镜素材本质上一致"""
@@ -238,6 +275,7 @@ class TextBubble:
             # 不导出path和request_id
         }
 
+
 class TextEffect(TextBubble):
     """文本花字素材, 与滤镜素材本质上也一致"""
 
@@ -246,6 +284,7 @@ class TextEffect(TextBubble):
         ret["type"] = "text_effect"
         ret["source_platform"] = 1
         return ret
+
 
 class TextStyleRange:
     """文本样式范围类，用于定义文本特定范围的样式"""
@@ -261,9 +300,16 @@ class TextStyleRange:
     font: Optional[EffectMeta]
     """字体设置，None表示使用全局字体"""
 
-    def __init__(self, start: int, end: int, style: Text_style, border: Optional[Text_border] = None, font_str:str = None):
+    def __init__(
+        self,
+        start: int,
+        end: int,
+        style: Text_style,
+        border: Optional[Text_border] = None,
+        font_str: str = None,
+    ):
         """创建文本样式范围
-        
+
         Args:
             start (`int`): 起始位置（包含）
             end (`int`): 结束位置（不包含）
@@ -279,17 +325,22 @@ class TextStyleRange:
             try:
                 font_type = getattr(FontType, font_str).value
             except:
-                available_fonts = [attr for attr in dir(FontType) if not attr.startswith("_")]
-                raise ValueError(f"不支持的字体：{font_str}，请使用Font_type中的字体之一：{available_fonts}")
+                available_fonts = [
+                    attr for attr in dir(FontType) if not attr.startswith("_")
+                ]
+                raise ValueError(
+                    f"不支持的字体：{font_str}，请使用Font_type中的字体之一：{available_fonts}"
+                )
             self.font = font_type
 
     def get_range(self) -> List[int]:
         """获取范围列表
-        
+
         Returns:
             `List[int]`: [start, end] 形式的范围列表
         """
         return [self.start, self.end]
+
 
 class Text_segment(VisualSegment):
     """文本片段类, 目前仅支持设置基本的字体样式"""
@@ -322,12 +373,20 @@ class Text_segment(VisualSegment):
     text_styles: List[TextStyleRange]
     """文本的多种样式列表"""
 
-    def __init__(self, text: str, timerange: Timerange, *,
-                 font: Optional[FontType] = None,
-                 style: Optional[Text_style] = None, clip_settings: Optional[ClipSettings] = None,
-                 border: Optional[Text_border] = None, background: Optional[Text_background] = None,
-                 shadow: Optional[Text_shadow] = None,
-                 fixed_width: int = -1, fixed_height: int = -1):
+    def __init__(
+        self,
+        text: str,
+        timerange: Timerange,
+        *,
+        font: Optional[FontType] = None,
+        style: Optional[Text_style] = None,
+        clip_settings: Optional[ClipSettings] = None,
+        border: Optional[Text_border] = None,
+        background: Optional[Text_background] = None,
+        shadow: Optional[Text_shadow] = None,
+        fixed_width: int = -1,
+        fixed_height: int = -1,
+    ):
         """创建文本片段, 并指定其时间信息、字体样式及图像调节设置
 
         片段创建完成后, 可通过`Script_file.add_segment`方法将其添加到轨道中
@@ -343,7 +402,9 @@ class Text_segment(VisualSegment):
             fixed_width (`int`, optional): 文本固定宽度（像素值）, 默认为-1（不固定宽度）
             fixed_height (`int`, optional): 文本固定高度（像素值）, 默认为-1（不固定高度）
         """
-        super().__init__(uuid.uuid4().hex, None, timerange, 1.0, 1.0, clip_settings=clip_settings)
+        super().__init__(
+            uuid.uuid4().hex, None, timerange, 1.0, 1.0, clip_settings=clip_settings
+        )
 
         self.text = text
         self.font = font.value if font else None
@@ -365,29 +426,49 @@ class Text_segment(VisualSegment):
         self.text_styles.append(textStyleRange)
         return self
 
-
     @classmethod
-    def create_from_template(cls, text: str, timerange: Timerange, template: "Text_segment") -> "Text_segment":
+    def create_from_template(
+        cls, text: str, timerange: Timerange, template: "Text_segment"
+    ) -> "Text_segment":
         """根据模板创建新的文本片段, 并指定其文本内容"""
-        new_segment = cls(text, timerange, style=deepcopy(template.style), clip_settings=deepcopy(template.clip_settings),
-                          border=deepcopy(template.border), background=deepcopy(template.background))
+        new_segment = cls(
+            text,
+            timerange,
+            style=deepcopy(template.style),
+            clip_settings=deepcopy(template.clip_settings),
+            border=deepcopy(template.border),
+            background=deepcopy(template.background),
+        )
         new_segment.font = deepcopy(template.font)
 
         # 处理动画等
         if template.animations_instance:
             new_segment.animations_instance = deepcopy(template.animations_instance)
             new_segment.animations_instance.animation_id = uuid.uuid4().hex
-            new_segment.extra_material_refs.append(new_segment.animations_instance.animation_id)
+            new_segment.extra_material_refs.append(
+                new_segment.animations_instance.animation_id
+            )
         if template.bubble:
-            new_segment.add_bubble(template.bubble.effect_id, template.bubble.resource_id)
+            new_segment.add_bubble(
+                template.bubble.effect_id, template.bubble.resource_id
+            )
         if template.effect:
             new_segment.add_effect(template.effect.effect_id)
 
         return new_segment
 
-    def add_animation(self, animation_type: Union[TextIntro, TextOutro, TextLoopAnim,
-                                                  CapCutTextIntro, CapCutTextOutro, CapCutTextLoopAnim],
-                      duration: Union[str, float] = 500000) -> "Text_segment":
+    def add_animation(
+        self,
+        animation_type: Union[
+            TextIntro,
+            TextOutro,
+            TextLoopAnim,
+            CapCutTextIntro,
+            CapCutTextOutro,
+            CapCutTextLoopAnim,
+        ],
+        duration: Union[str, float] = 500000,
+    ) -> "Text_segment":
         """将给定的入场/出场/循环动画添加到此片段的动画列表中, 出入场动画的持续时间可以自行设置, 循环动画则会自动填满其余无动画部分
 
         注意: 若希望同时使用循环动画和入出场动画, 请**先添加出入场动画再添加循环动画**
@@ -399,15 +480,31 @@ class Text_segment(VisualSegment):
         """
         duration = min(tim(duration), self.target_timerange.duration)
 
-        if (isinstance(animation_type, TextIntro) or isinstance(animation_type, CapCutTextIntro)):
+        if isinstance(animation_type, TextIntro) or isinstance(
+            animation_type, CapCutTextIntro
+        ):
             start = 0
-        elif (isinstance(animation_type, TextOutro) or isinstance(animation_type, CapCutTextOutro)):
+        elif isinstance(animation_type, TextOutro) or isinstance(
+            animation_type, CapCutTextOutro
+        ):
             start = self.target_timerange.duration - duration
-        elif (isinstance(animation_type, TextLoopAnim) or isinstance(animation_type, CapCutTextLoopAnim)):
-            intro_trange = self.animations_instance and self.animations_instance.get_animation_trange("in")
-            outro_trange = self.animations_instance and self.animations_instance.get_animation_trange("out")
+        elif isinstance(animation_type, TextLoopAnim) or isinstance(
+            animation_type, CapCutTextLoopAnim
+        ):
+            intro_trange = (
+                self.animations_instance
+                and self.animations_instance.get_animation_trange("in")
+            )
+            outro_trange = (
+                self.animations_instance
+                and self.animations_instance.get_animation_trange("out")
+            )
             start = intro_trange.start if intro_trange else 0
-            duration = self.target_timerange.duration - start - (outro_trange.duration if outro_trange else 0)
+            duration = (
+                self.target_timerange.duration
+                - start
+                - (outro_trange.duration if outro_trange else 0)
+            )
         else:
             raise TypeError("Invalid animation type %s" % type(animation_type))
 
@@ -415,7 +512,9 @@ class Text_segment(VisualSegment):
             self.animations_instance = Segment_animations()
             self.extra_material_refs.append(self.animations_instance.animation_id)
 
-        self.animations_instance.add_animation(Text_animation(animation_type, start, duration))
+        self.animations_instance.add_animation(
+            Text_animation(animation_type, start, duration)
+        )
 
         return self
 
@@ -468,48 +567,48 @@ class Text_segment(VisualSegment):
                             "render_type": "solid",
                             "solid": {
                                 "alpha": self.style.alpha,
-                                "color": list(self.style.color)
-                            }
-                        }
+                                "color": list(self.style.color),
+                            },
+                        },
                     },
                     "range": [0, sorted_styles[0].start],
                     "size": self.style.size,
                     "bold": self.style.bold,
                     "italic": self.style.italic,
                     "underline": self.style.underline,
-                    "strokes": [self.border.export_json()] if self.border else []
+                    "strokes": [self.border.export_json()] if self.border else [],
                 }
 
                 # 如果有阴影设置，添加到样式中
                 if self.shadow and self.shadow.has_shadow:
                     default_style["shadows"] = [
                         {
-                            "diffuse": self.shadow.smoothing / 6,  # diffuse = smoothing/6
+                            "diffuse": self.shadow.smoothing
+                            / 6,  # diffuse = smoothing/6
                             "angle": self.shadow.angle,
                             "content": {
                                 "solid": {
-                                    "color": [int(self.shadow.color[1:3], 16)/255,
-                                             int(self.shadow.color[3:5], 16)/255,
-                                             int(self.shadow.color[5:7], 16)/255]
+                                    "color": [
+                                        int(self.shadow.color[1:3], 16) / 255,
+                                        int(self.shadow.color[3:5], 16) / 255,
+                                        int(self.shadow.color[5:7], 16) / 255,
+                                    ]
                                 }
                             },
                             "distance": self.shadow.distance,
-                            "alpha": self.shadow.alpha
+                            "alpha": self.shadow.alpha,
                         }
                     ]
 
                 # 如果有全局字体设置，添加到样式中
                 if self.font:
-                    default_style["font"] = {
-                        "id": self.font.resource_id,
-                        "path": "D:"
-                    }
+                    default_style["font"] = {"id": self.font.resource_id, "path": "D:"}
 
                 # 如果有特效设置，添加到样式中
                 if self.effect:
                     default_style["effectStyle"] = {
                         "id": self.effect.effect_id,
-                        "path": "C:"  # 并不会真正在此处放置素材文件
+                        "path": "C:",  # 并不会真正在此处放置素材文件
                     }
 
                 styles.append(default_style)
@@ -524,42 +623,47 @@ class Text_segment(VisualSegment):
                             "render_type": "solid",
                             "solid": {
                                 "alpha": style_range.style.alpha,
-                                "color": list(style_range.style.color)
-                            }
-                        }
+                                "color": list(style_range.style.color),
+                            },
+                        },
                     },
                     "range": style_range.get_range(),
                     "size": style_range.style.size,
                     "bold": style_range.style.bold,
                     "italic": style_range.style.italic,
                     "underline": style_range.style.underline,
-                    "strokes": [style_range.border.export_json()] if style_range.border else []
+                    "strokes": [style_range.border.export_json()]
+                    if style_range.border
+                    else [],
                 }
 
                 # 如果TextStyleRange有字体设置，优先使用它
                 if hasattr(style_range, "font") and style_range.font:
                     style_item["font"] = {
                         "id": style_range.font.resource_id,
-                        "path": "C:/%s.ttf" % style_range.font.name
+                        "path": "C:/%s.ttf" % style_range.font.name,
                     }
                 # 否则，如果有全局字体设置，使用全局字体
                 elif self.font:
                     style_item["font"] = {
                         "id": self.font.resource_id,
-                        "path": "C:/%s.ttf" % self.font.name
+                        "path": "C:/%s.ttf" % self.font.name,
                     }
 
                 # 如果有特效设置，添加到样式中
                 if self.effect:
                     style_item["effectStyle"] = {
                         "id": self.effect.effect_id,
-                        "path": "C:"  # 并不会真正在此处放置素材文件
+                        "path": "C:",  # 并不会真正在此处放置素材文件
                     }
 
                 styles.append(style_item)
 
                 # 检查是否需要在当前样式和下一个样式之间添加默认样式
-                if i < len(sorted_styles) - 1 and style_range.end < sorted_styles[i+1].start:
+                if (
+                    i < len(sorted_styles) - 1
+                    and style_range.end < sorted_styles[i + 1].start
+                ):
                     # 添加从当前样式结束到下一个样式开始的默认样式
                     gap_style = {
                         "fill": {
@@ -568,30 +672,30 @@ class Text_segment(VisualSegment):
                                 "render_type": "solid",
                                 "solid": {
                                     "alpha": self.style.alpha,
-                                    "color": list(self.style.color)
-                                }
-                            }
+                                    "color": list(self.style.color),
+                                },
+                            },
                         },
-                        "range": [style_range.end, sorted_styles[i+1].start],
+                        "range": [style_range.end, sorted_styles[i + 1].start],
                         "size": self.style.size,
                         "bold": self.style.bold,
                         "italic": self.style.italic,
                         "underline": self.style.underline,
-                        "strokes": [self.border.export_json()] if self.border else []
+                        "strokes": [self.border.export_json()] if self.border else [],
                     }
 
                     # 如果有全局字体设置，添加到样式中
                     if self.font:
                         gap_style["font"] = {
                             "id": self.font.resource_id,
-                            "path": "C:/%s.ttf" % self.font.name
+                            "path": "C:/%s.ttf" % self.font.name,
                         }
 
                     # 如果有特效设置，添加到样式中
                     if self.effect:
                         gap_style["effectStyle"] = {
                             "id": self.effect.effect_id,
-                            "path": "C:"  # 并不会真正在此处放置素材文件
+                            "path": "C:",  # 并不会真正在此处放置素材文件
                         }
 
                     styles.append(gap_style)
@@ -606,30 +710,30 @@ class Text_segment(VisualSegment):
                             "render_type": "solid",
                             "solid": {
                                 "alpha": self.style.alpha,
-                                "color": list(self.style.color)
-                            }
-                        }
+                                "color": list(self.style.color),
+                            },
+                        },
                     },
                     "range": [sorted_styles[-1].end, len(self.text)],
                     "size": self.style.size,
                     "bold": self.style.bold,
                     "italic": self.style.italic,
                     "underline": self.style.underline,
-                    "strokes": [self.border.export_json()] if self.border else []
+                    "strokes": [self.border.export_json()] if self.border else [],
                 }
 
                 # 如果有全局字体设置，添加到样式中
                 if self.font:
                     end_style["font"] = {
                         "id": self.font.resource_id,
-                        "path": "C:/%s.ttf" % self.font.name
+                        "path": "C:/%s.ttf" % self.font.name,
                     }
 
                 # 如果有特效设置，添加到样式中
                 if self.effect:
                     end_style["effectStyle"] = {
                         "id": self.effect.effect_id,
-                        "path": "C:"  # 并不会真正在此处放置素材文件
+                        "path": "C:",  # 并不会真正在此处放置素材文件
                     }
 
                 styles.append(end_style)
@@ -642,16 +746,16 @@ class Text_segment(VisualSegment):
                         "render_type": "solid",
                         "solid": {
                             "alpha": self.style.alpha,
-                            "color": list(self.style.color)
-                        }
-                    }
+                            "color": list(self.style.color),
+                        },
+                    },
                 },
                 "range": [0, len_emoji_as_two(self.text)],
                 "size": self.style.size,
                 "bold": self.style.bold,
                 "italic": self.style.italic,
                 "underline": self.style.underline,
-                "strokes": [self.border.export_json()] if self.border else []
+                "strokes": [self.border.export_json()] if self.border else [],
             }
 
             # 如果有阴影设置，添加到样式中
@@ -662,13 +766,15 @@ class Text_segment(VisualSegment):
                         "angle": self.shadow.angle,
                         "content": {
                             "solid": {
-                                "color": [int(self.shadow.color[1:3], 16)/255,
-                                            int(self.shadow.color[3:5], 16)/255,
-                                            int(self.shadow.color[5:7], 16)/255]
+                                "color": [
+                                    int(self.shadow.color[1:3], 16) / 255,
+                                    int(self.shadow.color[3:5], 16) / 255,
+                                    int(self.shadow.color[5:7], 16) / 255,
+                                ]
                             }
                         },
                         "distance": self.shadow.distance,
-                        "alpha": self.shadow.alpha
+                        "alpha": self.shadow.alpha,
                     }
                 ]
 
@@ -676,48 +782,37 @@ class Text_segment(VisualSegment):
             if self.font:
                 style_item["font"] = {
                     "id": self.font.resource_id,
-                    "path": "D:" # 并不会真正在此处放置字体文件
+                    "path": "D:",  # 并不会真正在此处放置字体文件
                 }
 
             # 如果有特效设置，添加到样式中
             if self.effect:
                 style_item["effectStyle"] = {
                     "id": self.effect.effect_id,
-                    "path": "C:"  # 并不会真正在此处放置素材文件
+                    "path": "C:",  # 并不会真正在此处放置素材文件
                 }
 
             styles.append(style_item)
 
-        content_json = {
-            "styles": styles,
-            "text": self.text
-        }
+        content_json = {"styles": styles, "text": self.text}
 
         ret = {
             "id": self.material_id,
             "content": json.dumps(content_json, ensure_ascii=False),
-
             "typesetting": int(self.style.vertical),
             "alignment": self.style.align,
             "letter_spacing": self.style.letter_spacing * 0.05,
             "line_spacing": 0.02 + self.style.line_spacing * 0.05,
-
             "line_feed": 1,
             "line_max_width": 0.82,
             "force_apply_line_max_width": False,
-
             "check_flag": check_flag,
-
             "type": "text",
-
             "fixed_width": self.fixed_width,
             "fixed_height": self.fixed_height,
-
             # 混合 (+4)
             # "global_alpha": 1.0,
-
             # 发光 (+64)，属性由extra_material_refs记录
-
             # 阴影 (+32)
             # "has_shadow": False,
             # "shadow_alpha": 0.9,
@@ -729,8 +824,7 @@ class Text_segment(VisualSegment):
             #     "y": -0.6363961030678928
             # },
             # "shadow_smoothing": 0.45,
-
-                        # 整体字体设置
+            # 整体字体设置
             "font_category_id": "",
             "font_category_name": "",
             "font_id": "",
@@ -742,23 +836,39 @@ class Text_segment(VisualSegment):
             "font_team_id": "",
             "font_title": "none",
             "font_url": "",
-            "fonts": [] if not self.text_styles else [
+            "fonts": []
+            if not self.text_styles
+            else [
                 # 根据text_styles生成fonts数组
-                *[{
-                    "category_id": "preset",
-                    "category_name": "剪映预设",
-                    "effect_id": style_range.font.resource_id if hasattr(style_range, "font") and style_range.font else (self.font.resource_id if self.font else ""),
-                    "file_uri": "",
-                    "id": "BFBA9655-1FE5-41A0-A85D-577EFFF17BDD",
-                    "path": "C:/%s.ttf" % (style_range.font.name if hasattr(style_range, "font") and style_range.font else (self.font.name if self.font else "")),
-                    "request_id": "20250713102314DA3D8F267527925ADC9A",
-                    "resource_id": style_range.font.resource_id if hasattr(style_range, "font") and style_range.font else (self.font.resource_id if self.font else ""),
-                    "source_platform": 0,
-                    "team_id": "",
-                    "title": style_range.font.name if hasattr(style_range, "font") and style_range.font else (self.font.name if self.font else "")
-                } for style_range in self.text_styles if (hasattr(style_range, "font") and style_range.font) or self.font]
+                *[
+                    {
+                        "category_id": "preset",
+                        "category_name": "剪映预设",
+                        "effect_id": style_range.font.resource_id
+                        if hasattr(style_range, "font") and style_range.font
+                        else (self.font.resource_id if self.font else ""),
+                        "file_uri": "",
+                        "id": "BFBA9655-1FE5-41A0-A85D-577EFFF17BDD",
+                        "path": "C:/%s.ttf"
+                        % (
+                            style_range.font.name
+                            if hasattr(style_range, "font") and style_range.font
+                            else (self.font.name if self.font else "")
+                        ),
+                        "request_id": "20250713102314DA3D8F267527925ADC9A",
+                        "resource_id": style_range.font.resource_id
+                        if hasattr(style_range, "font") and style_range.font
+                        else (self.font.resource_id if self.font else ""),
+                        "source_platform": 0,
+                        "team_id": "",
+                        "title": style_range.font.name
+                        if hasattr(style_range, "font") and style_range.font
+                        else (self.font.name if self.font else ""),
+                    }
+                    for style_range in self.text_styles
+                    if (hasattr(style_range, "font") and style_range.font) or self.font
+                ]
             ],
-
             # 似乎会被content覆盖
             # "text_alpha": 1.0,
             # "text_color": "#FFFFFF",
