@@ -22,6 +22,8 @@ class AddAudioRequest(BaseModel):
     duration: Optional[float] = None
     effect_type: Optional[str] = None
     effect_params: Optional[List[float]] = None
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
 
 class AudioItem(BaseModel):
     audio_url: str
@@ -31,6 +33,8 @@ class AudioItem(BaseModel):
     speed: float = 1.0
     duration: Optional[float] = None
     audio_name: Optional[str] = None
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
 
 class BatchAddAudiosRequest(BaseModel):
     draft_folder: Optional[str] = None
@@ -43,6 +47,8 @@ class BatchAddAudiosRequest(BaseModel):
     speed: float = 1.0
     effect_type: Optional[str] = None
     effect_params: Optional[List[float]] = None
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
 
 @router.post("/add_audio")
 async def add_audio(request: AddAudioRequest, response: Response):
@@ -68,7 +74,9 @@ async def add_audio(request: AddAudioRequest, response: Response):
             speed=request.speed,
             sound_effects=sound_effects,
             audio_name=request.audio_name,
-            duration=request.duration
+            duration=request.duration,
+            fade_in_duration=request.fade_in_duration,
+            fade_out_duration=request.fade_out_duration
         )
 
         result["success"] = True
@@ -110,6 +118,8 @@ async def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
             track_name=request.track_name,
             speed=request.speed,
             sound_effects=sound_effects,
+            fade_in_duration=request.fade_in_duration,
+            fade_out_duration=request.fade_out_duration,
         )
 
         result["success"] = True

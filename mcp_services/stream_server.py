@@ -223,6 +223,8 @@ async def tool_add_audio(
     duration: Optional[float] = None,
     effect_type: Optional[str] = None,
     effect_params: Optional[List[float]] = None,
+    fade_in_duration: float = 0.0,
+    fade_out_duration: float = 0.0,
 ) -> Dict[str, Any]:
     sound_effects = []
     if effect_type:
@@ -241,6 +243,8 @@ async def tool_add_audio(
         duration=duration,
         sound_effects=sound_effects if sound_effects else None,
         audio_name=audio_name,
+        fade_in_duration=fade_in_duration,
+        fade_out_duration=fade_out_duration,
     )
 
 
@@ -251,6 +255,8 @@ async def tool_batch_add_audios(
     track_name: str = "audio_main",
     effect_type: Optional[str] = None,
     effect_params: Optional[List[Any]] = None,
+    fade_in_duration: float = 0.0,
+    fade_out_duration: float = 0.0,
 ) -> Dict[str, Any]:
     """Batch add multiple audios to the track."""
     if not audios:
@@ -271,6 +277,8 @@ async def tool_batch_add_audios(
             track_name=track_name,
             speed=1.0,
             sound_effects=sound_effects,
+            fade_in_duration=fade_in_duration,
+            fade_out_duration=fade_out_duration,
         )
     except Exception as exc:
         logger.error(f"Failed to batch add audios: {exc}", exc_info=True)

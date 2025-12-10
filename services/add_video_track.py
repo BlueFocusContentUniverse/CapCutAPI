@@ -290,9 +290,11 @@ def _prepare_video_segment_payload(
         except AttributeError:
             raise ValueError(f"Unsupported transition type: {transition}, transition setting skipped")
 
-    # Add fade effect
+    # Add fade effect (convert seconds to microseconds)
     if fade_in_duration > 0 or fade_out_duration > 0:
-        video_segment.add_fade(fade_in_duration, fade_out_duration)
+        fade_in_us = int(fade_in_duration * 1e6)  # seconds to microseconds
+        fade_out_us = int(fade_out_duration * 1e6)  # seconds to microseconds
+        video_segment.add_fade(fade_in_us, fade_out_us)
 
     return VideoSegmentPayload(
         video_url=video_url,
