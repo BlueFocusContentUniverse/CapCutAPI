@@ -297,8 +297,6 @@ async def batch_add_audio_track(
     track_name: str = "audio_main",
     speed: float = 1.0,
     sound_effects: Optional[List[Tuple[str, Optional[List[Optional[float]]]]]] = None,
-    fade_in_duration: float = 0.0,
-    fade_out_duration: float = 0.0,
 ) -> Dict[str, Any]:
     if not audios:
         raise ValueError("audios parameter must contain at least one audio entry")
@@ -352,8 +350,8 @@ async def batch_add_audio_track(
                 sound_effects=audio.get("sound_effects", sound_effects),
                 audio_name=audio_name,
                 duration=duration,
-                fade_in_duration=audio.get("fade_in_duration", fade_in_duration),
-                fade_out_duration=audio.get("fade_out_duration", fade_out_duration),
+                fade_in_duration=audio.get("fade_in_duration", 0.0),
+                fade_out_duration=audio.get("fade_out_duration", 0.0),
             )
             payloads.append(payload)
         except Exception as exc:

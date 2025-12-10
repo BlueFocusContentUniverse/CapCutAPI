@@ -41,14 +41,12 @@ class BatchAddAudiosRequest(BaseModel):
     draft_id: Optional[str] = None
     audios: List[AudioItem]
 
-    # Common parameters
+    # Common parameters (fade 参数在 AudioItem 中，每个音频可独立设置)
     volume: float = 1.0
     track_name: str = "audio_main"
     speed: float = 1.0
     effect_type: Optional[str] = None
     effect_params: Optional[List[float]] = None
-    fade_in_duration: float = 0.0
-    fade_out_duration: float = 0.0
 
 @router.post("/add_audio")
 async def add_audio(request: AddAudioRequest, response: Response):
@@ -118,8 +116,6 @@ async def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
             track_name=request.track_name,
             speed=request.speed,
             sound_effects=sound_effects,
-            fade_in_duration=request.fade_in_duration,
-            fade_out_duration=request.fade_out_duration,
         )
 
         result["success"] = True

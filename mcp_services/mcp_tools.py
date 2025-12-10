@@ -293,9 +293,7 @@ TOOLS = [
                 "volume": {"type": "number", "default": 1.0, "description": "【共享】音量增益（应用于所有音频）"},
                 "track_name": {"type": "string", "default": "audio_main", "description": "【共享】轨道名称"},
                 "effect_type": {"type": "string", "description": "【共享】音效处理类型"},
-                "effect_params": {"type": "array", "description": "【共享】音效参数数组"},
-                "fade_in_duration": {"type": "number", "default": 0.0, "description": "【共享】音频淡入时长（秒）。应用于所有音频"},
-                "fade_out_duration": {"type": "number", "default": 0.0, "description": "【共享】音频淡出时长（秒）。应用于所有音频"}
+                "effect_params": {"type": "array", "description": "【共享】音效参数数组"}
             },
             "required": ["audios", "draft_id", "track_name"]
         }
