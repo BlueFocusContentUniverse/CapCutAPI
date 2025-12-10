@@ -69,7 +69,9 @@ TOOLS = [
                             "mode": {"type": "string", "enum": ["cover", "fill"], "default": "cover", "description": "速度计算模式。cover=使用speed参数，fill=根据target_duration自动计算speed"},
                             "target_duration": {"type": ["number", "null"], "default": None, "description": "fill模式专用，素材在轨道上的目标时长（秒）"},
                             "duration": {"type": ["number", "null"], "default": None, "description": "视频素材总时长（秒）"},
-                            "video_name": {"type": "string", "description": "视频素材名称"}
+                            "video_name": {"type": "string", "description": "视频素材名称"},
+                            "fade_in_duration": {"type": "number", "default": 0.0, "description": "音频淡入时长（秒）"},
+                            "fade_out_duration": {"type": "number", "default": 0.0, "description": "音频淡出时长（秒）"}
                         },
                         "required": ["video_url", "start", "end", "target_start", "mode", "target_duration", "duration"]
                     }
@@ -101,8 +103,6 @@ TOOLS = [
                 "mask_round_corner": {"type": ["number", "null"], "default": None, "description": "矩形圆角半径"},
                 "filter_type": {"type": "string", "description": "滤镜效果类型"},
                 "filter_intensity": {"type": "number", "default": 100.0, "description": "滤镜强度"},
-                "fade_in_duration": {"type": "number", "default": 0.0, "description": "音频淡入时长"},
-                "fade_out_duration": {"type": "number", "default": 0.0, "description": "音频淡出时长"},
                 "background_blur": {"type": "integer", "description": "背景模糊强度（1-4）"}
             },
             "required": ["videos", "draft_id"]

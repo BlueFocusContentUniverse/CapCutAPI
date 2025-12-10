@@ -74,8 +74,6 @@ async def tool_batch_add_videos(
     mask_round_corner: Optional[float] = None,
     filter_type: Optional[str] = None,
     filter_intensity: float = 100.0,
-    fade_in_duration: float = 0.0,
-    fade_out_duration: float = 0.0,
     background_blur: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Batch add multiple videos to the track."""
@@ -115,8 +113,6 @@ async def tool_batch_add_videos(
             mask_round_corner=mask_round_corner,
             filter_type=filter_type,
             filter_intensity=filter_intensity,
-            fade_in_duration=fade_in_duration,
-            fade_out_duration=fade_out_duration,
             background_blur=background_blur,
             default_mode="cover",
         )
