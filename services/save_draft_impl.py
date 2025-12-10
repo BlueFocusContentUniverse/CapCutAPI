@@ -495,6 +495,10 @@ def save_draft_impl(
         }
 
 
+# Lambda invoke payload 上限 (256KB，预留 10KB 给其他字段)
+LAMBDA_PAYLOAD_LIMIT = 245 * 1024  # 245KB
+
+
 def _invoke_lambda_archive(
     draft_id: str,
     draft_folder: Optional[str],
@@ -503,33 +507,50 @@ def _invoke_lambda_archive(
     archive_name: Optional[str],
     script
 ) -> Dict[str, str]:
-    """调用 Lambda 执行草稿打包"""
+    """调用 Lambda 执行草稿打包
+    
+    注意：Lambda invoke payload 上限为 256KB (Amazon SQS 限制)
+    如果 draft_content 超过此限制，将回退到本地线程处理
+    """
+    # 生成文件夹名称
+    if archive_name:
+        folder_name = f"{archive_name}_{uuid.uuid4().hex[:4]}"
+    else:
+        folder_name = draft_id
+
+    # 准备 Lambda 参数
+    draft_content = json.loads(script.dumps())
+    payload = {
+        "archive_id": archive_id,
+        "draft_id": draft_id,
+        "draft_version": draft_version,
+        "draft_content": draft_content,
+        "folder_name": folder_name,
+        "callback_url": ARCHIVE_CALLBACK_URL
+    }
+    
+    # 序列化 payload 并检查大小
+    payload_bytes = json.dumps(payload).encode('utf-8')
+    payload_size = len(payload_bytes)
+    
+    if payload_size > LAMBDA_PAYLOAD_LIMIT:
+        # Payload 超过 Lambda 限制，使用本地线程
+        logger.warning(
+            f"Draft {draft_id} payload size ({payload_size / 1024:.1f}KB) exceeds Lambda limit "
+            f"({LAMBDA_PAYLOAD_LIMIT / 1024:.0f}KB), using local thread"
+        )
+        return _fallback_to_local_thread(draft_id, draft_folder, archive_id, draft_version, archive_name)
+
     try:
         lambda_client = get_lambda_client()
         if lambda_client is None:
             raise Exception("Lambda client not available. Check USE_LAMBDA_ARCHIVE and AWS credentials.")
 
-        # 生成文件夹名称
-        if archive_name:
-            folder_name = f"{archive_name}_{uuid.uuid4().hex[:4]}"
-        else:
-            folder_name = draft_id
-
-        # 准备 Lambda 参数
-        payload = {
-            "archive_id": archive_id,
-            "draft_id": draft_id,
-            "draft_version": draft_version,
-            "draft_content": json.loads(script.dumps()),  # 草稿 JSON
-            "folder_name": folder_name,
-            "callback_url": ARCHIVE_CALLBACK_URL
-        }
-
         # 异步调用 Lambda
         response = lambda_client.invoke(
             FunctionName=LAMBDA_FUNCTION_NAME,
             InvocationType="Event",  # 异步调用
-            Payload=json.dumps(payload)
+            Payload=payload_bytes
         )
 
         status_code = response.get("StatusCode", 0)
@@ -545,20 +566,31 @@ def _invoke_lambda_archive(
             raise Exception(f"Lambda invocation failed with status {status_code}")
 
     except Exception as e:
-        logger.error(f"Failed to invoke Lambda for archive {archive_id}: {e!s}", exc_info=True)
-        # Lambda 调用失败时，回退到本地线程
-        logger.warning(f"Falling back to local thread for archive {archive_id}")
-        thread = threading.Thread(
-            target=save_draft_background,
-            args=(draft_id, draft_folder, archive_id, draft_version, archive_name),
-            daemon=True
-        )
-        thread.start()
-        return {
-            "success": True,
-            "archive_id": archive_id,
-            "message": "Draft archiving started in background (Lambda fallback)"
-        }
+        logger.error(f"Failed to invoke Lambda for archive {archive_id}: {e!s}")
+        return _fallback_to_local_thread(draft_id, draft_folder, archive_id, draft_version, archive_name)
+
+
+def _fallback_to_local_thread(
+    draft_id: str,
+    draft_folder: Optional[str],
+    archive_id: str,
+    draft_version: int,
+    archive_name: Optional[str]
+) -> Dict[str, str]:
+    """回退到本地线程处理草稿打包"""
+    logger.warning(f"Falling back to local thread for archive {archive_id}")
+    thread = threading.Thread(
+        target=save_draft_background,
+        args=(draft_id, draft_folder, archive_id, draft_version, archive_name),
+        daemon=True
+    )
+    thread.start()
+    return {
+        "success": True,
+        "archive_id": archive_id,
+        "message": "Draft archiving started in background (local thread)"
+    }
+
 
 def update_media_metadata(script, task_id=None):
     """
