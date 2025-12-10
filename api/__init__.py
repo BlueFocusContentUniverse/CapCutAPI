@@ -45,6 +45,7 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     router.include_router(tasks_router)
     router.include_router(draft_management_router)
     router.include_router(draft_archives_router)
+    router.include_router(draft_archives_callback_router)
     router.include_router(tracks_router)
     router.include_router(segments_router)
     router.include_router(videos_router)
@@ -52,8 +53,6 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
 
     unprotected_router.include_router(health_router)
     unprotected_router.include_router(generate_router)
-    # Callback router (no authentication required for Lambda callbacks)
-    unprotected_router.include_router(draft_archives_callback_router)
     unprotected_router.include_router(draft_archives_router, prefix="/unprotected")
     unprotected_router.include_router(drafts_router, prefix="/unprotected")
     unprotected_router.include_router(draft_management_router, prefix="/unprotected")
