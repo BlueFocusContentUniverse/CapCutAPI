@@ -124,6 +124,7 @@ async def get_archive_by_draft(
 
 
 class UpdateArchiveRequest(BaseModel):
+    archive_id: Optional[str] = None  # Lambda 回调
     download_url: Optional[str] = None
     total_files: Optional[int] = None
     progress: Optional[float] = None
@@ -267,3 +268,54 @@ async def get_stats(
         logger.error(f"Error getting archive stats: {e!s}", exc_info=True)
         return JSONResponse(status_code=500, content=result)
 
+class LambdaCallbackRequest(BaseModel):
+    """Lambda 回调请求体"""
+    archive_id: str
+    download_url: Optional[str] = None
+    total_files: Optional[int] = None
+    progress: Optional[float] = None
+    downloaded_files: Optional[int] = None
+    message: Optional[str] = None
+
+
+@router.patch("/callback")
+async def archive_callback(request: LambdaCallbackRequest):
+    """Lambda 回调接口,更新打包进度"""
+    result = {
+        "success": False,
+        "output": "",
+        "error": ""
+    }
+
+    try:
+        # TODO: 验证请求来源（后续可添加签名验证）
+        
+        if not request.archive_id:
+            result["error"] = "archive_id is required"
+            return JSONResponse(status_code=400, content=result)
+
+        storage = get_postgres_archive_storage()
+        
+        # 提取需要更新的字段（排除 archive_id）
+        update_data = request.dict(exclude_unset=True, exclude={"archive_id"})
+        
+        if not update_data:
+            result["error"] = "No fields to update"
+            return JSONResponse(status_code=400, content=result)
+
+        success = storage.update_archive(request.archive_id, **update_data)
+
+        if not success:
+            result["error"] = f"Failed to update archive {request.archive_id}"
+            logger.warning(f"Lambda callback failed to update archive {request.archive_id}")
+            return JSONResponse(status_code=404, content=result)
+
+        result["success"] = True
+        result["output"] = {"archive_id": request.archive_id, "updated_fields": list(update_data.keys())}
+        logger.info(f"Lambda callback updated archive {request.archive_id}: progress={request.progress}, message={request.message}")
+        return result
+
+    except Exception as e:
+        result["error"] = f"Callback failed: {e!s}"
+        logger.error(f"Lambda callback error for archive {request.archive_id}: {e!s}", exc_info=True)
+        return JSONResponse(status_code=500, content=result)

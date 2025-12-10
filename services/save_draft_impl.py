@@ -7,19 +7,38 @@ import shutil
 import string
 import subprocess
 import threading
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Literal, Optional, Tuple
 
+import boto3
 import pyJianYingDraft as draft
 from downloader import download_file
 from draft_cache import get_from_cache_with_version
 from repositories.draft_archive_repository import get_postgres_archive_storage
+from repositories.draft_repository import get_postgres_storage
 from services.get_duration_impl import get_video_duration
 
 # Import configuration
 from settings import IS_CAPCUT_ENV
 from util.cos_client import get_cos_client
 from util.helpers import is_windows_path, zip_draft
+
+# Lambda 配置
+USE_LAMBDA_ARCHIVE = os.getenv("USE_LAMBDA_ARCHIVE", "true").lower() == "true"
+LAMBDA_FUNCTION_NAME = os.getenv("ARCHIVE_LAMBDA_FUNCTION", "draft-archive-function")
+LAMBDA_REGION = os.getenv("AWS_REGION", "us-west-2")
+ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL", "")
+
+# Lambda 客户端（延迟初始化）
+_lambda_client = None
+
+def get_lambda_client():
+    """获取 Lambda 客户端（单例）"""
+    global _lambda_client
+    if _lambda_client is None and USE_LAMBDA_ARCHIVE:
+        _lambda_client = boto3.client("lambda", region_name=LAMBDA_REGION)
+    return _lambda_client
 
 # --- Get your Logger instance ---
 # The name here must match the logger name you configured in app.py
@@ -391,7 +410,7 @@ def save_draft_impl(
     user_name: Optional[str] = None,
     archive_name: Optional[str] = None
 ) -> Dict[str, str]:
-    """Start a background task to save the draft"""
+    """Start a background task to save the draft (via Lambda or local thread)"""
     logger.info(f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}, archive_name={archive_name}")
     try:
         archive_storage = get_postgres_archive_storage()
@@ -409,6 +428,21 @@ def save_draft_impl(
                 "message": "Draft archive already exists"
             }
 
+        # 获取草稿数据
+        if draft_version is not None:
+            pg_storage = get_postgres_storage()
+            script = pg_storage.get_draft_version(draft_id, draft_version)
+            actual_version = draft_version
+        else:
+            script, actual_version = get_from_cache_with_version(draft_id)
+
+        if script is None:
+            logger.error(f"Draft {draft_id} not found in cache or storage")
+            return {
+                "success": False,
+                "error": f"Draft {draft_id} not found"
+            }
+
         # Create or get archive_id
         if existing_archive:
             # Archive exists but no download_url yet (possibly failed or in progress)
@@ -418,29 +452,40 @@ def save_draft_impl(
             # Create new archive record
             archive_id = archive_storage.create_archive(
                 draft_id=draft_id,
-                draft_version=draft_version,
+                draft_version=actual_version,
                 user_id=user_id,
                 user_name=user_name,
                 archive_name=archive_name
             )
             if not archive_id:
                 raise Exception("Failed to create draft archive record")
-            logger.info(f"Created new archive {archive_id} for draft {draft_id} version {draft_version} with archive_name={archive_name}")
+            logger.info(f"Created new archive {archive_id} for draft {draft_id} version {actual_version} with archive_name={archive_name}")
 
-        # Start a background thread to execute the task
-        thread = threading.Thread(
-            target=save_draft_background,
-            args=(draft_id, draft_folder, archive_id, draft_version, archive_name),
-            daemon=True
-        )
-        thread.start()
-        logger.info(f"Started background thread for archive {archive_id} (version: {draft_version}, archive_name: {archive_name})")
+        # 决定使用 Lambda 还是本地线程
+        if USE_LAMBDA_ARCHIVE:
+            return _invoke_lambda_archive(
+                draft_id=draft_id,
+                draft_folder=draft_folder,
+                archive_id=archive_id,
+                draft_version=actual_version,
+                archive_name=archive_name,
+                script=script
+            )
+        else:
+            # 使用本地线程（原有逻辑）
+            thread = threading.Thread(
+                target=save_draft_background,
+                args=(draft_id, draft_folder, archive_id, actual_version, archive_name),
+                daemon=True
+            )
+            thread.start()
+            logger.info(f"Started background thread for archive {archive_id} (version: {actual_version}, archive_name: {archive_name})")
 
-        return {
-            "success": True,
-            "archive_id": archive_id,
-            "message": "Draft archiving started in background"
-        }
+            return {
+                "success": True,
+                "archive_id": archive_id,
+                "message": "Draft archiving started in background"
+            }
 
     except Exception as e:
         logger.error(f"Failed to start save draft task {draft_id}: {e!s}", exc_info=True)
@@ -448,6 +493,104 @@ def save_draft_impl(
             "success": False,
             "error": str(e)
         }
+
+
+# Lambda invoke payload 上限 (256KB，预留 10KB 给其他字段)
+LAMBDA_PAYLOAD_LIMIT = 245 * 1024  # 245KB
+
+
+def _invoke_lambda_archive(
+    draft_id: str,
+    draft_folder: Optional[str],
+    archive_id: str,
+    draft_version: int,
+    archive_name: Optional[str],
+    script
+) -> Dict[str, str]:
+    """调用 Lambda 执行草稿打包
+    
+    注意：Lambda invoke payload 上限为 256KB (Amazon SQS 限制)
+    如果 draft_content 超过此限制，将回退到本地线程处理
+    """
+    # 生成文件夹名称
+    if archive_name:
+        folder_name = f"{archive_name}_{uuid.uuid4().hex[:4]}"
+    else:
+        folder_name = draft_id
+
+    # 准备 Lambda 参数
+    draft_content = json.loads(script.dumps())
+    payload = {
+        "archive_id": archive_id,
+        "draft_id": draft_id,
+        "draft_version": draft_version,
+        "draft_content": draft_content,
+        "folder_name": folder_name,
+        "callback_url": ARCHIVE_CALLBACK_URL
+    }
+    
+    # 序列化 payload 并检查大小
+    payload_bytes = json.dumps(payload).encode('utf-8')
+    payload_size = len(payload_bytes)
+    
+    if payload_size > LAMBDA_PAYLOAD_LIMIT:
+        # Payload 超过 Lambda 限制，使用本地线程
+        logger.warning(
+            f"Draft {draft_id} payload size ({payload_size / 1024:.1f}KB) exceeds Lambda limit "
+            f"({LAMBDA_PAYLOAD_LIMIT / 1024:.0f}KB), using local thread"
+        )
+        return _fallback_to_local_thread(draft_id, draft_folder, archive_id, draft_version, archive_name)
+
+    try:
+        lambda_client = get_lambda_client()
+        if lambda_client is None:
+            raise Exception("Lambda client not available. Check USE_LAMBDA_ARCHIVE and AWS credentials.")
+
+        # 异步调用 Lambda
+        response = lambda_client.invoke(
+            FunctionName=LAMBDA_FUNCTION_NAME,
+            InvocationType="Event",  # 异步调用
+            Payload=payload_bytes
+        )
+
+        status_code = response.get("StatusCode", 0)
+        if status_code == 202:  # 异步调用成功返回 202
+            logger.info(f"Successfully invoked Lambda for archive {archive_id}, draft {draft_id}")
+            return {
+                "success": True,
+                "archive_id": archive_id,
+                "message": "Draft archiving started via Lambda"
+            }
+        else:
+            logger.error(f"Lambda invocation returned unexpected status: {status_code}")
+            raise Exception(f"Lambda invocation failed with status {status_code}")
+
+    except Exception as e:
+        logger.error(f"Failed to invoke Lambda for archive {archive_id}: {e!s}")
+        return _fallback_to_local_thread(draft_id, draft_folder, archive_id, draft_version, archive_name)
+
+
+def _fallback_to_local_thread(
+    draft_id: str,
+    draft_folder: Optional[str],
+    archive_id: str,
+    draft_version: int,
+    archive_name: Optional[str]
+) -> Dict[str, str]:
+    """回退到本地线程处理草稿打包"""
+    logger.warning(f"Falling back to local thread for archive {archive_id}")
+    thread = threading.Thread(
+        target=save_draft_background,
+        args=(draft_id, draft_folder, archive_id, draft_version, archive_name),
+        daemon=True
+    )
+    thread.start()
+    return {
+        "success": True,
+        "archive_id": archive_id,
+        "message": "Draft archiving started in background (local thread)"
+    }
+
 
 def update_media_metadata(script, task_id=None):
     """
