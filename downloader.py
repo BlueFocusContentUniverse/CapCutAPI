@@ -6,7 +6,7 @@ import requests
 from requests.exceptions import RequestException, Timeout
 
 
-def download_file(url:str, local_filename, max_retries=3, timeout=180):
+def download_file(url: str, local_filename, max_retries=3, timeout=180):
     # 检查是否是本地文件路径
     if os.path.exists(url) and os.path.isfile(url):
         # 是本地文件，直接复制
@@ -35,8 +35,10 @@ def download_file(url:str, local_filename, max_retries=3, timeout=180):
     while retries < max_retries:
         try:
             if retries > 0:
-                wait_time = 2 ** retries  # Exponential backoff strategy
-                print(f"Retrying in {wait_time} seconds... (Attempt {retries+1}/{max_retries})")
+                wait_time = 2**retries  # Exponential backoff strategy
+                print(
+                    f"Retrying in {wait_time} seconds... (Attempt {retries+1}/{max_retries})"
+                )
                 time.sleep(wait_time)
 
             print(f"Downloading file: {local_filename}")
@@ -51,10 +53,12 @@ def download_file(url:str, local_filename, max_retries=3, timeout=180):
             headers = {
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
                 "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
             }
 
-            with requests.get(url, stream=True, timeout=timeout, headers=headers) as response:
+            with requests.get(
+                url, stream=True, timeout=timeout, headers=headers
+            ) as response:
                 response.raise_for_status()
 
                 total_size = int(response.headers.get("content-length", 0))
@@ -71,7 +75,10 @@ def download_file(url:str, local_filename, max_retries=3, timeout=180):
                                 progress = bytes_written / total_size * 100
                                 # For frequently updated progress, consider using logger.debug or more granular control to avoid large log files
                                 # Or only output progress to console, not write to file
-                                print(f"\r[PROGRESS] {progress:.2f}% ({bytes_written/1024:.2f}KB/{total_size/1024:.2f}KB)", end="")
+                                print(
+                                    f"\r[PROGRESS] {progress:.2f}% ({bytes_written/1024:.2f}KB/{total_size/1024:.2f}KB)",
+                                    end="",
+                                )
                                 # Avoid printing too much progress information in log files
 
                 if total_size > 0:
@@ -92,4 +99,3 @@ def download_file(url:str, local_filename, max_retries=3, timeout=180):
 
     print(f"Download failed after {max_retries} attempts for URL: {url}")
     return False
-

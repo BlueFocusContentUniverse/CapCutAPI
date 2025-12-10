@@ -12,29 +12,41 @@ def get_video_duration(video_url):
 
     # Define retry count and wait time for each retry
     max_retries = 3
-    retry_delay_seconds = 1 # 1 second interval between retries
-    timeout_seconds = 10 # Set timeout for each attempt
+    retry_delay_seconds = 1  # 1 second interval between retries
+    timeout_seconds = 10  # Set timeout for each attempt
 
     for attempt in range(max_retries):
-        print(f"Attempting to get video duration (Attempt {attempt + 1}/{max_retries}) ...")
-        result = {"success": False, "output": 0, "error": None} # Reset result before each retry
+        print(
+            f"Attempting to get video duration (Attempt {attempt + 1}/{max_retries}) ..."
+        )
+        result = {
+            "success": False,
+            "output": 0,
+            "error": None,
+        }  # Reset result before each retry
 
         try:
             command = [
                 "ffprobe",
-                "-v", "error",
-                "-show_entries", "stream=duration",
-                "-show_entries", "format=duration",
-                "-print_format", "json",
-                video_url
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=duration",
+                "-show_entries",
+                "format=duration",
+                "-print_format",
+                "json",
+                video_url,
             ]
 
             # Use subprocess.run for more flexible handling of timeout and output
-            process = subprocess.run(command,
-                                     capture_output=True,
-                                     text=True, # Auto decode to text
-                                     timeout=timeout_seconds, # Use variable to set timeout
-                                     check=True) # Raise CalledProcessError if non-zero exit code
+            process = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,  # Auto decode to text
+                timeout=timeout_seconds,  # Use variable to set timeout
+                check=True,
+            )  # Raise CalledProcessError if non-zero exit code
 
             info = json.loads(process.stdout)
 
@@ -59,18 +71,24 @@ def get_video_duration(video_url):
                 return result
 
         except subprocess.TimeoutExpired:
-            result["error"] = f"Getting video duration timed out (exceeded {timeout_seconds} seconds)."
+            result["error"] = (
+                f"Getting video duration timed out (exceeded {timeout_seconds} seconds)."
+            )
             print(f"Attempt {attempt + 1} timed out.")
         except subprocess.CalledProcessError as e:
-            result["error"] = f"Error executing ffprobe command (exit code {e.returncode}): {e.stderr.strip()}"
+            result["error"] = (
+                f"Error executing ffprobe command (exit code {e.returncode}): {e.stderr.strip()}"
+            )
             print(f"Attempt {attempt + 1} failed. Error: {e.stderr.strip()}")
         except json.JSONDecodeError as e:
             result["error"] = f"Error parsing JSON data: {e}"
             print(f"Attempt {attempt + 1} failed. JSON parsing error: {e}")
         except FileNotFoundError:
-            result["error"] = "ffprobe command not found. Please ensure FFmpeg is installed and in system PATH."
+            result["error"] = (
+                "ffprobe command not found. Please ensure FFmpeg is installed and in system PATH."
+            )
             print("Error: ffprobe command not found, please check installation.")
-            return result # No need to retry if ffprobe itself is not found
+            return result  # No need to retry if ffprobe itself is not found
         except Exception as e:
             result["error"] = f"Unknown error occurred: {e}"
             print(f"Attempt {attempt + 1} failed. Unknown error: {e}")
@@ -96,6 +114,8 @@ def get_video_duration(video_url):
             print(f"Waiting {retry_delay_seconds} seconds before retrying...")
             time.sleep(retry_delay_seconds)
         elif not result["success"] and attempt == max_retries - 1:
-            print(f"Maximum retry count {max_retries} reached, both local and remote services unable to get duration.")
+            print(
+                f"Maximum retry count {max_retries} reached, both local and remote services unable to get duration."
+            )
 
-    return result # Return the last failure result after all retries fail
+    return result  # Return the last failure result after all retries fail

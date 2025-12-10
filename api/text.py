@@ -11,6 +11,7 @@ from util.helpers import hex_to_rgb
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["text"])
 
+
 class TextStyleModel(BaseModel):
     size: Optional[float] = None
     bold: Optional[bool] = None
@@ -23,10 +24,12 @@ class TextStyleModel(BaseModel):
     letter_spacing: Optional[float] = None
     line_spacing: Optional[float] = None
 
+
 class TextBorderModel(BaseModel):
     width: float = 0
     alpha: Optional[float] = None
     color: Optional[str] = None
+
 
 class TextStyleRangeItem(BaseModel):
     start: int = 0
@@ -34,6 +37,7 @@ class TextStyleRangeItem(BaseModel):
     style: Optional[TextStyleModel] = None
     border: Optional[TextBorderModel] = None
     font: Optional[str] = None
+
 
 class AddTextRequest(BaseModel):
     text: str
@@ -44,14 +48,14 @@ class AddTextRequest(BaseModel):
     transform_x: float = 0
     font: str = "文轩体"
     font_color: Optional[str] = None
-    color: Optional[str] = None # Alias for font_color
+    color: Optional[str] = None  # Alias for font_color
     font_size: Optional[float] = None
-    size: Optional[float] = None # Alias for font_size
+    size: Optional[float] = None  # Alias for font_size
     track_name: str = "text_main"
     align: int = 1
     vertical: bool = False
     font_alpha: Optional[float] = None
-    alpha: Optional[float] = None # Alias for font_alpha
+    alpha: Optional[float] = None  # Alias for font_alpha
 
     fixed_width: float = -1
     fixed_height: float = -1
@@ -92,12 +96,25 @@ class AddTextRequest(BaseModel):
 
     text_styles: List[TextStyleRangeItem] = []
 
+
 @router.post("/add_text")
 def add_text(request: AddTextRequest, response: Response):
     # Handle aliases
-    font_color = request.color if request.color is not None else (request.font_color if request.font_color is not None else "#FFFFFF")
-    font_size = request.size if request.size is not None else (request.font_size if request.font_size is not None else 8.0)
-    font_alpha = request.alpha if request.alpha is not None else (request.font_alpha if request.font_alpha is not None else 1.0)
+    font_color = (
+        request.color
+        if request.color is not None
+        else (request.font_color if request.font_color is not None else "#FFFFFF")
+    )
+    font_size = (
+        request.size
+        if request.size is not None
+        else (request.font_size if request.font_size is not None else 8.0)
+    )
+    font_alpha = (
+        request.alpha
+        if request.alpha is not None
+        else (request.font_alpha if request.font_alpha is not None else 1.0)
+    )
 
     text_styles = None
     if request.text_styles:
@@ -109,22 +126,40 @@ def add_text(request: AddTextRequest, response: Response):
                 size=style_model.size if style_model.size is not None else font_size,
                 bold=style_model.bold if style_model.bold is not None else False,
                 italic=style_model.italic if style_model.italic is not None else False,
-                underline=style_model.underline if style_model.underline is not None else False,
-                color=hex_to_rgb(style_model.color if style_model.color is not None else font_color),
-                alpha=style_model.alpha if style_model.alpha is not None else font_alpha,
+                underline=style_model.underline
+                if style_model.underline is not None
+                else False,
+                color=hex_to_rgb(
+                    style_model.color if style_model.color is not None else font_color
+                ),
+                alpha=style_model.alpha
+                if style_model.alpha is not None
+                else font_alpha,
                 align=style_model.align if style_model.align is not None else 1,
-                vertical=style_model.vertical if style_model.vertical is not None else request.vertical,
-                letter_spacing=style_model.letter_spacing if style_model.letter_spacing is not None else 0,
-                line_spacing=style_model.line_spacing if style_model.line_spacing is not None else 0
+                vertical=style_model.vertical
+                if style_model.vertical is not None
+                else request.vertical,
+                letter_spacing=style_model.letter_spacing
+                if style_model.letter_spacing is not None
+                else 0,
+                line_spacing=style_model.line_spacing
+                if style_model.line_spacing is not None
+                else 0,
             )
 
             border = None
             border_model = style_data.border
             if border_model and border_model.width > 0:
                 border = Text_border(
-                    alpha=border_model.alpha if border_model.alpha is not None else request.border_alpha,
-                    color=hex_to_rgb(border_model.color if border_model.color is not None else request.border_color),
-                    width=border_model.width
+                    alpha=border_model.alpha
+                    if border_model.alpha is not None
+                    else request.border_alpha,
+                    color=hex_to_rgb(
+                        border_model.color
+                        if border_model.color is not None
+                        else request.border_color
+                    ),
+                    width=border_model.width,
                 )
 
             style_range = TextStyleRange(
@@ -132,16 +167,14 @@ def add_text(request: AddTextRequest, response: Response):
                 end=style_data.end,
                 style=style,
                 border=border,
-                font_str=style_data.font if style_data.font is not None else request.font
+                font_str=style_data.font
+                if style_data.font is not None
+                else request.font,
             )
 
             text_styles.append(style_range)
 
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         draft_result = add_text_impl(
@@ -187,7 +220,7 @@ def add_text(request: AddTextRequest, response: Response):
             text_styles=text_styles,
             bold=request.bold,
             italic=request.italic,
-            underline=request.underline
+            underline=request.underline,
         )
 
         result["success"] = True
@@ -197,4 +230,3 @@ def add_text(request: AddTextRequest, response: Response):
     except Exception as e:
         result["error"] = f"Error occurred while processing text: {e!s}."
         return result
-

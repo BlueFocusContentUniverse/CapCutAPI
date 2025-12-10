@@ -25,7 +25,7 @@ async def _get_image_metadata(image_url: str) -> Tuple[int, int, Optional[str]]:
 
         format_name = None
         if "format" in info:
-             format_name = info["format"].get("format_name")
+            format_name = info["format"].get("format_name")
 
         if "streams" in info and len(info["streams"]) > 0:
             stream = info["streams"][0]
@@ -36,7 +36,9 @@ async def _get_image_metadata(image_url: str) -> Tuple[int, int, Optional[str]]:
             return 0, 0, format_name
     except Exception as e:
         logger.error(f"Failed to get image metadata for {image_url}: {e}")
-        raise ValueError(f"Failed to get image metadata for {image_url}. Please check if the URL is valid and accessible.") from e
+        raise ValueError(
+            f"Failed to get image metadata for {image_url}. Please check if the URL is valid and accessible."
+        ) from e
 
 
 async def add_image_impl(
@@ -52,25 +54,37 @@ async def add_image_impl(
     transform_x: float = 0,
     track_name: str = "main",
     relative_index: int = 0,
-    intro_animation: Optional[str] = None,  # New entrance animation parameter, higher priority than animation
+    intro_animation: Optional[
+        str
+    ] = None,  # New entrance animation parameter, higher priority than animation
     intro_animation_duration: float = 0.5,  # New entrance animation duration parameter, default 0.5 seconds
     outro_animation: Optional[str] = None,  # Exit animation parameter
     outro_animation_duration: float = 0.5,  # Exit animation duration parameter, default 0.5 seconds
     combo_animation: Optional[str] = None,  # Combo animation parameter
     combo_animation_duration: float = 0.5,  # Combo animation duration parameter, default 0.5 seconds
     transition: Optional[str] = None,  # Transition type parameter
-    transition_duration: Optional[float] = 0.5,  # Transition duration parameter (seconds), default 0.5 seconds
+    transition_duration: Optional[
+        float
+    ] = 0.5,  # Transition duration parameter (seconds), default 0.5 seconds
     # Mask related parameters
-    mask_type: Optional[str] = None,  # Mask type: Linear, Mirror, Circle, Rectangle, Heart, Star
+    mask_type: Optional[
+        str
+    ] = None,  # Mask type: Linear, Mirror, Circle, Rectangle, Heart, Star
     mask_center_x: float = 0.0,  # Mask center X coordinate
     mask_center_y: float = 0.0,  # Mask center Y coordinate
     mask_size: float = 0.5,  # Mask main size
     mask_rotation: float = 0.0,  # Mask rotation angle
     mask_feather: float = 0.0,  # Mask feather parameter (0-100)
     mask_invert: bool = False,  # Whether to invert the mask
-    mask_rect_width: Optional[float] = None,  # Rectangle mask width (rectangle mask only)
-    mask_round_corner: Optional[float] = None,  # Rectangle mask rounded corner (rectangle mask only, 0-100)
-    background_blur: Optional[int] = None  # Background blur level, 1-4, corresponding to four blur intensity levels
+    mask_rect_width: Optional[
+        float
+    ] = None,  # Rectangle mask width (rectangle mask only)
+    mask_round_corner: Optional[
+        float
+    ] = None,  # Rectangle mask rounded corner (rectangle mask only, 0-100)
+    background_blur: Optional[
+        int
+    ] = None,  # Background blur level, 1-4, corresponding to four blur intensity levels
 ) -> Dict[str, str]:
     """
     Add an image track to the specified draft
@@ -127,7 +141,11 @@ async def add_image_impl(
             # If no exception is thrown, the track already exists
         except exceptions.TrackNotFound:
             # Track doesn't exist, create a new track
-            script.add_track(draft.TrackType.video, track_name=track_name, relative_index=relative_index)
+            script.add_track(
+                draft.TrackType.video,
+                track_name=track_name,
+                relative_index=relative_index,
+            )
     else:
         script.add_track(draft.TrackType.video, relative_index=relative_index)
 
@@ -149,14 +167,22 @@ async def add_image_impl(
         # Detect input path type and process
         if is_windows_path(draft_folder):
             # Windows path processing
-            windows_drive, windows_path = re.match(r"([a-zA-Z]:)(.*)", draft_folder).groups()
-            parts = [p for p in windows_path.split("\\") if p]  # Split path and filter empty parts
-            draft_image_path = os.path.join(windows_drive, *parts, draft_id, "assets", "image", material_name)
+            windows_drive, windows_path = re.match(
+                r"([a-zA-Z]:)(.*)", draft_folder
+            ).groups()
+            parts = [
+                p for p in windows_path.split("\\") if p
+            ]  # Split path and filter empty parts
+            draft_image_path = os.path.join(
+                windows_drive, *parts, draft_id, "assets", "image", material_name
+            )
             # Normalize path (ensure consistent separators)
             draft_image_path = draft_image_path.replace("/", "\\")
         else:
             # macOS/Linux path processing
-            draft_image_path = os.path.join(draft_folder, draft_id, "assets", "image", material_name)
+            draft_image_path = os.path.join(
+                draft_folder, draft_id, "assets", "image", material_name
+            )
 
         # Print path information
         print("replace_path:", draft_image_path)
@@ -173,7 +199,7 @@ async def add_image_impl(
             material_name=material_name,
             duration=default_duration,
             width=width,
-            height=height
+            height=height,
         )
     else:
         image_material = draft.VideoMaterial(
@@ -183,7 +209,7 @@ async def add_image_impl(
             material_name=material_name,
             duration=default_duration,
             width=width,
-            height=height
+            height=height,
         )
 
     # Create target_timerange (image)
@@ -200,8 +226,8 @@ async def add_image_impl(
             transform_y=transform_y,
             scale_x=scale_x,
             scale_y=scale_y,
-            transform_x=transform_x
-        )
+            transform_x=transform_x,
+        ),
     )
 
     # Add entrance animation (prioritize intro_animation, then use animation)
@@ -211,9 +237,13 @@ async def add_image_impl(
                 animation_type = getattr(draft.CapCutIntroType, intro_animation)
             else:
                 animation_type = getattr(draft.IntroType, intro_animation)
-            image_segment.add_animation(animation_type, intro_animation_duration * 1e6)  # Use microsecond unit for animation duration
+            image_segment.add_animation(
+                animation_type, intro_animation_duration * 1e6
+            )  # Use microsecond unit for animation duration
         except AttributeError:
-            raise ValueError(f"Warning: Unsupported entrance animation type {intro_animation}, this parameter will be ignored")
+            raise ValueError(
+                f"Warning: Unsupported entrance animation type {intro_animation}, this parameter will be ignored"
+            )
 
     # Add exit animation
     if outro_animation:
@@ -222,9 +252,13 @@ async def add_image_impl(
                 outro_type = getattr(draft.CapCutOutroType, outro_animation)
             else:
                 outro_type = getattr(draft.OutroType, outro_animation)
-            image_segment.add_animation(outro_type, outro_animation_duration * 1e6)  # Use microsecond unit for animation duration
+            image_segment.add_animation(
+                outro_type, outro_animation_duration * 1e6
+            )  # Use microsecond unit for animation duration
         except AttributeError:
-            raise ValueError(f"Warning: Unsupported exit animation type {outro_animation}, this parameter will be ignored")
+            raise ValueError(
+                f"Warning: Unsupported exit animation type {outro_animation}, this parameter will be ignored"
+            )
 
     # Add combo animation
     if combo_animation:
@@ -233,9 +267,13 @@ async def add_image_impl(
                 combo_type = getattr(draft.CapCutGroupAnimationType, combo_animation)
             else:
                 combo_type = getattr(draft.GroupAnimationType, combo_animation)
-            image_segment.add_animation(combo_type, combo_animation_duration * 1e6)  # Use microsecond unit for animation duration
+            image_segment.add_animation(
+                combo_type, combo_animation_duration * 1e6
+            )  # Use microsecond unit for animation duration
         except AttributeError:
-            raise ValueError(f"Warning: Unsupported combo animation type {combo_animation}, this parameter will be ignored")
+            raise ValueError(
+                f"Warning: Unsupported combo animation type {combo_animation}, this parameter will be ignored"
+            )
 
     # Add transition effect
     if transition:
@@ -245,10 +283,18 @@ async def add_image_impl(
             else:
                 transition_type = getattr(draft.TransitionType, transition)
             # Convert seconds to microseconds (multiply by 1000000)
-            duration_microseconds = int(transition_duration * 1000000) if transition_duration is not None else None
-            image_segment.add_transition(transition_type, duration=duration_microseconds)
+            duration_microseconds = (
+                int(transition_duration * 1000000)
+                if transition_duration is not None
+                else None
+            )
+            image_segment.add_transition(
+                transition_type, duration=duration_microseconds
+            )
         except AttributeError:
-            raise ValueError(f"Warning: Unsupported transition type {transition}, this parameter will be ignored")
+            raise ValueError(
+                f"Warning: Unsupported transition type {transition}, this parameter will be ignored"
+            )
 
     # Add mask effect
     if mask_type:
@@ -267,24 +313,28 @@ async def add_image_impl(
                 feather=mask_feather,
                 invert=mask_invert,
                 rect_width=mask_rect_width,
-                round_corner=mask_round_corner
+                round_corner=mask_round_corner,
             )
         except Exception:
-            raise ValueError(f"Unsupported mask type {mask_type}, supported types include: Linear, Mirror, Circle, Rectangle, Heart, Star")
+            raise ValueError(
+                f"Unsupported mask type {mask_type}, supported types include: Linear, Mirror, Circle, Rectangle, Heart, Star"
+            )
 
     # Add background blur effect
     if background_blur is not None:
         # Background blur level mapping table
         blur_levels = {
             1: 0.0625,  # Light blur
-            2: 0.375,   # Medium blur
-            3: 0.75,    # Heavy blur
-            4: 1.0      # Maximum blur
+            2: 0.375,  # Medium blur
+            3: 0.75,  # Heavy blur
+            4: 1.0,  # Maximum blur
         }
 
         # Validate background blur level
         if background_blur not in blur_levels:
-            raise ValueError(f"Invalid background blur level {background_blur}, valid values are 1-4")
+            raise ValueError(
+                f"Invalid background blur level {background_blur}, valid values are 1-4"
+            )
 
         # Add background blur effect
         image_segment.add_background_filling("blur", blur=blur_levels[background_blur])

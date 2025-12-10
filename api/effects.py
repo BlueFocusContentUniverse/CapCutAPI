@@ -9,6 +9,7 @@ from services.add_effect_impl import add_effect_impl
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["effects"])
 
+
 class AddEffectRequest(BaseModel):
     effect_type: str
     start: float = 0
@@ -18,13 +19,10 @@ class AddEffectRequest(BaseModel):
     track_name: str = "effect_01"
     params: Optional[List[float]] = None
 
+
 @router.post("/add_effect")
 def add_effect(request: AddEffectRequest, response: Response):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         draft_result = add_effect_impl(
@@ -45,5 +43,3 @@ def add_effect(request: AddEffectRequest, response: Response):
         result["error"] = f"Error occurred while adding effect: {e!s}. "
         response.status_code = 400
         return result
-
-

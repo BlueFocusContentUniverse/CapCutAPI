@@ -24,11 +24,7 @@ class CreateDraftRequest(BaseModel):
 
 @router.post("/create_draft")
 async def create_draft_service(request: CreateDraftRequest):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         _script, draft_id = create_draft(
@@ -36,7 +32,7 @@ async def create_draft_service(request: CreateDraftRequest):
             height=request.height,
             framerate=request.framerate,
             name=request.name,
-            resource=request.resource
+            resource=request.resource,
         )
 
         result["success"] = True
@@ -55,18 +51,18 @@ class QueryScriptRequest(BaseModel):
 
 @router.post("/query_script")
 async def query_script(request: QueryScriptRequest):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     try:
-        script = query_script_impl(draft_id=request.draft_id, force_update=request.force_update)
+        script = query_script_impl(
+            draft_id=request.draft_id, force_update=request.force_update
+        )
 
         if script is None:
             result["error"] = f"Draft {request.draft_id} does not exist in cache."
@@ -94,14 +90,12 @@ class SaveDraftRequest(BaseModel):
 
 @router.post("/save_draft")
 async def save_draft(request: SaveDraftRequest):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     if not request.draft_id:
-        result["error"] = "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        result["error"] = (
+            "Hi, the required parameter 'draft_id' is missing. Please add it and try again."
+        )
         return result
 
     try:
@@ -111,7 +105,7 @@ async def save_draft(request: SaveDraftRequest):
             draft_version=request.draft_version,
             user_id=request.user_id,
             user_name=request.user_name,
-            archive_name=request.archive_name
+            archive_name=request.archive_name,
         )
 
         result["success"] = True

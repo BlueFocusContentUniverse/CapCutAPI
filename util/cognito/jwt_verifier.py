@@ -62,9 +62,9 @@ class CognitoJWTVerifier:
         """
         # 检查缓存
         if (
-            not force_refresh and
-            self._jwks_cache and
-            time.time() - self._jwks_cache_time < self._jwks_cache_ttl
+            not force_refresh
+            and self._jwks_cache
+            and time.time() - self._jwks_cache_time < self._jwks_cache_ttl
         ):
             return self._jwks_cache
 
@@ -122,7 +122,7 @@ class CognitoJWTVerifier:
         token: str,
         verify_exp: bool = True,
         verify_aud: bool = True,
-        verify_iss: bool = True
+        verify_iss: bool = True,
     ) -> Dict[str, Any]:
         """
         验证JWT token
@@ -158,7 +158,7 @@ class CognitoJWTVerifier:
                 algorithms=["RS256"],
                 audience=self.expected_audience if verify_aud else None,
                 issuer=self.expected_issuer if verify_iss else None,
-                options=options
+                options=options,
             )
 
             return claims
@@ -203,4 +203,3 @@ class CognitoJWTVerifier:
             return True  # 如果无法获取过期时间，认为已过期
 
         return time.time() >= exp
-

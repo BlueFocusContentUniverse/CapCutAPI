@@ -88,7 +88,9 @@ class DraftVersion(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("draft_id", "version", name="uq_draft_versions_draft_id_version"),
+        UniqueConstraint(
+            "draft_id", "version", name="uq_draft_versions_draft_id_version"
+        ),
     )
 
 
@@ -147,8 +149,15 @@ class VideoTask(Base):
 
     # status: initialized, pending, processing, completed, failed
     status = Column(String(64), index=True, nullable=False, default="initialized")
-    render_status = Column(SAEnum(VideoTaskStatus, name="video_task_status"), index=True, nullable=False, default=VideoTaskStatus.INITIALIZED)
-    progress = Column(Float, nullable=True)  # Changed from Integer to Float for decimal precision (0.0 - 100.0)
+    render_status = Column(
+        SAEnum(VideoTaskStatus, name="video_task_status"),
+        index=True,
+        nullable=False,
+        default=VideoTaskStatus.INITIALIZED,
+    )
+    progress = Column(
+        Float, nullable=True
+    )  # Changed from Integer to Float for decimal precision (0.0 - 100.0)
     message = Column(Text, nullable=True)
 
     # arbitrary extra data (e.g., Celery IDs, etc.)
@@ -171,7 +180,9 @@ class DraftArchive(Base):
     __tablename__ = "draft_archives"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    archive_id = Column(UUID(as_uuid=True), unique=True, index=True, nullable=False, default=uuid.uuid4)
+    archive_id = Column(
+        UUID(as_uuid=True), unique=True, index=True, nullable=False, default=uuid.uuid4
+    )
     user_id = Column(String(255), index=True, nullable=True)
     user_name = Column(String(255), nullable=True)
     draft_id = Column(String(255), index=True, nullable=False)
@@ -196,7 +207,7 @@ class DraftArchive(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("draft_id", "draft_version", name="uq_draft_archives_draft_id_version"),
+        UniqueConstraint(
+            "draft_id", "draft_version", name="uq_draft_archives_draft_id_version"
+        ),
     )
-
-

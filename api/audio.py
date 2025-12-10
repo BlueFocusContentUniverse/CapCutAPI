@@ -9,6 +9,7 @@ from services.add_audio_track import add_audio_track, batch_add_audio_track
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["audio"])
 
+
 class AddAudioRequest(BaseModel):
     audio_url: str
     audio_name: Optional[str] = None
@@ -25,6 +26,7 @@ class AddAudioRequest(BaseModel):
     fade_in_duration: float = 0.0
     fade_out_duration: float = 0.0
 
+
 class AudioItem(BaseModel):
     audio_url: str
     start: float = 0
@@ -35,6 +37,7 @@ class AudioItem(BaseModel):
     audio_name: Optional[str] = None
     fade_in_duration: float = 0.0
     fade_out_duration: float = 0.0
+
 
 class BatchAddAudiosRequest(BaseModel):
     draft_folder: Optional[str] = None
@@ -48,17 +51,14 @@ class BatchAddAudiosRequest(BaseModel):
     effect_type: Optional[str] = None
     effect_params: Optional[List[float]] = None
 
+
 @router.post("/add_audio")
 async def add_audio(request: AddAudioRequest, response: Response):
     sound_effects = None
     if request.effect_type is not None:
         sound_effects = [(request.effect_type, request.effect_params)]
 
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         draft_result = await add_audio_track(
@@ -74,7 +74,7 @@ async def add_audio(request: AddAudioRequest, response: Response):
             audio_name=request.audio_name,
             duration=request.duration,
             fade_in_duration=request.fade_in_duration,
-            fade_out_duration=request.fade_out_duration
+            fade_out_duration=request.fade_out_duration,
         )
 
         result["success"] = True
@@ -93,11 +93,7 @@ async def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
     if request.effect_type is not None:
         sound_effects = [(request.effect_type, request.effect_params)]
 
-    result = {
-        "success": False,
-        "output": [],
-        "error": ""
-    }
+    result = {"success": False, "output": [], "error": ""}
 
     if not request.audios:
         result["error"] = "Hi, the required parameter 'audios' is missing or empty."
@@ -132,9 +128,9 @@ async def batch_add_audios(request: BatchAddAudiosRequest, response: Response):
         return result
 
     except Exception as e:
-        logger.error(f"Error occurred while processing batch audios: {e!s}", exc_info=True)
+        logger.error(
+            f"Error occurred while processing batch audios: {e!s}", exc_info=True
+        )
         result["error"] = f"Error occurred while processing batch audios: {e!s}."
         response.status_code = 400
         return result
-
-

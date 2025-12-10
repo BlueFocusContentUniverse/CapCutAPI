@@ -41,6 +41,7 @@ if _env_file.exists():
         # Best-effort; do not fail module import
         pass
 
+
 def _database_url() -> str:
     url = os.getenv("DATABASE_URL")
     # Log the effective value (may be None) for debugging but avoid leaking secrets
@@ -57,10 +58,18 @@ def _database_url() -> str:
 def _get_pool_config() -> dict:
     """Get connection pool configuration from environment variables."""
     return {
-        "pool_size": int(os.getenv("DB_POOL_SIZE", "10")),  # Number of persistent connections
-        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "20")),  # Additional connections beyond pool_size
-        "pool_recycle": int(os.getenv("DB_POOL_RECYCLE", "3600")),  # Recycle connections after 1 hour (in seconds)
-        "pool_timeout": int(os.getenv("DB_POOL_TIMEOUT", "30")),  # Timeout for getting connection from pool
+        "pool_size": int(
+            os.getenv("DB_POOL_SIZE", "10")
+        ),  # Number of persistent connections
+        "max_overflow": int(
+            os.getenv("DB_MAX_OVERFLOW", "20")
+        ),  # Additional connections beyond pool_size
+        "pool_recycle": int(
+            os.getenv("DB_POOL_RECYCLE", "3600")
+        ),  # Recycle connections after 1 hour (in seconds)
+        "pool_timeout": int(
+            os.getenv("DB_POOL_TIMEOUT", "30")
+        ),  # Timeout for getting connection from pool
         "pool_pre_ping": True,  # Verify connections before use
     }
 
@@ -72,12 +81,7 @@ def get_engine(echo: bool = False) -> Engine:
         pool_config = _get_pool_config()
         logger.info(f"Creating database engine with pool config: {pool_config}")
 
-        _engine = create_engine(
-            _database_url(),
-            echo=echo,
-            future=True,
-            **pool_config
-        )
+        _engine = create_engine(_database_url(), echo=echo, future=True, **pool_config)
         logger.info(f"Created engine: {_engine}")
     return _engine
 
@@ -113,6 +117,7 @@ def init_db(engine: Engine | None = None) -> None:
     logger.info(f"Initializing database with engine: {eng}")
     # Import models to ensure metadata is populated
     from models import Draft, DraftVersion, Video, VideoTask  # noqa: F401
+
     Base.metadata.create_all(bind=eng)
     # Simple connectivity check
     with eng.connect() as conn:
@@ -147,5 +152,3 @@ def dispose_engine() -> None:
         _engine.dispose()
         _engine = None
     _SessionLocal = None
-
-

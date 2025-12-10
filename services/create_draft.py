@@ -11,13 +11,21 @@ logger = logging.getLogger(__name__)
 
 class DraftFramerate(Enum):
     """草稿帧率"""
+
     FR_24 = 24.0
     FR_25 = 25.0
     FR_30 = 30.0
     FR_50 = 50.0
     FR_60 = 60.0
 
-def create_draft(width=1080, height=1920, framerate=DraftFramerate.FR_30.value, name="draft", resource: str | None = None):
+
+def create_draft(
+    width=1080,
+    height=1920,
+    framerate=DraftFramerate.FR_30.value,
+    name="draft",
+    resource: str | None = None,
+):
     """
     Create new CapCut draft
     :param width: Video width, default 1080
@@ -30,12 +38,15 @@ def create_draft(width=1080, height=1920, framerate=DraftFramerate.FR_30.value, 
     draft_id = f"kox_{unix_time}_{unique_id}"  # Use Unix timestamp and UUID combination
 
     # Create CapCut draft with specified resolution
-    script = draft.ScriptFile(width, height, fps=framerate, name=name, resource=resource)
+    script = draft.ScriptFile(
+        width, height, fps=framerate, name=name, resource=resource
+    )
 
     # Store in global cache
     update_cache(draft_id, script)
 
     return script, draft_id
+
 
 def get_draft(draft_id=None):
     """
@@ -45,7 +56,9 @@ def get_draft(draft_id=None):
     :raises ValueError: If draft_id is None or draft not found
     """
     if draft_id is None:
-        raise ValueError("draft_id is required. Cannot retrieve draft without a draft_id.")
+        raise ValueError(
+            "draft_id is required. Cannot retrieve draft without a draft_id."
+        )
 
     normalized_id = normalize_draft_id(draft_id)
     if not normalized_id:
@@ -61,6 +74,8 @@ def get_draft(draft_id=None):
     script = get_from_cache(normalized_id)
 
     if script is None:
-        raise ValueError(f"Failed to retrieve draft '{normalized_id}' from storage. Draft may be corrupted.")
+        raise ValueError(
+            f"Failed to retrieve draft '{normalized_id}' from storage. Draft may be corrupted."
+        )
 
     return normalized_id, script

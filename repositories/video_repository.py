@@ -68,7 +68,9 @@ class VideoRepository:
                 )
                 session.add(video)
 
-                logger.info(f"Created video record: video_id={video_id} for draft {draft_id}")
+                logger.info(
+                    f"Created video record: video_id={video_id} for draft {draft_id}"
+                )
                 return video_id
 
         except SQLAlchemyError as e:
@@ -132,28 +134,34 @@ class VideoRepository:
         """
         try:
             with get_session() as session:
-                videos = session.execute(
-                    select(Video)
-                    .where(Video.draft_id == draft_id)
-                    .order_by(Video.created_at.desc())
-                ).scalars().all()
+                videos = (
+                    session.execute(
+                        select(Video)
+                        .where(Video.draft_id == draft_id)
+                        .order_by(Video.created_at.desc())
+                    )
+                    .scalars()
+                    .all()
+                )
 
                 results = []
                 for video in videos:
-                    results.append({
-                        "video_id": video.video_id,
-                        "draft_id": video.draft_id,
-                        "video_name": video.video_name,
-                        "resolution": video.resolution,
-                        "framerate": video.framerate,
-                        "duration": video.duration,
-                        "file_size": video.file_size,
-                        "oss_url": video.oss_url,
-                        "thumbnail_url": video.thumbnail_url,
-                        "extra": video.extra,
-                        "created_at": int(video.created_at.timestamp()),
-                        "updated_at": int(video.updated_at.timestamp()),
-                    })
+                    results.append(
+                        {
+                            "video_id": video.video_id,
+                            "draft_id": video.draft_id,
+                            "video_name": video.video_name,
+                            "resolution": video.resolution,
+                            "framerate": video.framerate,
+                            "duration": video.duration,
+                            "file_size": video.file_size,
+                            "oss_url": video.oss_url,
+                            "thumbnail_url": video.thumbnail_url,
+                            "extra": video.extra,
+                            "created_at": int(video.created_at.timestamp()),
+                            "updated_at": int(video.updated_at.timestamp()),
+                        }
+                    )
 
                 logger.info(f"Retrieved {len(results)} videos for draft {draft_id}")
                 return results
@@ -269,9 +277,13 @@ class VideoRepository:
                     if oss_deleted:
                         logger.info(f"Deleted OSS object for video {video_id}")
                     else:
-                        logger.warning(f"Failed to delete OSS object for video {video_id}")
+                        logger.warning(
+                            f"Failed to delete OSS object for video {video_id}"
+                        )
                 else:
-                    logger.warning(f"COS client not available, skipping OSS deletion for video {video_id}")
+                    logger.warning(
+                        f"COS client not available, skipping OSS deletion for video {video_id}"
+                    )
 
             return True
 
@@ -283,10 +295,7 @@ class VideoRepository:
             return False
 
     def list_videos(
-        self,
-        page: int = 1,
-        page_size: int = 100,
-        draft_id: Optional[str] = None
+        self, page: int = 1, page_size: int = 100, draft_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         List videos with pagination.
@@ -318,33 +327,42 @@ class VideoRepository:
                 total_count = session.execute(count_query).scalar() or 0
 
                 # Get paginated results
-                videos = session.execute(
-                    query
-                    .order_by(Video.created_at.desc())
-                    .limit(page_size)
-                    .offset(offset)
-                ).scalars().all()
+                videos = (
+                    session.execute(
+                        query.order_by(Video.created_at.desc())
+                        .limit(page_size)
+                        .offset(offset)
+                    )
+                    .scalars()
+                    .all()
+                )
 
                 results = []
                 for video in videos:
-                    results.append({
-                        "video_id": video.video_id,
-                        "draft_id": video.draft_id,
-                        "video_name": video.video_name,
-                        "resolution": video.resolution,
-                        "framerate": video.framerate,
-                        "duration": video.duration,
-                        "file_size": video.file_size,
-                        "oss_url": video.oss_url,
-                        "thumbnail_url": video.thumbnail_url,
-                        "extra": video.extra,
-                        "created_at": int(video.created_at.timestamp()),
-                        "updated_at": int(video.updated_at.timestamp()),
-                    })
+                    results.append(
+                        {
+                            "video_id": video.video_id,
+                            "draft_id": video.draft_id,
+                            "video_name": video.video_name,
+                            "resolution": video.resolution,
+                            "framerate": video.framerate,
+                            "duration": video.duration,
+                            "file_size": video.file_size,
+                            "oss_url": video.oss_url,
+                            "thumbnail_url": video.thumbnail_url,
+                            "extra": video.extra,
+                            "created_at": int(video.created_at.timestamp()),
+                            "updated_at": int(video.updated_at.timestamp()),
+                        }
+                    )
 
-                total_pages = (total_count + page_size - 1) // page_size if page_size > 0 else 0
+                total_pages = (
+                    (total_count + page_size - 1) // page_size if page_size > 0 else 0
+                )
 
-                logger.info(f"Listed videos: page={page}, page_size={page_size}, total={total_count}")
+                logger.info(
+                    f"Listed videos: page={page}, page_size={page_size}, total={total_count}"
+                )
 
                 return {
                     "videos": results,
@@ -355,7 +373,7 @@ class VideoRepository:
                         "total_pages": total_pages,
                         "has_next": page < total_pages,
                         "has_prev": page > 1,
-                    }
+                    },
                 }
 
         except SQLAlchemyError as e:
@@ -369,7 +387,7 @@ class VideoRepository:
                     "total_pages": 0,
                     "has_next": False,
                     "has_prev": False,
-                }
+                },
             }
         except Exception as e:
             logger.error(f"Failed to list videos: {e}")
@@ -382,7 +400,7 @@ class VideoRepository:
                     "total_pages": 0,
                     "has_next": False,
                     "has_prev": False,
-                }
+                },
             }
 
 
@@ -396,4 +414,3 @@ def get_video_repository() -> VideoRepository:
     if _video_repository is None:
         _video_repository = VideoRepository()
     return _video_repository
-

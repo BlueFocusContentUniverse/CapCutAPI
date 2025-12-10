@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 # 尝试导入Redis缓存
 try:
     from repositories.redis_draft_cache import get_redis_draft_cache
+
     REDIS_CACHE_AVAILABLE = True
 except Exception as e:
     REDIS_CACHE_AVAILABLE = False
@@ -19,7 +20,9 @@ except Exception as e:
 
 # Keep in-memory cache for active drafts (faster access)
 # Note: In-memory cache should be invalidated when using version-based locking
-DRAFT_CACHE: Dict[str, Tuple["draft.ScriptFile", int]] = OrderedDict()  # Store (script, version)
+DRAFT_CACHE: Dict[str, Tuple["draft.ScriptFile", int]] = (
+    OrderedDict()
+)  # Store (script, version)
 MAX_CACHE_SIZE = 100  # Reduced size since PostgreSQL is primary storage
 
 # Retry configuration for concurrent updates
@@ -74,7 +77,10 @@ def normalize_draft_id(raw_key: Any) -> Optional[str]:
     """Public helper to normalize external draft identifiers."""
     return _normalize_cache_key(raw_key)
 
-def update_cache(key: str, value: draft.ScriptFile, expected_version: Optional[int] = None) -> bool:
+
+def update_cache(
+    key: str, value: draft.ScriptFile, expected_version: Optional[int] = None
+) -> bool:
     """
     Update cache with Redis (L1) and PostgreSQL (L2) with optimistic locking support.
 
@@ -97,31 +103,45 @@ def update_cache(key: str, value: draft.ScriptFile, expected_version: Optional[i
             try:
                 redis_cache = get_redis_draft_cache()
                 if redis_cache:
-                    success = redis_cache.save_draft(cache_key, value, expected_version=expected_version)
+                    success = redis_cache.save_draft(
+                        cache_key, value, expected_version=expected_version
+                    )
                     if success:
                         # 清除内存缓存（重要：其他进程可能已更新）
                         if cache_key in DRAFT_CACHE:
                             DRAFT_CACHE.pop(cache_key)
-                        logger.info(f"Successfully updated draft {cache_key} via Redis cache")
+                        logger.info(
+                            f"Successfully updated draft {cache_key} via Redis cache"
+                        )
                         return True
                     else:
-                        logger.warning(f"Redis cache update failed, falling back to PostgreSQL")
+                        logger.warning(
+                            "Redis cache update failed, falling back to PostgreSQL"
+                        )
             except Exception as e:
-                logger.warning(f"Redis cache unavailable: {e}, falling back to PostgreSQL")
+                logger.warning(
+                    f"Redis cache unavailable: {e}, falling back to PostgreSQL"
+                )
 
         # 降级到PostgreSQL
         pg_storage = get_postgres_storage()
-        success = pg_storage.save_draft(cache_key, value, expected_version=expected_version)
+        success = pg_storage.save_draft(
+            cache_key, value, expected_version=expected_version
+        )
 
         if not success:
-            logger.warning(f"Failed to update draft {cache_key} due to version mismatch or other error")
+            logger.warning(
+                f"Failed to update draft {cache_key} due to version mismatch or other error"
+            )
             return False
 
         # Clear in-memory cache to force reload from DB (ensures consistency)
         # This is important because another process might have updated the draft
         if cache_key in DRAFT_CACHE:
             DRAFT_CACHE.pop(cache_key)
-            logger.debug(f"Cleared in-memory cache for draft {cache_key} after successful update")
+            logger.debug(
+                f"Cleared in-memory cache for draft {cache_key} after successful update"
+            )
 
         logger.info(f"Successfully updated draft {cache_key} in PostgreSQL")
         return True
@@ -129,6 +149,7 @@ def update_cache(key: str, value: draft.ScriptFile, expected_version: Optional[i
     except Exception as e:
         logger.error(f"Failed to update cache for {cache_key}: {e}")
         return False
+
 
 def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
     """
@@ -182,6 +203,7 @@ def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
             return cached[0] if isinstance(cached, tuple) else cached
         return None
 
+
 def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, int]]:
     """
     Get draft from cache along with its version number.
@@ -202,7 +224,9 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
                 result = redis_cache.get_draft_with_version(cache_key)
                 if result is not None:
                     script_obj, version = result
-                    logger.debug(f"Retrieved draft {cache_key} from Redis cache with version {version}")
+                    logger.debug(
+                        f"Retrieved draft {cache_key} from Redis cache with version {version}"
+                    )
                     return (script_obj, version)
         except Exception as e:
             logger.warning(f"Redis cache unavailable: {e}, falling back to PostgreSQL")
@@ -214,7 +238,9 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
 
         if result is not None:
             script_obj, version = result
-            logger.debug(f"Retrieved draft {cache_key} from PostgreSQL with version {version}")
+            logger.debug(
+                f"Retrieved draft {cache_key} from PostgreSQL with version {version}"
+            )
             # 如果Redis可用，尝试写入Redis缓存
             if REDIS_CACHE_AVAILABLE:
                 try:
@@ -229,7 +255,9 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
         return None
 
     except Exception as e:
-        logger.error(f"Failed to get draft {cache_key} with version from PostgreSQL: {e}")
+        logger.error(
+            f"Failed to get draft {cache_key} with version from PostgreSQL: {e}"
+        )
         # Fallback to memory cache only
         cached = DRAFT_CACHE.get(cache_key)
         if cached:
@@ -240,6 +268,7 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
                 # Old cache format without version
                 return (cached, 1)
         return None
+
 
 def remove_from_cache(key: str) -> bool:
     """Remove draft from both memory and PostgreSQL cache"""
@@ -256,7 +285,9 @@ def remove_from_cache(key: str) -> bool:
         if memory_removed:
             DRAFT_CACHE.pop(cache_key)
 
-        logger.info(f"Removed draft {cache_key} from cache (PostgreSQL: {pg_removed}, Memory: {memory_removed})")
+        logger.info(
+            f"Removed draft {cache_key} from cache (PostgreSQL: {pg_removed}, Memory: {memory_removed})"
+        )
         return pg_removed or memory_removed
 
     except Exception as e:
@@ -266,6 +297,7 @@ def remove_from_cache(key: str) -> bool:
             DRAFT_CACHE.pop(cache_key)
             return True
         return False
+
 
 def cache_exists(key: str) -> bool:
     """Check if draft exists in cache"""
@@ -285,6 +317,7 @@ def cache_exists(key: str) -> bool:
         logger.error(f"Failed to check if draft {cache_key} exists: {e}")
         return cache_key in DRAFT_CACHE
 
+
 def get_cache_stats() -> Dict:
     """Get cache statistics"""
     stats = {
@@ -292,7 +325,7 @@ def get_cache_stats() -> Dict:
         "memory_cache_max": MAX_CACHE_SIZE,
         "redis_cache_available": REDIS_CACHE_AVAILABLE,
     }
-    
+
     # Redis缓存统计
     if REDIS_CACHE_AVAILABLE:
         try:
@@ -303,7 +336,7 @@ def get_cache_stats() -> Dict:
         except Exception as e:
             logger.warning(f"Failed to get Redis cache stats: {e}")
             stats["redis_stats"] = {"redis_available": False}
-    
+
     # PostgreSQL统计
     try:
         pg_storage = get_postgres_storage()
@@ -312,8 +345,9 @@ def get_cache_stats() -> Dict:
     except Exception as e:
         logger.error(f"Failed to get cache stats: {e}")
         stats["postgres_stats"] = {}
-    
+
     return stats
+
 
 def update_draft_with_retry(
     draft_id: str,
@@ -361,7 +395,9 @@ def update_draft_with_retry(
             # Get latest version from database
             result = get_from_cache_with_version(normalized_id)
             if result is None:
-                err = RuntimeError(f"Draft {normalized_id} not found in cache or storage")
+                err = RuntimeError(
+                    f"Draft {normalized_id} not found in cache or storage"
+                )
                 last_exception = err
                 logger.error("%s", err)
                 if return_error:
@@ -369,16 +405,22 @@ def update_draft_with_retry(
                 return False
 
             script, current_version = result
-            logger.debug(f"Attempt {attempt + 1}/{max_retries}: Fetched draft {normalized_id} version {current_version}")
+            logger.debug(
+                f"Attempt {attempt + 1}/{max_retries}: Fetched draft {normalized_id} version {current_version}"
+            )
 
             # Apply modifications
             modifier_func(script)
 
             # Try to save with version check
-            success = update_cache(normalized_id, script, expected_version=current_version)
+            success = update_cache(
+                normalized_id, script, expected_version=current_version
+            )
 
             if success:
-                logger.info(f"Successfully updated draft {normalized_id} on attempt {attempt + 1}")
+                logger.info(
+                    f"Successfully updated draft {normalized_id} on attempt {attempt + 1}"
+                )
                 if return_error:
                     return True, None
                 return True

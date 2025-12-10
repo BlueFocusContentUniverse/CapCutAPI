@@ -10,6 +10,7 @@ from services.add_sticker_impl import add_sticker_impl
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["sticker"])
 
+
 class AddStickerRequest(BaseModel):
     sticker_id: str
     start: float = 0
@@ -26,16 +27,14 @@ class AddStickerRequest(BaseModel):
     track_name: str = "sticker_main"
     relative_index: int = 0
 
+
 class SearchStickerRequest(BaseModel):
     keywords: str
 
+
 @router.post("/add_sticker")
 def add_sticker(request: AddStickerRequest, response: Response):
-    result = {
-        "success": False,
-        "output": "",
-        "error": ""
-    }
+    result = {"success": False, "output": "", "error": ""}
 
     try:
         draft_result = add_sticker_impl(
@@ -69,12 +68,9 @@ def add_sticker(request: AddStickerRequest, response: Response):
 def search_sticker(request: SearchStickerRequest, response: Response):
     result = {
         "error": "",
-        "output": {
-            "data": [],
-            "message": ""
-        },
+        "output": {"data": [], "message": ""},
         "purchase_link": "",
-        "success": False
+        "success": False,
     }
 
     try:
@@ -85,11 +81,9 @@ def search_sticker(request: SearchStickerRequest, response: Response):
             "effect_type": 2,
             "need_recommend": False,
             "offset": 0,
-            "query": request.keywords
+            "query": request.keywords,
         }
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = {"Content-Type": "application/json"}
 
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         resp.raise_for_status()
@@ -97,7 +91,7 @@ def search_sticker(request: SearchStickerRequest, response: Response):
 
         ret_code = str(body.get("ret", ""))
         errmsg = body.get("errmsg", "")
-        data_section = (body.get("data") or {})
+        data_section = body.get("data") or {}
         items = data_section.get("effect_item_list") or []
 
         mapped_items = []
@@ -105,38 +99,46 @@ def search_sticker(request: SearchStickerRequest, response: Response):
             common = item.get("common_attr") or {}
             sticker = item.get("sticker") or {}
 
-            large_image = (sticker.get("large_image") or {})
-            sticker_package = (sticker.get("sticker_package") or {})
+            large_image = sticker.get("large_image") or {}
+            sticker_package = sticker.get("sticker_package") or {}
 
             # Determine sticker_id with fallbacks
             sticker_id = (
                 str(common.get("effect_id") or "")
                 or str(common.get("id") or "")
                 or str(common.get("third_resource_id_str") or "")
-                or (str(common.get("third_resource_id")) if common.get("third_resource_id") is not None else "")
+                or (
+                    str(common.get("third_resource_id"))
+                    if common.get("third_resource_id") is not None
+                    else ""
+                )
             )
 
-            mapped_items.append({
-                "sticker": {
-                    "large_image": {
-                        "image_url": large_image.get("image_url", "")
+            mapped_items.append(
+                {
+                    "sticker": {
+                        "large_image": {"image_url": large_image.get("image_url", "")},
+                        "preview_cover": sticker.get("preview_cover", ""),
+                        "sticker_package": {
+                            "height_per_frame": int(
+                                sticker_package.get("height_per_frame", 0) or 0
+                            ),
+                            "size": int(sticker_package.get("size", 0) or 0),
+                            "width_per_frame": int(
+                                sticker_package.get("width_per_frame", 0) or 0
+                            ),
+                        },
+                        "sticker_type": int(sticker.get("sticker_type", 0) or 0),
+                        "track_thumbnail": sticker.get("track_thumbnail", ""),
                     },
-                    "preview_cover": sticker.get("preview_cover", ""),
-                    "sticker_package": {
-                        "height_per_frame": int(sticker_package.get("height_per_frame", 0) or 0),
-                        "size": int(sticker_package.get("size", 0) or 0),
-                        "width_per_frame": int(sticker_package.get("width_per_frame", 0) or 0)
-                    },
-                    "sticker_type": int(sticker.get("sticker_type", 0) or 0),
-                    "track_thumbnail": sticker.get("track_thumbnail", "")
-                },
-                "sticker_id": sticker_id,
-                "title": common.get("title", "")
-            })
+                    "sticker_id": sticker_id,
+                    "title": common.get("title", ""),
+                }
+            )
 
         result["output"]["data"] = mapped_items
         result["output"]["message"] = errmsg or "success"
-        result["success"] = (ret_code == "0")
+        result["success"] = ret_code == "0"
         if not result["success"] and not result["error"]:
             result["error"] = errmsg or "Search failed"
         return result

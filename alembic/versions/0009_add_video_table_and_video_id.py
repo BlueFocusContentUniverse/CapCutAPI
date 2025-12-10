@@ -5,6 +5,7 @@ Revises: 0008
 Create Date: 2025-10-31 00:00:00.000000
 
 """
+
 import logging
 
 import sqlalchemy as sa
@@ -26,7 +27,9 @@ def upgrade() -> None:
 
     # 1. Add PENDING status to the enum
     logger.info("Adding PENDING status to video_task_status enum")
-    op.execute("ALTER TYPE video_task_status ADD VALUE IF NOT EXISTS 'PENDING' AFTER 'INITIALIZED'")
+    op.execute(
+        "ALTER TYPE video_task_status ADD VALUE IF NOT EXISTS 'PENDING' AFTER 'INITIALIZED'"
+    )
 
     # 2. Create videos table
     logger.info("Creating videos table")
@@ -60,8 +63,12 @@ def upgrade() -> None:
 
     # 3. Add video_id column to video_tasks table
     logger.info("Adding video_id column to video_tasks table")
-    op.add_column("video_tasks", sa.Column("video_id", sa.String(length=255), nullable=True))
-    op.create_index(op.f("ix_video_tasks_video_id"), "video_tasks", ["video_id"], unique=False)
+    op.add_column(
+        "video_tasks", sa.Column("video_id", sa.String(length=255), nullable=True)
+    )
+    op.create_index(
+        op.f("ix_video_tasks_video_id"), "video_tasks", ["video_id"], unique=False
+    )
 
     # 4. Change progress column from Integer to Float for decimal precision
     logger.info("Changing progress column from Integer to Float")
@@ -104,8 +111,9 @@ def downgrade() -> None:
 
     # Note: Cannot remove PENDING enum value as PostgreSQL doesn't support removing enum values
     # To fully downgrade, you would need to recreate the enum without PENDING
-    logger.warning("PENDING status in video_task_status enum cannot be automatically removed")
+    logger.warning(
+        "PENDING status in video_task_status enum cannot be automatically removed"
+    )
 
     logger.info("Migration 0009 downgrade completed")
     # ### end Alembic commands ###
-

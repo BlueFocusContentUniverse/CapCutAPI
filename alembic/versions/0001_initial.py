@@ -1,10 +1,11 @@
 """initial tables
 
 Revision ID: 0001_initial
-Revises: 
+Revises:
 Create Date: 2025-08-22 00:00:00
 
 """
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
@@ -49,7 +50,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_video_tasks_task_id", "video_tasks", ["task_id"], unique=True)
-    op.create_index("ix_video_tasks_draft_id", "video_tasks", ["draft_id"], unique=False)
+    op.create_index(
+        "ix_video_tasks_draft_id", "video_tasks", ["draft_id"], unique=False
+    )
     op.create_index("ix_video_tasks_status", "video_tasks", ["status"], unique=False)
 
 
@@ -61,5 +64,3 @@ def downgrade() -> None:
 
     op.drop_index("ix_drafts_draft_id", table_name="drafts")
     op.drop_table("drafts")
-
-

@@ -20,4 +20,3 @@ __all__ = [
     "get_video_repository",
     "get_video_task_repository",
 ]
-

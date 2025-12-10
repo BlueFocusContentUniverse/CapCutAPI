@@ -85,10 +85,10 @@ def export_segment_for_llm(segment: BaseSegment) -> Dict[str, Any]:
                     "values": [
                         {
                             "time_offset": round(kf.time_offset / 1_000_000, 3),
-                            "value": kf.value
+                            "value": kf.value,
                         }
                         for kf in kf_list.keyframes
-                    ]
+                    ],
                 }
                 for kf_list in segment.common_keyframes
             ]
@@ -152,9 +152,7 @@ def export_track_for_llm(track: Track, include_segments: bool = True) -> Dict[st
     }
 
     if include_segments:
-        result["segments"] = [
-            export_segment_for_llm(seg) for seg in track.segments
-        ]
+        result["segments"] = [export_segment_for_llm(seg) for seg in track.segments]
 
     return result
 
@@ -162,7 +160,7 @@ def export_track_for_llm(track: Track, include_segments: bool = True) -> Dict[st
 def export_tracks_for_llm(
     tracks: Dict[str, Track],
     imported_tracks: Optional[List[Track]] = None,
-    include_segments: bool = True
+    include_segments: bool = True,
 ) -> Dict[str, Any]:
     """
     Export all tracks in LLM-friendly format.
@@ -179,15 +177,13 @@ def export_tracks_for_llm(
         - total_tracks: Total count
     """
     tracks_list = [
-        export_track_for_llm(track, include_segments)
-        for track in tracks.values()
+        export_track_for_llm(track, include_segments) for track in tracks.values()
     ]
 
     imported_list = []
     if imported_tracks:
         imported_list = [
-            export_track_for_llm(track, include_segments)
-            for track in imported_tracks
+            export_track_for_llm(track, include_segments) for track in imported_tracks
         ]
 
     return {

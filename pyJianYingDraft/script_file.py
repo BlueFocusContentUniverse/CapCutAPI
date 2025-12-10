@@ -101,7 +101,9 @@ class ScriptMaterial:
     @overload
     def __contains__(self, item: Union[AudioFade, AudioEffect]) -> bool: ...
     @overload
-    def __contains__(self, item: Union[Segment_animations, Video_effect, Transition, Filter]) -> bool: ...
+    def __contains__(
+        self, item: Union[Segment_animations, Video_effect, Transition, Filter]
+    ) -> bool: ...
 
     def __contains__(self, item) -> bool:
         if isinstance(item, VideoMaterial):
@@ -117,7 +119,9 @@ class ScriptMaterial:
         elif isinstance(item, Video_effect):
             return item.global_id in [effect.global_id for effect in self.video_effects]
         elif isinstance(item, Transition):
-            return item.global_id in [transition.global_id for transition in self.transitions]
+            return item.global_id in [
+                transition.global_id for transition in self.transitions
+            ]
         elif isinstance(item, Filter):
             return item.global_id in [filter_.global_id for filter_ in self.filters]
         else:
@@ -163,12 +167,14 @@ class ScriptMaterial:
             "text_templates": [],
             "texts": self.texts,
             "time_marks": [],
-            "transitions": [transition.export_json() for transition in self.transitions],
+            "transitions": [
+                transition.export_json() for transition in self.transitions
+            ],
             "video_effects": [effect.export_json() for effect in self.video_effects],
             "video_trackings": [],
             "videos": [video.export_json() for video in self.videos],
             "vocal_beautifys": [],
-            "vocal_separations": []
+            "vocal_separations": [],
         }
 
         # 根据IS_CAPCUT_ENV决定使用common_mask还是masks
@@ -178,6 +184,7 @@ class ScriptMaterial:
             result["masks"] = self.masks
 
         return result
+
 
 class ScriptFile:
     """剪映草稿文件, 大部分接口定义在此"""
@@ -210,7 +217,15 @@ class ScriptFile:
 
     TEMPLATE_FILE = "draft_content_template.json"
 
-    def __init__(self, width: int, height: int, fps: int = 30, name: str = "draft", resource: str | None = None, maintrack_adsorb: bool = True):
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        fps: int = 30,
+        name: str = "draft",
+        resource: str | None = None,
+        maintrack_adsorb: bool = True,
+    ):
         """创建一个剪映草稿
 
         Args:
@@ -237,7 +252,10 @@ class ScriptFile:
         self.imported_materials = {}
         self.imported_tracks = []
 
-        with open(os.path.join(os.path.dirname(__file__), self.TEMPLATE_FILE), encoding="utf-8") as f:
+        with open(
+            os.path.join(os.path.dirname(__file__), self.TEMPLATE_FILE),
+            encoding="utf-8",
+        ) as f:
             self.content = json.load(f)
 
     @staticmethod
@@ -258,19 +276,26 @@ class ScriptFile:
             obj.content = json.load(f)
 
         util.assign_attr_with_json(obj, ["fps", "duration"], obj.content)
-        util.assign_attr_with_json(obj, ["width", "height"], obj.content.get("canvas_config", {}))
+        util.assign_attr_with_json(
+            obj, ["width", "height"], obj.content.get("canvas_config", {})
+        )
         obj.name = obj.content.get("name", "")
         # 从 config 中读取 maintrack_adsorb，如果不存在则使用默认值 True
         config = obj.content.get("config", {})
         obj.maintrack_adsorb = config.get("maintrack_adsorb", True)
 
         obj.imported_materials = deepcopy(obj.content.get("materials", {}))
-        obj.imported_tracks = [import_track(track_data, obj.imported_materials) for track_data in obj.content["tracks"]]
+        obj.imported_tracks = [
+            import_track(track_data, obj.imported_materials)
+            for track_data in obj.content["tracks"]
+        ]
 
         return obj
 
     @staticmethod
-    def load_template_by_content(draft_content: Union[str, Dict[str, Any]]) -> "ScriptFile":
+    def load_template_by_content(
+        draft_content: Union[str, Dict[str, Any]],
+    ) -> "ScriptFile":
         """从草稿内容加载草稿模板
 
         Args:
@@ -294,18 +319,25 @@ class ScriptFile:
             raise ValueError("草稿内容必须是字符串或字典类型")
 
         util.assign_attr_with_json(obj, ["fps", "duration"], obj.content)
-        util.assign_attr_with_json(obj, ["width", "height"], obj.content.get("canvas_config", {}))
+        util.assign_attr_with_json(
+            obj, ["width", "height"], obj.content.get("canvas_config", {})
+        )
         obj.name = obj.content.get("name", "")
         # 从 config 中读取 maintrack_adsorb，如果不存在则使用默认值 True
         config = obj.content.get("config", {})
         obj.maintrack_adsorb = config.get("maintrack_adsorb", True)
 
         obj.imported_materials = deepcopy(obj.content.get("materials", {}))
-        obj.imported_tracks = [import_track(track_data, obj.imported_materials) for track_data in obj.content.get("tracks", [])]
+        obj.imported_tracks = [
+            import_track(track_data, obj.imported_materials)
+            for track_data in obj.content.get("tracks", [])
+        ]
 
         return obj
 
-    def add_material(self, material: Union[VideoMaterial, AudioMaterial]) -> "ScriptFile":
+    def add_material(
+        self, material: Union[VideoMaterial, AudioMaterial]
+    ) -> "ScriptFile":
         """向草稿文件中添加一个素材"""
         if material in self.materials:  # 素材已存在
             return self
@@ -317,9 +349,15 @@ class ScriptFile:
             raise TypeError("错误的素材类型: '%s'" % type(material))
         return self
 
-    def add_track(self, track_type: TrackType, track_name: Optional[str] = None, *,
-                  mute: bool = False,
-                  relative_index: int = 0, absolute_index: Optional[int] = None) -> "ScriptFile":
+    def add_track(
+        self,
+        track_type: TrackType,
+        track_name: Optional[str] = None,
+        *,
+        mute: bool = False,
+        relative_index: int = 0,
+        absolute_index: Optional[int] = None,
+    ) -> "ScriptFile":
         """向草稿文件中添加一个指定类型、指定名称的轨道, 可以自定义轨道层级
 
         注意: 主视频轨道(最底层的视频轨道)上的视频片段必须从0s开始, 否则会被剪映强制对齐至0s.
@@ -340,7 +378,9 @@ class ScriptFile:
 
         if track_name is None:
             if track_type in [track.track_type for track in self.tracks.values()]:
-                raise NameError("'%s' 类型的轨道已存在, 请为新轨道指定名称以避免混淆" % track_type)
+                raise NameError(
+                    "'%s' 类型的轨道已存在, 请为新轨道指定名称以避免混淆" % track_type
+                )
             track_name = track_type.name
         if track_name in [track.name for track in self.tracks.values()]:
             return self
@@ -396,20 +436,32 @@ class ScriptFile:
 
         self.duration = max_duration
 
-    def get_track(self, segment_type: Type[BaseSegment], track_name: Optional[str]) -> Track:
+    def get_track(
+        self, segment_type: Type[BaseSegment], track_name: Optional[str]
+    ) -> Track:
         # 指定轨道名称
         if track_name is not None:
             if track_name not in self.tracks:
                 raise NameError("不存在名为 '%s' 的轨道" % track_name)
             return self.tracks[track_name]
         # 寻找唯一的同类型的轨道
-        count = sum([1 for track in self.tracks.values() if track.track_type == segment_type])
-        if count == 0: raise exceptions.TrackNotFound(f"不存在接受 '{segment_type}' 的轨道")
-        if count > 1: raise NameError(f"存在多个接受 '{segment_type}' 的轨道, 请指定轨道名称")
+        count = sum(
+            [1 for track in self.tracks.values() if track.track_type == segment_type]
+        )
+        if count == 0:
+            raise exceptions.TrackNotFound(f"不存在接受 '{segment_type}' 的轨道")
+        if count > 1:
+            raise NameError(f"存在多个接受 '{segment_type}' 的轨道, 请指定轨道名称")
 
-        return next(track for track in self.tracks.values() if track.accept_segment_type == segment_type)
+        return next(
+            track
+            for track in self.tracks.values()
+            if track.accept_segment_type == segment_type
+        )
 
-    def _get_track_and_imported_track(self, segment_type: Type[BaseSegment], track_name: Optional[str]) -> List[Track]:
+    def _get_track_and_imported_track(
+        self, segment_type: Type[BaseSegment], track_name: Optional[str]
+    ) -> List[Track]:
         """获取指定类型的所有轨道（包括普通轨道和导入的轨道）
 
         Args:
@@ -447,12 +499,17 @@ class ScriptFile:
             if not result_tracks:
                 raise NameError("不存在接受 '%s' 的轨道" % segment_type)
             if len(result_tracks) > 1:
-                raise NameError("存在多个接受 '%s' 的轨道, 请指定轨道名称" % segment_type)
+                raise NameError(
+                    "存在多个接受 '%s' 的轨道, 请指定轨道名称" % segment_type
+                )
 
         return result_tracks
 
-    def add_segment(self, segment: Union[VideoSegment, StickerSegment, AudioSegment, Text_segment],
-                    track_name: Optional[str] = None) -> "ScriptFile":
+    def add_segment(
+        self,
+        segment: Union[VideoSegment, StickerSegment, AudioSegment, Text_segment],
+        track_name: Optional[str] = None,
+    ) -> "ScriptFile":
         """向指定轨道中添加一个片段
 
         Args:
@@ -474,7 +531,9 @@ class ScriptFile:
         # 自动添加相关素材
         if isinstance(segment, VideoSegment):
             # 出入场等动画
-            if (segment.animations_instance is not None) and (segment.animations_instance not in self.materials):
+            if (segment.animations_instance is not None) and (
+                segment.animations_instance not in self.materials
+            ):
                 self.materials.animations.append(segment.animations_instance)
             # 淡入淡出
             if (segment.fade is not None) and (segment.fade not in self.materials):
@@ -491,7 +550,9 @@ class ScriptFile:
             if segment.mask is not None:
                 self.materials.masks.append(segment.mask.export_json())
             # 转场
-            if (segment.transition is not None) and (segment.transition not in self.materials):
+            if (segment.transition is not None) and (
+                segment.transition not in self.materials
+            ):
                 self.materials.transitions.append(segment.transition)
             # 背景填充
             if segment.background_filling is not None:
@@ -511,7 +572,9 @@ class ScriptFile:
             self.materials.speeds.append(segment.speed)
         elif isinstance(segment, Text_segment):
             # 出入场等动画
-            if (segment.animations_instance is not None) and (segment.animations_instance not in self.materials):
+            if (segment.animations_instance is not None) and (
+                segment.animations_instance not in self.materials
+            ):
                 self.materials.animations.append(segment.animations_instance)
             # 气泡效果
             if segment.bubble is not None:
@@ -528,8 +591,12 @@ class ScriptFile:
 
         return self
 
-    def delete_segment(self, track_name: str, segment_index: Optional[int] = None,
-                       segment_id: Optional[str] = None) -> "ScriptFile":
+    def delete_segment(
+        self,
+        track_name: str,
+        segment_index: Optional[int] = None,
+        segment_id: Optional[str] = None,
+    ) -> "ScriptFile":
         """从指定轨道中删除一个片段
 
         Args:
@@ -546,9 +613,12 @@ class ScriptFile:
             `IndexError`: `segment_index`越界
             `exceptions.SegmentNotFound`: 根据`segment_id`未找到对应片段
         """
-        if (segment_index is None and segment_id is None) or \
-           (segment_index is not None and segment_id is not None):
-            raise ValueError("必须提供且仅提供 'segment_index' 或 'segment_id' 其中之一")
+        if (segment_index is None and segment_id is None) or (
+            segment_index is not None and segment_id is not None
+        ):
+            raise ValueError(
+                "必须提供且仅提供 'segment_index' 或 'segment_id' 其中之一"
+            )
 
         # 查找轨道
         target_track = None
@@ -566,7 +636,10 @@ class ScriptFile:
         # 根据索引删除
         if segment_index is not None:
             if not 0 <= segment_index < len(target_track.segments):
-                raise IndexError("片段索引 %d 超出范围 [0, %d)" % (segment_index, len(target_track.segments)))
+                raise IndexError(
+                    "片段索引 %d 超出范围 [0, %d)"
+                    % (segment_index, len(target_track.segments))
+                )
             del target_track.segments[segment_index]
         # 根据ID删除
         else:
@@ -577,17 +650,24 @@ class ScriptFile:
                     found = True
                     break
             if not found:
-                raise exceptions.SegmentNotFound("在轨道 '%s' 中未找到ID为 '%s' 的片段" % (track_name, segment_id))
+                raise exceptions.SegmentNotFound(
+                    "在轨道 '%s' 中未找到ID为 '%s' 的片段" % (track_name, segment_id)
+                )
 
         # 重新计算总时长
         self._update_duration()
 
         return self
 
-    def modify_segment(self, track_name: str, segment_id: str, *,
-                       clip_settings: Optional[Dict[str, Any]] = None,
-                       volume: Optional[float] = None,
-                       speed: Optional[float] = None) -> "ScriptFile":
+    def modify_segment(
+        self,
+        track_name: str,
+        segment_id: str,
+        *,
+        clip_settings: Optional[Dict[str, Any]] = None,
+        volume: Optional[float] = None,
+        speed: Optional[float] = None,
+    ) -> "ScriptFile":
         """修改指定轨道中指定片段的属性
 
         Args:
@@ -634,12 +714,16 @@ class ScriptFile:
                 break
 
         if target_segment is None:
-            raise exceptions.SegmentNotFound("在轨道 '%s' 中未找到ID为 '%s' 的片段" % (track_name, segment_id))
+            raise exceptions.SegmentNotFound(
+                "在轨道 '%s' 中未找到ID为 '%s' 的片段" % (track_name, segment_id)
+            )
 
         # 修改clip_settings (仅对VisualSegment有效)
         if clip_settings is not None:
             if not hasattr(target_segment, "clip_settings"):
-                raise TypeError("片段类型 '%s' 不支持 clip_settings" % type(target_segment).__name__)
+                raise TypeError(
+                    "片段类型 '%s' 不支持 clip_settings" % type(target_segment).__name__
+                )
 
             clip = target_segment.clip_settings
             if "alpha" in clip_settings:
@@ -662,20 +746,29 @@ class ScriptFile:
         # 修改volume (仅对MediaSegment有效)
         if volume is not None:
             if not hasattr(target_segment, "volume"):
-                raise TypeError("片段类型 '%s' 不支持 volume" % type(target_segment).__name__)
+                raise TypeError(
+                    "片段类型 '%s' 不支持 volume" % type(target_segment).__name__
+                )
             target_segment.volume = volume
 
         # 修改speed (仅对MediaSegment有效)
         if speed is not None:
             if not hasattr(target_segment, "speed"):
-                raise TypeError("片段类型 '%s' 不支持 speed" % type(target_segment).__name__)
+                raise TypeError(
+                    "片段类型 '%s' 不支持 speed" % type(target_segment).__name__
+                )
             target_segment.speed.speed = speed
 
         return self
 
-    def add_effect(self, effect: Union[VideoSceneEffectType, VideoCharacterEffectType],
-                   t_range: Timerange, track_name: Optional[str] = None, *,
-                   params: Optional[List[Optional[float]]] = None) -> "ScriptFile":
+    def add_effect(
+        self,
+        effect: Union[VideoSceneEffectType, VideoCharacterEffectType],
+        t_range: Timerange,
+        track_name: Optional[str] = None,
+        *,
+        params: Optional[List[Optional[float]]] = None,
+    ) -> "ScriptFile":
         """向指定的特效轨道中添加一个特效片段
 
         Args:
@@ -702,8 +795,13 @@ class ScriptFile:
             self.materials.video_effects.append(segment.effect_inst)
         return self
 
-    def add_filter(self, filter_meta: FilterType, t_range: Timerange,
-                   track_name: Optional[str] = None, intensity: float = 100.0) -> "ScriptFile":
+    def add_filter(
+        self,
+        filter_meta: FilterType,
+        t_range: Timerange,
+        track_name: Optional[str] = None,
+        intensity: float = 100.0,
+    ) -> "ScriptFile":
         """向指定的滤镜轨道中添加一个滤镜片段
 
         Args:
@@ -720,7 +818,9 @@ class ScriptFile:
         target = self.get_track(Filter_segment, track_name)
 
         # 加入轨道并更新时长
-        segment = Filter_segment(filter_meta, t_range, intensity / 100.0)  # 转换为0-1范围
+        segment = Filter_segment(
+            filter_meta, t_range, intensity / 100.0
+        )  # 转换为0-1范围
         target.add_segment(segment)
         self.duration = max(self.duration, t_range.end)
 
@@ -728,16 +828,21 @@ class ScriptFile:
         self.materials.filters.append(segment.material)
         return self
 
-    def import_srt(self, srt_content: str, track_name: str, *,
-                   time_offset: Union[str, float] = 0.0,
-                   style_reference: Optional[Text_segment] = None,
-                   font: Optional[str] = None,
-                   text_style: Text_style = Text_style(size=5, align=1),
-                   clip_settings: Optional[ClipSettings] = ClipSettings(transform_y=-0.8),
-                   border: Optional[Text_border] = None,
-                   background: Optional[Text_background] = None,
-                   bubble: Optional[TextBubble] = None,
-                   effect: Optional[TextEffect] = None) -> "ScriptFile":
+    def import_srt(
+        self,
+        srt_content: str,
+        track_name: str,
+        *,
+        time_offset: Union[str, float] = 0.0,
+        style_reference: Optional[Text_segment] = None,
+        font: Optional[str] = None,
+        text_style: Text_style = Text_style(size=5, align=1),
+        clip_settings: Optional[ClipSettings] = ClipSettings(transform_y=-0.8),
+        border: Optional[Text_border] = None,
+        background: Optional[Text_background] = None,
+        bubble: Optional[TextBubble] = None,
+        effect: Optional[TextEffect] = None,
+    ) -> "ScriptFile":
         """从SRT文件中导入字幕, 支持传入一个`Text_segment`作为样式参考
 
         注意: 默认不会使用参考片段的`clip_settings`属性, 若需要请显式为此函数传入`clip_settings=None`
@@ -766,14 +871,22 @@ class ScriptFile:
             try:
                 font_type = getattr(FontType, font)
             except:
-                available_fonts = [attr for attr in dir(FontType) if not attr.startswith("_")]
-                raise ValueError(f"Unsupported font: {font}, please use one of the fonts in Font_type: {available_fonts}")
+                available_fonts = [
+                    attr for attr in dir(FontType) if not attr.startswith("_")
+                ]
+                raise ValueError(
+                    f"Unsupported font: {font}, please use one of the fonts in Font_type: {available_fonts}"
+                )
 
         time_offset = tim(time_offset)
         # 检查 track_name 是否存在于 self.tracks 或 self.imported_tracks
-        track_exists = (track_name in self.tracks) or any(track.name == track_name for track in self.imported_tracks)
+        track_exists = (track_name in self.tracks) or any(
+            track.name == track_name for track in self.imported_tracks
+        )
         if not track_exists:
-            self.add_track(TrackType.text, track_name, relative_index=999)  # 在所有文本轨道的最上层
+            self.add_track(
+                TrackType.text, track_name, relative_index=999
+            )  # 在所有文本轨道的最上层
 
         # 检查是否为本地文件路径
         if os.path.exists(srt_content):
@@ -805,10 +918,16 @@ class ScriptFile:
                 if font_type:
                     seg.font = font_type.value
             else:
-                seg = Text_segment(text, t_range, style=text_style, clip_settings=clip_settings,
-                                  border=border, background=background,
-                                  font = font_type,
-                                  fixed_width=fixed_width)
+                seg = Text_segment(
+                    text,
+                    t_range,
+                    style=text_style,
+                    clip_settings=clip_settings,
+                    border=border,
+                    background=background,
+                    font=font_type,
+                    fixed_width=fixed_width,
+                )
                 # 添加气泡和花字效果
                 if bubble:
                     seg.bubble = deepcopy(bubble)
@@ -832,7 +951,9 @@ class ScriptFile:
                     index += 1
                     continue
                 if not line.isdigit():
-                    raise ValueError("Expected a number at line %d, got '%s'" % (index+1, line))
+                    raise ValueError(
+                        "Expected a number at line %d, got '%s'" % (index + 1, line)
+                    )
                 index += 1
                 read_state = "timestamp"
             elif read_state == "timestamp":
@@ -860,8 +981,12 @@ class ScriptFile:
 
         return self
 
-    def get_imported_track(self, track_type: Literal[TrackType.video, TrackType.audio, TrackType.text],
-                           name: Optional[str] = None, index: Optional[int] = None) -> Track:
+    def get_imported_track(
+        self,
+        track_type: Literal[TrackType.video, TrackType.audio, TrackType.text],
+        name: Optional[str] = None,
+        index: Optional[int] = None,
+    ) -> Track:
         """获取指定类型的导入轨道, 以便在其上进行替换
 
         推荐使用轨道名称进行筛选（若已知轨道名称）
@@ -883,22 +1008,34 @@ class ScriptFile:
 
         ret: List[Track] = []
         for ind, track in enumerate(tracks_of_same_type):
-            if (name is not None) and (track.name != name): continue
-            if (index is not None) and (ind != index): continue
+            if (name is not None) and (track.name != name):
+                continue
+            if (index is not None) and (ind != index):
+                continue
             ret.append(track)
 
         if len(ret) == 0:
             raise exceptions.TrackNotFound(
-                "没有找到满足条件的轨道: track_type=%s, name=%s, index=%s" % (track_type, name, index))
+                "没有找到满足条件的轨道: track_type=%s, name=%s, index=%s"
+                % (track_type, name, index)
+            )
         if len(ret) > 1:
             raise exceptions.AmbiguousTrack(
-                "找到多个满足条件的轨道: track_type=%s, name=%s, index=%s" % (track_type, name, index))
+                "找到多个满足条件的轨道: track_type=%s, name=%s, index=%s"
+                % (track_type, name, index)
+            )
 
         return ret[0]
 
-    def import_track(self, source_file: "ScriptFile", track: EditableTrack, *,
-                     offset: Union[str, int] = 0,
-                     new_name: Optional[str] = None, relative_index: Optional[int] = None) -> "ScriptFile":
+    def import_track(
+        self,
+        source_file: "ScriptFile",
+        track: EditableTrack,
+        *,
+        offset: Union[str, int] = 0,
+        new_name: Optional[str] = None,
+        relative_index: Optional[int] = None,
+    ) -> "ScriptFile":
         """将一个`Editable_track`导入到当前`Script_file`中, 如从模板草稿中导入特定的文本或视频轨道到当前正在编辑的草稿文件中
 
         注意: 本方法会保留各片段及其素材的id, 因而不支持向同一草稿多次导入同一轨道
@@ -913,7 +1050,9 @@ class ScriptFile:
         # 直接拷贝原始轨道结构, 按需修改渲染层级
         imported_track = deepcopy(track)
         if relative_index is not None:
-            imported_track.render_index = track.track_type.value.render_index + relative_index
+            imported_track.render_index = (
+                track.track_type.value.render_index + relative_index
+            )
         if new_name is not None:
             imported_track.name = new_name
 
@@ -921,7 +1060,9 @@ class ScriptFile:
         offset_us = tim(offset)
         if offset_us != 0:
             for seg in imported_track.segments:
-                seg.target_timerange.start = max(0, seg.target_timerange.start + offset_us)
+                seg.target_timerange.start = max(
+                    0, seg.target_timerange.start + offset_us
+                )
         self.imported_tracks.append(imported_track)
 
         # 收集所有需要复制的素材ID
@@ -951,8 +1092,12 @@ class ScriptFile:
 
         return self
 
-    def replace_material_by_name(self, material_name: str, material: Union[VideoMaterial, AudioMaterial],
-                                 replace_crop: bool = False) -> "ScriptFile":
+    def replace_material_by_name(
+        self,
+        material_name: str,
+        material: Union[VideoMaterial, AudioMaterial],
+        replace_crop: bool = False,
+    ) -> "ScriptFile":
         """替换指定名称的素材, 并影响所有引用它的片段
 
         这种方法不会改变相应片段的时长和引用范围(`source_timerange`), 尤其适合于图片素材
@@ -969,30 +1114,57 @@ class ScriptFile:
         video_mode = isinstance(material, VideoMaterial)
         # 查找素材
         target_json_obj: Optional[Dict[str, Any]] = None
-        target_material_list = self.imported_materials["videos" if video_mode else "audios"]
+        target_material_list = self.imported_materials[
+            "videos" if video_mode else "audios"
+        ]
         name_key = "material_name" if video_mode else "name"
         for mat in target_material_list:
             if mat[name_key] == material_name:
                 if target_json_obj is not None:
                     raise exceptions.AmbiguousMaterial(
-                        "找到多个名为 '%s', 类型为 '%s' 的素材" % (material_name, type(material)))
+                        "找到多个名为 '%s', 类型为 '%s' 的素材"
+                        % (material_name, type(material))
+                    )
                 target_json_obj = mat
         if target_json_obj is None:
-            raise exceptions.MaterialNotFound("没有找到名为 '%s', 类型为 '%s' 的素材" % (material_name, type(material)))
+            raise exceptions.MaterialNotFound(
+                "没有找到名为 '%s', 类型为 '%s' 的素材"
+                % (material_name, type(material))
+            )
 
         # 更新素材信息
-        target_json_obj.update({name_key: material.material_name, "path": material.path, "duration": material.duration})
+        target_json_obj.update(
+            {
+                name_key: material.material_name,
+                "path": material.path,
+                "duration": material.duration,
+            }
+        )
         if video_mode:
-            target_json_obj.update({"width": material.width, "height": material.height, "material_type": material.material_type})
+            target_json_obj.update(
+                {
+                    "width": material.width,
+                    "height": material.height,
+                    "material_type": material.material_type,
+                }
+            )
             if replace_crop:
                 target_json_obj.update({"crop": material.crop_settings.export_json()})
 
         return self
 
-    def replace_material_by_seg(self, track: EditableTrack, segment_index: int, material: Union[VideoMaterial, AudioMaterial],
-                                source_timerange: Optional[Timerange] = None, *,
-                                handle_shrink: ShrinkMode = ShrinkMode.cut_tail,
-                                handle_extend: Union[ExtendMode, List[ExtendMode]] = ExtendMode.cut_material_tail) -> "ScriptFile":
+    def replace_material_by_seg(
+        self,
+        track: EditableTrack,
+        segment_index: int,
+        material: Union[VideoMaterial, AudioMaterial],
+        source_timerange: Optional[Timerange] = None,
+        *,
+        handle_shrink: ShrinkMode = ShrinkMode.cut_tail,
+        handle_extend: Union[
+            ExtendMode, List[ExtendMode]
+        ] = ExtendMode.cut_material_tail,
+    ) -> "ScriptFile":
         """替换指定音视频轨道上指定片段的素材, 暂不支持变速片段的素材替换
 
         Args:
@@ -1012,21 +1184,30 @@ class ScriptFile:
         if not isinstance(track, ImportedMediaTrack):
             raise TypeError("指定的轨道(类型为 %s)不支持素材替换" % track.track_type)
         if not 0 <= segment_index < len(track):
-            raise IndexError("片段下标 %d 超出 [0, %d) 的范围" % (segment_index, len(track)))
+            raise IndexError(
+                "片段下标 %d 超出 [0, %d) 的范围" % (segment_index, len(track))
+            )
         if not track.check_material_type(material):
-            raise TypeError("指定的素材类型 %s 不匹配轨道类型 %s", (type(material), track.track_type))
+            raise TypeError(
+                "指定的素材类型 %s 不匹配轨道类型 %s",
+                (type(material), track.track_type),
+            )
         seg = track.segments[segment_index]
 
         if isinstance(handle_extend, ExtendMode):
             handle_extend = [handle_extend]
         if source_timerange is None:
-            if isinstance(material, VideoMaterial) and (material.material_type == "photo"):
+            if isinstance(material, VideoMaterial) and (
+                material.material_type == "photo"
+            ):
                 source_timerange = Timerange(0, seg.duration)
             else:
                 source_timerange = Timerange(0, material.duration)
 
         # 处理时间变化
-        track.process_timerange(segment_index, source_timerange, handle_shrink, handle_extend)
+        track.process_timerange(
+            segment_index, source_timerange, handle_shrink, handle_extend
+        )
 
         # 最后替换素材链接
         track.segments[segment_index].material_id = material.material_id
@@ -1035,8 +1216,13 @@ class ScriptFile:
         # TODO: 更新总长
         return self
 
-    def replace_text(self, track: EditableTrack, segment_index: int, text: Union[str, List[str]],
-                     recalc_style: bool = True) -> "ScriptFile":
+    def replace_text(
+        self,
+        track: EditableTrack,
+        segment_index: int,
+        text: Union[str, List[str]],
+        recalc_style: bool = True,
+    ) -> "ScriptFile":
         """替换指定文本轨道上指定片段的文字内容, 支持普通文本片段或文本模板片段
 
         Args:
@@ -1051,11 +1237,17 @@ class ScriptFile:
             `ValueError`: 文本模板片段的文本数量不匹配
         """
         if not isinstance(track, ImportedTextTrack):
-            raise TypeError("指定的轨道(类型为 %s)不支持文本内容替换" % track.track_type)
+            raise TypeError(
+                "指定的轨道(类型为 %s)不支持文本内容替换" % track.track_type
+            )
         if not 0 <= segment_index < len(track):
-            raise IndexError("片段下标 %d 超出 [0, %d) 的范围" % (segment_index, len(track)))
+            raise IndexError(
+                "片段下标 %d 超出 [0, %d) 的范围" % (segment_index, len(track))
+            )
 
-        def __recalc_style_range(old_len: int, new_len: int, styles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        def __recalc_style_range(
+            old_len: int, new_len: int, styles: List[Dict[str, Any]]
+        ) -> List[Dict[str, Any]]:
             """调整字体样式分布"""
             new_styles: List[Dict[str, Any]] = []
             for style in styles:
@@ -1075,12 +1267,16 @@ class ScriptFile:
 
             if isinstance(text, list):
                 if len(text) != 1:
-                    raise ValueError(f"正常文本片段只能有一个文字内容, 但替换内容是 {text}")
+                    raise ValueError(
+                        f"正常文本片段只能有一个文字内容, 但替换内容是 {text}"
+                    )
                 text = text[0]
 
             content = json.loads(mat["content"])
             if recalc_style:
-                content["styles"] = __recalc_style_range(len(content["text"]), len(text), content["styles"])
+                content["styles"] = __recalc_style_range(
+                    len(content["text"]), len(text), content["styles"]
+                )
             content["text"] = text
             mat["content"] = json.dumps(content, ensure_ascii=False)
             replaced = True
@@ -1097,9 +1293,13 @@ class ScriptFile:
             if isinstance(text, str):
                 text = [text]
             if len(text) > len(resources):
-                raise ValueError(f"文字模板'{template['name']}'只有{len(resources)}段文本, 但提供了{len(text)}段替换内容")
+                raise ValueError(
+                    f"文字模板'{template['name']}'只有{len(resources)}段文本, 但提供了{len(text)}段替换内容"
+                )
 
-            for sub_material_id, new_text in zip(map(lambda x: x["text_material_id"], resources), text):
+            for sub_material_id, new_text in zip(
+                map(lambda x: x["text_material_id"], resources), text
+            ):
                 for mat in self.imported_materials["texts"]:
                     if mat["id"] != sub_material_id:
                         continue
@@ -1109,7 +1309,9 @@ class ScriptFile:
                     else:
                         content = json.loads(mat["content"])
                         if recalc_style:
-                            content["styles"] = __recalc_style_range(len(content["text"]), len(new_text), content["styles"])
+                            content["styles"] = __recalc_style_range(
+                                len(content["text"]), len(new_text), content["styles"]
+                            )
                         content["text"] = new_text
                         mat["content"] = json.dumps(content, ensure_ascii=False)
                     break
@@ -1124,18 +1326,30 @@ class ScriptFile:
         """输出草稿中导入的贴纸、文本气泡以及花字素材的元数据"""
         print("贴纸素材:")
         for sticker in self.imported_materials["stickers"]:
-            print("\tResource id: %s '%s'" % (sticker["resource_id"], sticker.get("name", "")))
+            print(
+                "\tResource id: %s '%s'"
+                % (sticker["resource_id"], sticker.get("name", ""))
+            )
 
         print("文字气泡效果:")
         for effect in self.imported_materials["effects"]:
             if effect["type"] == "text_shape":
-                print("\tEffect id: %s ,Resource id: %s '%s'" %
-                      (effect["effect_id"], effect["resource_id"], effect.get("name", "")))
+                print(
+                    "\tEffect id: %s ,Resource id: %s '%s'"
+                    % (
+                        effect["effect_id"],
+                        effect["resource_id"],
+                        effect.get("name", ""),
+                    )
+                )
 
         print("花字效果:")
         for effect in self.imported_materials["effects"]:
             if effect["type"] == "text_effect":
-                print("\tResource id: %s '%s'" % (effect["resource_id"], effect.get("name", "")))
+                print(
+                    "\tResource id: %s '%s'"
+                    % (effect["resource_id"], effect.get("name", ""))
+                )
 
     def dumps(self) -> str:
         """将草稿文件内容导出为JSON字符串"""
@@ -1143,14 +1357,20 @@ class ScriptFile:
             # 更新基础信息（使用安全的字典访问）
             self.content["fps"] = self.fps
             self.content["duration"] = self.duration
-            self.content["canvas_config"] = {"width": self.width, "height": self.height, "ratio": "original"}
+            self.content["canvas_config"] = {
+                "width": self.width,
+                "height": self.height,
+                "ratio": "original",
+            }
             self.content["name"] = self.name
-            
+
             # 更新 maintrack_adsorb（确保 config 字典存在）
             if "config" not in self.content:
                 self.content["config"] = {}
-            self.content["config"]["maintrack_adsorb"] = getattr(self, "maintrack_adsorb", True)
-            
+            self.content["config"]["maintrack_adsorb"] = getattr(
+                self, "maintrack_adsorb", True
+            )
+
             # 导出素材（使用 try-except 保护）
             try:
                 self.content["materials"] = self.materials.export_json()
@@ -1169,7 +1389,7 @@ class ScriptFile:
                     "hard_disk_id": "307563e0192a94465c0e927fbc482942",
                     "mac_address": "c3371f2d4fb02791c067ce44d8fb4ed5",
                     "os": "mac",
-                    "os_version": "15.5"
+                    "os_version": "15.5",
                 }
 
             if "platform" not in self.content:
@@ -1181,7 +1401,7 @@ class ScriptFile:
                     "hard_disk_id": "307563e0192a94465c0e927fbc482942",
                     "mac_address": "c3371f2d4fb02791c067ce44d8fb4ed5",
                     "os": "mac",
-                    "os_version": "15.5"
+                    "os_version": "15.5",
                 }
 
             # 合并导入的素材（使用安全的字典访问）
@@ -1189,7 +1409,7 @@ class ScriptFile:
             if not isinstance(materials, dict):
                 materials = {}
                 self.content["materials"] = materials
-                
+
             for material_type, material_list in self.imported_materials.items():
                 if material_type not in materials:
                     materials[material_type] = material_list

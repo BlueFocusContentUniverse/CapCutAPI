@@ -20,14 +20,21 @@ from .video_segment import StickerSegment, VideoSegment
 class TrackMeta:
     """与轨道类型关联的轨道元数据"""
 
-    segment_type: Union[Type[VideoSegment], Type[AudioSegment],
-                        Type[Effect_segment], Type[Filter_segment],
-                        Type[Text_segment], Type[StickerSegment], None]
+    segment_type: Union[
+        Type[VideoSegment],
+        Type[AudioSegment],
+        Type[Effect_segment],
+        Type[Filter_segment],
+        Type[Text_segment],
+        Type[StickerSegment],
+        None,
+    ]
     """与轨道关联的片段类型"""
     render_index: int
     """默认渲染顺序, 值越大越接近前景"""
     allow_modify: bool
     """当被导入时, 是否允许修改"""
+
 
 class TrackType(Enum):
     """轨道类型枚举
@@ -40,7 +47,9 @@ class TrackType(Enum):
     effect = TrackMeta(Effect_segment, 10000, False)
     filter = TrackMeta(Filter_segment, 11000, False)
     sticker = TrackMeta(StickerSegment, 14000, False)
-    text = TrackMeta(Text_segment, 15000, True)  # 原本是14000, 避免与sticker冲突改为15000
+    text = TrackMeta(
+        Text_segment, 15000, True
+    )  # 原本是14000, 避免与sticker冲突改为15000
 
     adjust = TrackMeta(None, 0, False)
     """仅供导入时使用, 不要尝试新建此类型的轨道"""
@@ -69,7 +78,10 @@ class BaseTrack(ABC):
     @abstractmethod
     def export_json(self) -> Dict[str, Any]: ...
 
+
 Seg_type = TypeVar("Seg_type", bound=BaseSegment)
+
+
 class Track(BaseTrack, Generic[Seg_type]):
     """非模板模式下的轨道"""
 
@@ -94,17 +106,15 @@ class Track(BaseTrack, Generic[Seg_type]):
 
     def add_pending_keyframe(self, property_type: str, time: float, value: str) -> None:
         """添加待处理的关键帧
-        
+
         Args:
             property_type: 关键帧属性类型
             time: 关键帧时间点（秒）
             value: 关键帧值
         """
-        self.pending_keyframes.append({
-            "property_type": property_type,
-            "time": time,
-            "value": value
-        })
+        self.pending_keyframes.append(
+            {"property_type": property_type, "time": time, "value": value}
+        )
 
     def process_pending_keyframes(self) -> None:
         """处理所有待处理的关键帧"""
@@ -120,20 +130,29 @@ class Track(BaseTrack, Generic[Seg_type]):
                 # 找到时间点对应的片段（时间单位：微秒）
                 target_time = int(time * 1000000)  # 将秒转换为微秒
                 target_segment = next(
-                    (segment for segment in self.segments
-                     if segment.target_timerange.start <= target_time <= segment.target_timerange.end),
-                    None
+                    (
+                        segment
+                        for segment in self.segments
+                        if segment.target_timerange.start
+                        <= target_time
+                        <= segment.target_timerange.end
+                    ),
+                    None,
                 )
 
                 if target_segment is None:
-                    print(f"警告：在轨道 {self.name} 的时间点 {time}s 找不到对应的片段，跳过此关键帧")
+                    print(
+                        f"警告：在轨道 {self.name} 的时间点 {time}s 找不到对应的片段，跳过此关键帧"
+                    )
                     continue
 
                 # 将属性类型字符串转换为枚举值
                 property_enum = getattr(draft.KeyframeProperty, property_type)
 
                 # 解析value值
-                if (property_type == "alpha" and value.endswith("%")) or (property_type == "volume" and value.endswith("%")):
+                if (property_type == "alpha" and value.endswith("%")) or (
+                    property_type == "volume" and value.endswith("%")
+                ):
                     float_value = float(value[:-1]) / 100
                 elif property_type == "rotation" and value.endswith("deg"):
                     float_value = float(value[:-3])
@@ -182,14 +201,18 @@ class Track(BaseTrack, Generic[Seg_type]):
             `SegmentOverlap`: 新片段与现有片段重叠
         """
         if not isinstance(segment, self.accept_segment_type):
-            raise TypeError("New segment (%s) is not of the same type as the track (%s)" % (type(segment), self.accept_segment_type))
+            raise TypeError(
+                "New segment (%s) is not of the same type as the track (%s)"
+                % (type(segment), self.accept_segment_type)
+            )
 
         # 检查片段是否重叠
         for seg in self.segments:
             if seg.overlaps(segment):
-                raise SegmentOverlap(f"New segment overlaps with existing segment [start: {segment.target_timerange.start}, end: {segment.target_timerange.end}]. "
-                                   f"Conflicting existing segment range: [start: {seg.target_timerange.start}, end: {seg.target_timerange.end}]"
-                                     )
+                raise SegmentOverlap(
+                    f"New segment overlaps with existing segment [start: {segment.target_timerange.start}, end: {segment.target_timerange.end}]. "
+                    f"Conflicting existing segment range: [start: {seg.target_timerange.start}, end: {seg.target_timerange.end}]"
+                )
 
         self.segments.append(segment)
         return self
@@ -207,5 +230,5 @@ class Track(BaseTrack, Generic[Seg_type]):
             "is_default_name": len(self.name) == 0,
             "name": self.name,
             "segments": segment_exports,
-            "type": self.track_type.name
+            "type": self.track_type.name,
         }

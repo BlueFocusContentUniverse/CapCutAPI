@@ -8,12 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import get_api_router
 from db import init_db
-
 from mcp_services import create_fastmcp_app
 from middleware import LoggingMiddleware, RateLimitMiddleware
+from repositories.redis_draft_cache import (
+    init_redis_draft_cache,
+    shutdown_redis_draft_cache,
+)
 from util.rate_limit import get_rate_limiter
-from repositories.redis_draft_cache import init_redis_draft_cache, shutdown_redis_draft_cache
-
 
 # Load environment variables
 env_file = Path(__file__).parent / ".env"
@@ -28,6 +29,7 @@ mcp_server = create_fastmcp_app()
 
 mcp_app = mcp_server.http_app(path="/mcp")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -36,7 +38,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database initialization successful")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
-    
+
     # 初始化Redis缓存（如果可用）
     try:
         redis_cache = init_redis_draft_cache()
@@ -50,13 +52,14 @@ async def lifespan(app: FastAPI):
     # Run MCP lifespan within the main app lifespan
     async with mcp_app.lifespan(app):
         yield
-    
+
     # Shutdown
     # 停止Redis缓存后台同步任务
     try:
         shutdown_redis_draft_cache()
     except Exception as e:
         logger.error(f"关闭Redis缓存时出错: {e}")
+
 
 app = FastAPI(lifespan=lifespan, title="CapCut API Service", version="1.7.0")
 
@@ -77,7 +80,9 @@ logger.info("Logging middleware enabled")
 rate_limiter = get_rate_limiter()
 if rate_limiter.enabled:
     app.add_middleware(RateLimitMiddleware)
-    logger.info(f"Rate Limit middleware enabled: {rate_limiter.requests_per_minute} requests/minute")
+    logger.info(
+        f"Rate Limit middleware enabled: {rate_limiter.requests_per_minute} requests/minute"
+    )
 else:
     logger.warning("Rate Limit middleware not enabled (Redis not configured)")
 
@@ -93,5 +98,5 @@ if __name__ == "__main__":
     import uvicorn
 
     from settings.local import PORT
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
 
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

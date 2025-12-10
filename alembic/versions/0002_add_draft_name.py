@@ -5,6 +5,7 @@ Revises: 0001_initial
 Create Date: 2025-09-17 00:00:00
 
 """
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -17,10 +18,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("drafts", sa.Column("draft_name", sa.String(length=255), nullable=True))
+    op.add_column(
+        "drafts", sa.Column("draft_name", sa.String(length=255), nullable=True)
+    )
 
 
 def downgrade() -> None:
     op.drop_column("drafts", "draft_name")
-
-

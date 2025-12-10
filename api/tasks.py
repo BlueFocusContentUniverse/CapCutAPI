@@ -22,14 +22,24 @@ class CreateTaskRequest(BaseModel):
 @router.post("/tasks")
 def create_task(request: CreateTaskRequest):
     if not request.task_id or not request.draft_id:
-        return JSONResponse(status_code=400, content={"success": False, "error": "task_id and draft_id are required"})
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "task_id and draft_id are required"},
+        )
 
     with get_session() as session:
-        existing = session.execute(select(VideoTask).where(VideoTask.task_id == request.task_id)).scalar_one_or_none()
+        existing = session.execute(
+            select(VideoTask).where(VideoTask.task_id == request.task_id)
+        ).scalar_one_or_none()
         if existing:
             return {"success": True, "output": {"task_id": existing.task_id}}
 
-        row = VideoTask(task_id=request.task_id, draft_id=request.draft_id, status="initialized", extra=request.extra)
+        row = VideoTask(
+            task_id=request.task_id,
+            draft_id=request.draft_id,
+            status="initialized",
+            extra=request.extra,
+        )
         session.add(row)
 
     return {"success": True, "output": {"task_id": request.task_id}}
@@ -38,9 +48,13 @@ def create_task(request: CreateTaskRequest):
 @router.get("/tasks/{task_id}")
 def get_task(task_id: str):
     with get_session() as session:
-        row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
+        row = session.execute(
+            select(VideoTask).where(VideoTask.task_id == task_id)
+        ).scalar_one_or_none()
         if not row:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found"})
+            return JSONResponse(
+                status_code=404, content={"success": False, "error": "not_found"}
+            )
         return {
             "success": True,
             "output": {
@@ -51,7 +65,7 @@ def get_task(task_id: str):
                 "progress": row.progress,
                 "message": row.message,
                 "extra": row.extra,
-            }
+            },
         }
 
 
@@ -65,9 +79,13 @@ class UpdateTaskRequest(BaseModel):
 @router.patch("/tasks/{task_id}")
 def update_task(task_id: str, request: UpdateTaskRequest):
     with get_session() as session:
-        row = session.execute(select(VideoTask).where(VideoTask.task_id == task_id)).scalar_one_or_none()
+        row = session.execute(
+            select(VideoTask).where(VideoTask.task_id == task_id)
+        ).scalar_one_or_none()
         if not row:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found"})
+            return JSONResponse(
+                status_code=404, content={"success": False, "error": "not_found"}
+            )
 
         data = request.dict(exclude_unset=True)
         allowed = {"status", "progress", "message", "extra"}
@@ -81,15 +99,23 @@ def update_task(task_id: str, request: UpdateTaskRequest):
 @router.patch("/tasks/by_draft/{draft_id}")
 def update_tasks_by_draft(draft_id: str, request: UpdateTaskRequest):
     with get_session() as session:
-        rows = session.execute(select(VideoTask).where(VideoTask.draft_id == draft_id)).scalars().all()
+        rows = (
+            session.execute(select(VideoTask).where(VideoTask.draft_id == draft_id))
+            .scalars()
+            .all()
+        )
         if not rows:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found"})
+            return JSONResponse(
+                status_code=404, content={"success": False, "error": "not_found"}
+            )
 
         data = request.dict(exclude_unset=True)
         allowed = {"status", "progress", "message", "extra"}
         updates = {k: v for k, v in data.items() if k in allowed}
         if not updates:
-            return JSONResponse(status_code=400, content={"success": False, "error": "no_valid_fields"})
+            return JSONResponse(
+                status_code=400, content={"success": False, "error": "no_valid_fields"}
+            )
 
         for row in rows:
             for key, value in updates.items():
@@ -102,8 +128,6 @@ def update_tasks_by_draft(draft_id: str, request: UpdateTaskRequest):
         "output": {
             "updated": len(updated_task_ids),
             "task_ids": updated_task_ids,
-            "draft_id": draft_id
-        }
+            "draft_id": draft_id,
+        },
     }
-
-

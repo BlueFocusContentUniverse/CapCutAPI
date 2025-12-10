@@ -30,7 +30,7 @@ class CognitoTokenVerifier:
         self,
         config: Optional[CognitoConfig] = None,
         token_cache: Optional[Any] = None,
-        enable_cache: bool = True
+        enable_cache: bool = True,
     ):
         """
         初始化Token验证器
@@ -59,10 +59,7 @@ class CognitoTokenVerifier:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={
-                    "error": "invalid_token",
-                    "message": f"Token验证失败: {e!s}"
-                },
+                detail={"error": "invalid_token", "message": f"Token验证失败: {e!s}"},
                 headers={"WWW-Authenticate": "Bearer"},
             ) from e
 
@@ -108,7 +105,7 @@ def get_token_verifier() -> CognitoTokenVerifier:
         _token_verifier = CognitoTokenVerifier(
             config=CognitoConfig,
             token_cache=token_cache,
-            enable_cache=token_cache is not None
+            enable_cache=token_cache is not None,
         )
 
     return _token_verifier
@@ -116,7 +113,7 @@ def get_token_verifier() -> CognitoTokenVerifier:
 
 # FastAPI 依赖函数 - 用于依赖注入和OpenAPI文档
 async def get_current_user_claims(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(http_bearer_scheme)]
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(http_bearer_scheme)],
 ) -> Dict[str, Any]:
     """
     验证 JWT token 并返回 claims
@@ -140,7 +137,7 @@ async def get_current_user_claims(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
                 "error": "auth_service_unavailable",
-                "message": "认证服务暂时不可用，请稍后重试"
+                "message": "认证服务暂时不可用，请稍后重试",
             },
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
@@ -156,10 +153,6 @@ async def get_current_user_claims(
         logger.error(f"Token验证异常: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error": "invalid_token",
-                "message": f"Token验证失败: {e!s}"
-            },
+            detail={"error": "invalid_token", "message": f"Token验证失败: {e!s}"},
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
-

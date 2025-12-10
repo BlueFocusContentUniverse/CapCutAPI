@@ -55,52 +55,87 @@ class Animation:
             "platform": "all",
             "panel": "video" if self.is_video_animation else "",
             "material_type": "video" if self.is_video_animation else "sticker",
-
             "name": self.name,
             "id": self.effect_id,
             "type": self.animation_type,
             "resource_id": self.resource_id,
-
             "start": self.start,
             "duration": self.duration,
             # 不导出path和request_id
         }
+
 
 class Video_animation(Animation):
     """一个视频动画效果"""
 
     animation_type: Literal["in", "out", "group"]
 
-    def __init__(self, animation_type: Union[IntroType, OutroType, GroupAnimationType, CapCutIntroType, CapCutOutroType, CapCutGroupAnimationType],
-                 start: int, duration: int):
+    def __init__(
+        self,
+        animation_type: Union[
+            IntroType,
+            OutroType,
+            GroupAnimationType,
+            CapCutIntroType,
+            CapCutOutroType,
+            CapCutGroupAnimationType,
+        ],
+        start: int,
+        duration: int,
+    ):
         super().__init__(animation_type.value, start, duration)
 
-        if (isinstance(animation_type, IntroType) or isinstance(animation_type, CapCutIntroType)):
+        if isinstance(animation_type, IntroType) or isinstance(
+            animation_type, CapCutIntroType
+        ):
             self.animation_type = "in"
-        elif isinstance(animation_type, OutroType) or isinstance(animation_type, CapCutOutroType):
+        elif isinstance(animation_type, OutroType) or isinstance(
+            animation_type, CapCutOutroType
+        ):
             self.animation_type = "out"
-        elif isinstance(animation_type, GroupAnimationType) or isinstance(animation_type, CapCutGroupAnimationType):
+        elif isinstance(animation_type, GroupAnimationType) or isinstance(
+            animation_type, CapCutGroupAnimationType
+        ):
             self.animation_type = "group"
 
         self.is_video_animation = True
+
 
 class Text_animation(Animation):
     """一个文本动画效果"""
 
     animation_type: Literal["in", "out", "loop"]
 
-    def __init__(self, animation_type: Union[TextIntro, TextOutro, TextLoopAnim, CapCutTextIntro, CapCutTextOutro, CapCutTextLoopAnim],
-                 start: int, duration: int):
+    def __init__(
+        self,
+        animation_type: Union[
+            TextIntro,
+            TextOutro,
+            TextLoopAnim,
+            CapCutTextIntro,
+            CapCutTextOutro,
+            CapCutTextLoopAnim,
+        ],
+        start: int,
+        duration: int,
+    ):
         super().__init__(animation_type.value, start, duration)
 
-        if (isinstance(animation_type, TextIntro) or isinstance(animation_type, CapCutTextIntro)):
+        if isinstance(animation_type, TextIntro) or isinstance(
+            animation_type, CapCutTextIntro
+        ):
             self.animation_type = "in"
-        elif (isinstance(animation_type, TextOutro) or isinstance(animation_type, CapCutTextOutro)):
+        elif isinstance(animation_type, TextOutro) or isinstance(
+            animation_type, CapCutTextOutro
+        ):
             self.animation_type = "out"
-        elif (isinstance(animation_type, TextLoopAnim) or isinstance(animation_type, CapCutTextLoopAnim)):
+        elif isinstance(animation_type, TextLoopAnim) or isinstance(
+            animation_type, CapCutTextLoopAnim
+        ):
             self.animation_type = "loop"
 
         self.is_video_animation = False
+
 
 class Segment_animations:
     """附加于某素材上的一系列动画
@@ -117,7 +152,9 @@ class Segment_animations:
         self.animation_id = uuid.uuid4().hex
         self.animations = []
 
-    def get_animation_trange(self, animation_type: Literal["in", "out", "group", "loop"]) -> Optional[Timerange]:
+    def get_animation_trange(
+        self, animation_type: Literal["in", "out", "group", "loop"]
+    ) -> Optional[Timerange]:
         """获取指定类型的动画的时间范围"""
         for animation in self.animations:
             if animation.animation_type == animation_type:
@@ -127,7 +164,9 @@ class Segment_animations:
     def add_animation(self, animation: Union[Video_animation, Text_animation]) -> None:
         # 不允许添加超过一个同类型的动画（如两个入场动画）
         if animation.animation_type in [ani.animation_type for ani in self.animations]:
-            raise ValueError(f"当前片段已存在类型为 '{animation.animation_type}' 的动画")
+            raise ValueError(
+                f"当前片段已存在类型为 '{animation.animation_type}' 的动画"
+            )
 
         if isinstance(animation, Video_animation):
             # 不允许组合动画与出入场动画同时出现
@@ -137,7 +176,9 @@ class Segment_animations:
                 raise ValueError("当前片段已存在动画时, 不能添加组合动画")
         elif isinstance(animation, Text_animation):
             if any(ani.animation_type == "loop" for ani in self.animations):
-                raise ValueError("当前片段已存在循环动画, 若希望同时使用循环动画和入出场动画, 请先添加出入场动画再添加循环动画")
+                raise ValueError(
+                    "当前片段已存在循环动画, 若希望同时使用循环动画和入出场动画, 请先添加出入场动画再添加循环动画"
+                )
 
         self.animations.append(animation)
 
@@ -146,5 +187,5 @@ class Segment_animations:
             "id": self.animation_id,
             "type": "sticker_animation",
             "multi_language_current": "none",
-            "animations": [animation.export_json() for animation in self.animations]
+            "animations": [animation.export_json() for animation in self.animations],
         }

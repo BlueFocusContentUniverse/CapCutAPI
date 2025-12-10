@@ -5,6 +5,7 @@ Revises: 0010
 Create Date: 2025-01-15 00:00:00.000000
 
 """
+
 import logging
 import uuid
 
@@ -97,4 +98,3 @@ def downgrade() -> None:
     op.drop_table("draft_archives")
     logger.info("Migration 0011 downgrade completed")
     # ### end Alembic commands ###
-

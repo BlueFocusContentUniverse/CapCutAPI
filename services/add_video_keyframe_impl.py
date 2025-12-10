@@ -15,7 +15,7 @@ def add_video_keyframe_impl(
     value: str = "1.0",
     property_types: Optional[List[str]] = None,
     times: Optional[List[float]] = None,
-    values: Optional[List[str]] = None
+    values: Optional[List[str]] = None,
 ) -> Dict[str, str]:
     """
     Add keyframes to the specified segment
@@ -63,41 +63,47 @@ def add_video_keyframe_impl(
         if property_types is not None or times is not None or values is not None:
             # Batch mode: use three array parameters
             if property_types is None or times is None or values is None:
-                raise Exception("In batch mode, property_types, times, values must be provided together")
+                raise Exception(
+                    "In batch mode, property_types, times, values must be provided together"
+                )
 
-            if not (isinstance(property_types, list) and isinstance(times, list) and isinstance(values, list)):
+            if not (
+                isinstance(property_types, list)
+                and isinstance(times, list)
+                and isinstance(values, list)
+            ):
                 raise Exception("property_types, times, values must all be list types")
 
             if len(property_types) == 0:
                 raise Exception("In batch mode, parameter lists cannot be empty")
 
             if not (len(property_types) == len(times) == len(values)):
-                raise Exception(f"property_types, times, values must have equal lengths, current lengths are: {len(property_types)}, {len(times)}, {len(values)}")
+                raise Exception(
+                    f"property_types, times, values must have equal lengths, current lengths are: {len(property_types)}, {len(times)}, {len(values)}"
+                )
 
             keyframes_to_process = [
-                {
-                    "property_type": prop_type,
-                    "time": t,
-                    "value": val
-                }
+                {"property_type": prop_type, "time": t, "value": val}
                 for prop_type, t, val in zip(property_types, times, values)
             ]
         else:
             # Single mode: use original parameters
-            keyframes_to_process = [{
-                "property_type": property_type,
-                "time": time,
-                "value": value
-            }]
+            keyframes_to_process = [
+                {"property_type": property_type, "time": time, "value": value}
+            ]
 
         # Process each keyframe
         added_count = 0
         for i, kf in enumerate(keyframes_to_process):
             try:
-                _add_single_keyframe(track, kf["property_type"], kf["time"], kf["value"])
+                _add_single_keyframe(
+                    track, kf["property_type"], kf["time"], kf["value"]
+                )
                 added_count += 1
             except Exception as e:
-                raise Exception(f"Failed to add keyframe #{i+1} (property_type={kf['property_type']}, time={kf['time']}, value={kf['value']}): {e!s}")
+                raise Exception(
+                    f"Failed to add keyframe #{i+1} (property_type={kf['property_type']}, time={kf['time']}, value={kf['value']}): {e!s}"
+                )
 
         result = {
             "draft_id": draft_id,
@@ -135,7 +141,9 @@ def _add_single_keyframe(track, property_type: str, time: float, value: str):
             # Handle position, range [0,1]
             float_value = float(value)
             if not -10 <= float_value <= 10:
-                raise ValueError(f"Value for {property_type} must be between -10 and 10")
+                raise ValueError(
+                    f"Value for {property_type} must be between -10 and 10"
+                )
         elif property_type == "rotation":
             # Handle rotation angle
             if value.endswith("deg"):

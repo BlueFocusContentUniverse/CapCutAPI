@@ -26,7 +26,9 @@ router = APIRouter(
 async def list_drafts(
     page: int = Query(1, description="Page number (1-indexed)"),
     page_size: int = Query(100, description="Number of items per page"),
-    limit: Optional[int] = Query(None, description="Deprecated - use page_size instead")
+    limit: Optional[int] = Query(
+        None, description="Deprecated - use page_size instead"
+    ),
 ):
     """
     List all stored drafts with pagination support
@@ -40,7 +42,9 @@ async def list_drafts(
         pg_storage = get_postgres_storage()
         result = pg_storage.list_drafts(page=page, page_size=page_size)
 
-        logger.info(f"List drafts request: page={page}, page_size={page_size}, returned {len(result['drafts'])} drafts")
+        logger.info(
+            f"List drafts request: page={page}, page_size={page_size}, returned {len(result['drafts'])} drafts"
+        )
 
         return {
             "success": True,
@@ -50,12 +54,9 @@ async def list_drafts(
     except Exception as e:
         logger.error(f"Failed to list drafts: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
+
 
 @router.get("/{draft_id}")
 async def get_draft_info(draft_id: str):
@@ -66,25 +67,14 @@ async def get_draft_info(draft_id: str):
 
         if metadata is None:
             return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "error": "Draft not found"
-                }
+                status_code=404, content={"success": False, "error": "Draft not found"}
             )
 
-        return {
-            "success": True,
-            "draft": metadata
-        }
+        return {"success": True, "draft": metadata}
     except Exception as e:
         logger.error(f"Failed to get draft {draft_id}: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
 
 
@@ -97,33 +87,24 @@ async def get_draft_content(draft_id: str):
 
         if script_obj is None:
             return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "error": "Draft not found"
-                }
+                status_code=404, content={"success": False, "error": "Draft not found"}
             )
 
         try:
             draft_content = json.loads(script_obj.dumps())
         except Exception as decode_err:
-            logger.warning(f"Failed to decode draft {draft_id} to JSON object: {decode_err}")
+            logger.warning(
+                f"Failed to decode draft {draft_id} to JSON object: {decode_err}"
+            )
             draft_content = script_obj.dumps()
 
-        return {
-            "success": True,
-            "draft_id": draft_id,
-            "content": draft_content
-        }
+        return {"success": True, "draft_id": draft_id, "content": draft_content}
     except Exception as e:
         logger.error(f"Failed to get draft content for {draft_id}: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
+
 
 @router.delete("/{draft_id}")
 async def delete_draft(draft_id: str):
@@ -137,26 +118,23 @@ async def delete_draft(draft_id: str):
         if cache_removed or db_deleted:
             return {
                 "success": True,
-                "message": f"Draft {draft_id} deleted (cache_removed={cache_removed}, db_deleted={db_deleted})"
+                "message": f"Draft {draft_id} deleted (cache_removed={cache_removed}, db_deleted={db_deleted})",
             }
         else:
             return JSONResponse(
                 status_code=404,
                 content={
                     "success": False,
-                    "error": "Draft not found or could not be deleted"
-                }
+                    "error": "Draft not found or could not be deleted",
+                },
             )
 
     except Exception as e:
         logger.error(f"Failed to delete draft {draft_id}: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
+
 
 @router.get("/{draft_id}/exists")
 async def check_draft_exists(draft_id: str):
@@ -165,39 +143,26 @@ async def check_draft_exists(draft_id: str):
         pg_storage = get_postgres_storage()
         exists = pg_storage.exists(draft_id)
 
-        return {
-            "success": True,
-            "exists": exists,
-            "draft_id": draft_id
-        }
+        return {"success": True, "exists": exists, "draft_id": draft_id}
     except Exception as e:
         logger.error(f"Failed to check if draft {draft_id} exists: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
+
 
 @router.get("/stats")
 async def get_storage_stats():
     """Get storage statistics"""
     try:
         stats = get_cache_stats()
-        return {
-            "success": True,
-            "stats": stats
-        }
+        return {"success": True, "stats": stats}
     except Exception as e:
         logger.error(f"Failed to get storage stats: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
+
 
 @router.post("/cleanup")
 async def cleanup_expired():
@@ -209,17 +174,14 @@ async def cleanup_expired():
         return {
             "success": True,
             "message": f"Cleaned up {cleanup_count} expired drafts",
-            "cleanup_count": cleanup_count
+            "cleanup_count": cleanup_count,
         }
     except Exception as e:
         logger.error(f"Failed to cleanup expired drafts: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
+
 
 @router.get("/{draft_id}/versions")
 async def list_draft_versions(draft_id: str):
@@ -232,17 +194,14 @@ async def list_draft_versions(draft_id: str):
             "success": True,
             "draft_id": draft_id,
             "versions": versions,
-            "count": len(versions)
+            "count": len(versions),
         }
     except Exception as e:
         logger.error(f"Failed to list versions for draft {draft_id}: {e}")
         return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+            status_code=500, content={"success": False, "error": str(e)}
         )
+
 
 @router.get("/{draft_id}/versions/{version}")
 async def get_draft_version_content(draft_id: str, version: int):
@@ -256,31 +215,32 @@ async def get_draft_version_content(draft_id: str, version: int):
                 status_code=404,
                 content={
                     "success": False,
-                    "error": f"Version {version} not found for draft {draft_id}"
-                }
+                    "error": f"Version {version} not found for draft {draft_id}",
+                },
             )
 
         try:
             draft_content = json.loads(script_obj.dumps())
         except Exception as decode_err:
-            logger.warning(f"Failed to decode draft {draft_id} version {version} to JSON object: {decode_err}")
+            logger.warning(
+                f"Failed to decode draft {draft_id} version {version} to JSON object: {decode_err}"
+            )
             draft_content = script_obj.dumps()
 
         return {
             "success": True,
             "draft_id": draft_id,
             "version": version,
-            "content": draft_content
+            "content": draft_content,
         }
     except Exception as e:
-        logger.error(f"Failed to get draft version content for {draft_id} version {version}: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+        logger.error(
+            f"Failed to get draft version content for {draft_id} version {version}: {e}"
         )
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
 
 @router.get("/{draft_id}/versions/{version}/metadata")
 async def get_draft_version_metadata(draft_id: str, version: int):
@@ -294,23 +254,20 @@ async def get_draft_version_metadata(draft_id: str, version: int):
                 status_code=404,
                 content={
                     "success": False,
-                    "error": f"Version {version} not found for draft {draft_id}"
-                }
+                    "error": f"Version {version} not found for draft {draft_id}",
+                },
             )
 
         return {
             "success": True,
             "draft_id": draft_id,
             "version": version,
-            "metadata": metadata
+            "metadata": metadata,
         }
     except Exception as e:
-        logger.error(f"Failed to get metadata for draft {draft_id} version {version}: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e)
-            }
+        logger.error(
+            f"Failed to get metadata for draft {draft_id} version {version}: {e}"
         )
-
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )

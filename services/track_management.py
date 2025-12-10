@@ -1,6 +1,7 @@
 """
 Service for managing tracks in Script_file instances
 """
+
 import logging
 from typing import Any, Dict
 
@@ -45,9 +46,7 @@ def get_tracks(draft_id: str) -> Dict[str, Any]:
         raise ValueError(f"Draft {draft_id} not found in cache")
 
     return export_tracks_for_llm(
-        script.tracks,
-        script.imported_tracks,
-        include_segments=True
+        script.tracks, script.imported_tracks, include_segments=True
     )
 
 
@@ -95,7 +94,7 @@ def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     result = {
         "deleted_track": track_name,
         "remaining_tracks": remaining_tracks,
-        "new_duration": script.duration
+        "new_duration": script.duration,
     }
 
     logger.info(f"Deleted track '{track_name}' from draft {draft_id}")
@@ -149,4 +148,3 @@ def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
         raise ValueError(f"Track '{track_name}' not found in draft {draft_id}")
 
     return export_track_for_llm(track, include_segments=True)
-

@@ -35,7 +35,9 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
     result: Dict[str, Any] = {"success": False, "data": None, "error": ""}
 
     if not task_id:
-        result["error"] = "The required parameter 'task_id' is missing. Please add it and try again."
+        result["error"] = (
+            "The required parameter 'task_id' is missing. Please add it and try again."
+        )
         logger.warning("get_video_task_status_impl called without task_id")
         return result
 
@@ -58,7 +60,9 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
                 ).scalar_one_or_none()
                 if video:
                     oss_url = video.oss_url
-                    logger.info(f"Found oss_url for video_id {task.video_id}: {oss_url}")
+                    logger.info(
+                        f"Found oss_url for video_id {task.video_id}: {oss_url}"
+                    )
 
             # Convert the SQLAlchemy object to a dictionary
             task_data = {
@@ -66,7 +70,9 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
                 "task_id": task.task_id,
                 "draft_id": task.draft_id,
                 "video_name": task.video_name,
-                "render_status": task.render_status.value if task.render_status else None,
+                "render_status": task.render_status.value
+                if task.render_status
+                else None,
                 "progress": task.progress,
                 "message": task.message,
                 "oss_url": oss_url,
@@ -77,11 +83,14 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
 
             result["success"] = True
             result["data"] = task_data
-            logger.info(f"Successfully retrieved status for task_id: {task_id}, status: {task_data.get('render_status')}")
+            logger.info(
+                f"Successfully retrieved status for task_id: {task_id}, status: {task_data.get('render_status')}"
+            )
             return result
 
     except Exception as e:
         result["error"] = f"Error occurred while retrieving video task status: {e!s}"
-        logger.error(f"Error retrieving video task status for {task_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error retrieving video task status for {task_id}: {e}", exc_info=True
+        )
         return result
-

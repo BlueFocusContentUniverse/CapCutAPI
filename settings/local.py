@@ -6,7 +6,9 @@ import json  # 替换原来的json模块
 import os
 
 # 配置文件路径
-CONFIG_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+CONFIG_FILE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "config.json"
+)
 
 # 默认配置
 IS_CAPCUT_ENV = False
@@ -24,7 +26,7 @@ IS_UPLOAD_DRAFT = False
 PORT = 9000
 
 OSS_CONFIG = []
-MP4_OSS_CONFIG=[]
+MP4_OSS_CONFIG = []
 
 # 尝试加载本地配置文件
 if os.path.exists(CONFIG_FILE_PATH):

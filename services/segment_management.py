@@ -1,6 +1,7 @@
 """
 Service for managing segments in tracks
 """
+
 import logging
 from typing import Any, Dict, Optional
 
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class ClipSettingsUpdate:
     """Helper class for partial clip settings updates"""
+
     def __init__(self, data: Dict[str, Any]):
         self.alpha = data.get("alpha")
         self.flip_horizontal = data.get("flip_horizontal")
@@ -45,7 +47,9 @@ class ClipSettingsUpdate:
         return result
 
 
-def get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict[str, Any]:
+def get_segment_details(
+    draft_id: str, track_name: str, segment_id: str
+) -> Dict[str, Any]:
     """
     Get detailed information about a specific segment in LLM-friendly format.
 
@@ -118,8 +122,12 @@ def get_segment_details(draft_id: str, track_name: str, segment_id: str) -> Dict
     return result
 
 
-def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] = None,
-                   segment_id: Optional[str] = None) -> Dict[str, Any]:
+def delete_segment(
+    draft_id: str,
+    track_name: str,
+    segment_index: Optional[int] = None,
+    segment_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Delete a segment from a track by index or ID
 
@@ -146,8 +154,10 @@ def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] 
         ValueError: If draft_id or track_name is not provided, or if both/neither
                    segment_index and segment_id are provided, or if segment not found
     """
-    logger.info(f"Deleting segment from draft {draft_id}, track {track_name}, "
-                f"index={segment_index}, id={segment_id}")
+    logger.info(
+        f"Deleting segment from draft {draft_id}, track {track_name}, "
+        f"index={segment_index}, id={segment_id}"
+    )
 
     if not draft_id:
         raise ValueError("draft_id is required")
@@ -155,8 +165,9 @@ def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] 
     if not track_name:
         raise ValueError("track_name is required")
 
-    if (segment_index is None and segment_id is None) or \
-       (segment_index is not None and segment_id is not None):
+    if (segment_index is None and segment_id is None) or (
+        segment_index is not None and segment_id is not None
+    ):
         raise ValueError("Must provide exactly one of segment_index or segment_id")
 
     # Get the script from cache
@@ -166,7 +177,9 @@ def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] 
 
     # Perform the deletion using the Script_file method
     try:
-        script.delete_segment(track_name, segment_index=segment_index, segment_id=segment_id)
+        script.delete_segment(
+            track_name, segment_index=segment_index, segment_id=segment_id
+        )
     except SegmentNotFound as e:
         logger.error(f"Failed to delete segment: {e!s}")
         raise ValueError(str(e)) from e
@@ -189,8 +202,10 @@ def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] 
 
     remaining_count = len(track.segments) if track else 0
 
-    logger.info(f"Successfully deleted segment {segment_id} from track {track_name}. "
-                f"Remaining segments: {remaining_count}, Draft duration: {script.duration}")
+    logger.info(
+        f"Successfully deleted segment {segment_id} from track {track_name}. "
+        f"Remaining segments: {remaining_count}, Draft duration: {script.duration}"
+    )
 
     return {
         "success": True,
@@ -203,10 +218,14 @@ def delete_segment(draft_id: str, track_name: str, segment_index: Optional[int] 
     }
 
 
-def modify_segment(draft_id: str, track_name: str, segment_id: str,
-                   clip_settings: Optional[Dict[str, Any]] = None,
-                   volume: Optional[float] = None,
-                   speed: Optional[float] = None) -> Dict[str, Any]:
+def modify_segment(
+    draft_id: str,
+    track_name: str,
+    segment_id: str,
+    clip_settings: Optional[Dict[str, Any]] = None,
+    volume: Optional[float] = None,
+    speed: Optional[float] = None,
+) -> Dict[str, Any]:
     """
     Modify a segment's properties (clip settings, volume, speed)
 
@@ -241,7 +260,9 @@ def modify_segment(draft_id: str, track_name: str, segment_id: str,
         ValueError: If required parameters are missing or segment not found
         TypeError: If trying to modify unsupported properties for segment type
     """
-    logger.info(f"Modifying segment in draft {draft_id}, track {track_name}, segment_id={segment_id}")
+    logger.info(
+        f"Modifying segment in draft {draft_id}, track {track_name}, segment_id={segment_id}"
+    )
 
     if not draft_id:
         raise ValueError("draft_id is required")
@@ -253,7 +274,9 @@ def modify_segment(draft_id: str, track_name: str, segment_id: str,
         raise ValueError("segment_id is required")
 
     if clip_settings is None and volume is None and speed is None:
-        raise ValueError("At least one of clip_settings, volume, or speed must be provided")
+        raise ValueError(
+            "At least one of clip_settings, volume, or speed must be provided"
+        )
 
     # Get the script from cache
     script = get_from_cache(draft_id)
@@ -282,7 +305,7 @@ def modify_segment(draft_id: str, track_name: str, segment_id: str,
             segment_id,
             clip_settings=clip_settings_dict,
             volume=volume,
-            speed=speed
+            speed=speed,
         )
     except SegmentNotFound as e:
         logger.error(f"Failed to modify segment: {e!s}")
@@ -300,8 +323,10 @@ def modify_segment(draft_id: str, track_name: str, segment_id: str,
     # Save the updated script back to cache
     update_cache(draft_id, script)
 
-    logger.info(f"Successfully modified segment {segment_id} in track {track_name}. "
-                f"Updated fields: {updated_fields}")
+    logger.info(
+        f"Successfully modified segment {segment_id} in track {track_name}. "
+        f"Updated fields: {updated_fields}"
+    )
 
     return {
         "success": True,

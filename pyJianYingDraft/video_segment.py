@@ -64,9 +64,19 @@ class Mask:
     round_corner: float
     """矩形蒙版的圆角, 0-1"""
 
-    def __init__(self, mask_meta: MaskMeta,
-                 cx: float, cy: float, w: float, h: float,
-                 ratio: float, rot: float, inv: bool, feather: float, round_corner: float):
+    def __init__(
+        self,
+        mask_meta: MaskMeta,
+        cx: float,
+        cy: float,
+        w: float,
+        h: float,
+        ratio: float,
+        rot: float,
+        inv: bool,
+        feather: float,
+        round_corner: float,
+    ):
         self.mask_meta = mask_meta
         self.global_id = uuid.uuid4().hex
 
@@ -90,7 +100,7 @@ class Mask:
                 "invert": self.invert,
                 "rotation": self.rotation,
                 "roundCorner": self.round_corner,
-                "width": self.width
+                "width": self.width,
             },
             "category": "video",
             "category_id": "",
@@ -101,9 +111,10 @@ class Mask:
             "position_info": "",
             "resource_type": self.mask_meta.resource_type,
             "resource_id": self.mask_meta.resource_id,
-            "type": "mask"
+            "type": "mask",
             # 不导出path字段
         }
+
 
 class Video_effect:
     """视频特效素材"""
@@ -123,9 +134,13 @@ class Video_effect:
 
     adjust_params: List[EffectParamInstance]
 
-    def __init__(self, effect_meta: Union[VideoSceneEffectType, VideoCharacterEffectType],
-                 params: Optional[List[Optional[float]]] = None, *,
-                 apply_target_type: Literal[0, 2] = 0):
+    def __init__(
+        self,
+        effect_meta: Union[VideoSceneEffectType, VideoCharacterEffectType],
+        params: Optional[List[Optional[float]]] = None,
+        *,
+        apply_target_type: Literal[0, 2] = 0,
+    ):
         """根据给定的特效元数据及参数列表构造一个视频特效对象, params的范围是0~100"""
 
         self.name = effect_meta.value.name
@@ -174,9 +189,10 @@ class Video_effect:
             "track_render_index": 0,
             "type": self.effect_type,
             "value": 1.0,
-            "version": ""
+            "version": "",
             # 不导出path、request_id和algorithm_artifact_path字段
         }
+
 
 class Filter:
     """滤镜素材"""
@@ -192,8 +208,13 @@ class Filter:
     apply_target_type: Literal[0, 2]
     """应用目标类型, 0: 片段, 2: 全局"""
 
-    def __init__(self, meta: EffectMeta, intensity: float, *,
-                 apply_target_type: Literal[0, 2] = 0):
+    def __init__(
+        self,
+        meta: EffectMeta,
+        intensity: float,
+        *,
+        apply_target_type: Literal[0, 2] = 0,
+    ):
         """根据给定的滤镜元数据及强度构造滤镜素材对象"""
 
         self.global_id = uuid.uuid4().hex
@@ -212,7 +233,7 @@ class Filter:
             "color_match_info": {
                 "source_feature_path": "",
                 "target_feature_path": "",
-                "target_image_path": ""
+                "target_image_path": "",
             },
             "effect_id": self.effect_meta.effect_id,
             "enable_skin_tone_correction": False,
@@ -231,9 +252,10 @@ class Filter:
             "time_range": None,
             "type": "filter",
             "value": self.intensity,
-            "version": ""
+            "version": "",
             # 不导出path和request_id
         }
+
 
 class Transition:
     """转场对象"""
@@ -252,14 +274,20 @@ class Transition:
     is_overlap: bool
     """是否与上一个片段重叠(?)"""
 
-    def __init__(self, effect_meta: Union[TransitionType, CapCutTransitionType], duration: Optional[int] = None):
+    def __init__(
+        self,
+        effect_meta: Union[TransitionType, CapCutTransitionType],
+        duration: Optional[int] = None,
+    ):
         """根据给定的转场元数据及持续时间构造一个转场对象"""
         self.name = effect_meta.value.name
         self.global_id = uuid.uuid4().hex
         self.effect_id = effect_meta.value.effect_id
         self.resource_id = effect_meta.value.resource_id
 
-        self.duration = duration if duration is not None else effect_meta.value.default_duration
+        self.duration = (
+            duration if duration is not None else effect_meta.value.default_duration
+        )
         self.is_overlap = effect_meta.value.is_overlap
 
     def export_json(self) -> Dict[str, Any]:
@@ -273,9 +301,10 @@ class Transition:
             "name": self.name,
             "platform": "all",
             "resource_id": self.resource_id,
-            "type": "transition"
+            "type": "transition",
             # 不导出path和request_id字段
         }
+
 
 class BackgroundFilling:
     """背景填充对象"""
@@ -289,7 +318,9 @@ class BackgroundFilling:
     color: str
     """背景颜色, 格式为'#RRGGBBAA'"""
 
-    def __init__(self, fill_type: Literal["canvas_blur", "canvas_color"], blur: float, color: str):
+    def __init__(
+        self, fill_type: Literal["canvas_blur", "canvas_color"], blur: float, color: str
+    ):
         self.global_id = uuid.uuid4().hex
         self.fill_type = fill_type
         self.blur = blur
@@ -303,6 +334,7 @@ class BackgroundFilling:
             "color": self.color,
             "source_platform": 0,
         }
+
 
 class VideoSegment(VisualSegment):
     """安放在轨道上的一个视频/图片片段"""
@@ -350,9 +382,16 @@ class VideoSegment(VisualSegment):
     """
 
     # TODO: material参数接受path进行便捷构造
-    def __init__(self, material: VideoMaterial, target_timerange: Timerange, *,
-                 source_timerange: Optional[Timerange] = None, speed: Optional[float] = None, volume: float = 1.0,
-                 clip_settings: Optional[ClipSettings] = None):
+    def __init__(
+        self,
+        material: VideoMaterial,
+        target_timerange: Timerange,
+        *,
+        source_timerange: Optional[Timerange] = None,
+        speed: Optional[float] = None,
+        volume: float = 1.0,
+        clip_settings: Optional[ClipSettings] = None,
+    ):
         """利用给定的视频/图片素材构建一个轨道片段, 并指定其时间信息及图像调节设置
 
         Args:
@@ -379,7 +418,14 @@ class VideoSegment(VisualSegment):
         #     # 重新计算目标时间范围
         #     target_timerange = Timerange(target_timerange.start, round(source_timerange.duration / speed))
 
-        super().__init__(material.material_id, source_timerange, target_timerange, speed, volume, clip_settings=clip_settings)
+        super().__init__(
+            material.material_id,
+            source_timerange,
+            target_timerange,
+            speed,
+            volume,
+            clip_settings=clip_settings,
+        )
 
         self.material_instance = deepcopy(material)
         self.material_size = (material.width, material.height)
@@ -390,8 +436,18 @@ class VideoSegment(VisualSegment):
         self.background_filling = None
         self.fade = None
 
-    def add_animation(self, animation_type: Union[IntroType, OutroType, GroupAnimationType, CapCutIntroType, CapCutOutroType, CapCutGroupAnimationType],
-                      duration: Optional[Union[int, str]] = None) -> "VideoSegment":
+    def add_animation(
+        self,
+        animation_type: Union[
+            IntroType,
+            OutroType,
+            GroupAnimationType,
+            CapCutIntroType,
+            CapCutOutroType,
+            CapCutGroupAnimationType,
+        ],
+        duration: Optional[Union[int, str]] = None,
+    ) -> "VideoSegment":
         """将给定的入场/出场/组合动画添加到此片段的动画列表中
 
         Args:
@@ -401,13 +457,19 @@ class VideoSegment(VisualSegment):
         """
         if duration is not None:
             duration = tim(duration)
-        if (isinstance(animation_type, IntroType) or isinstance(animation_type, CapCutIntroType)):
+        if isinstance(animation_type, IntroType) or isinstance(
+            animation_type, CapCutIntroType
+        ):
             start = 0
             duration = duration or animation_type.value.duration
-        elif isinstance(animation_type, OutroType) or isinstance(animation_type, CapCutOutroType):
+        elif isinstance(animation_type, OutroType) or isinstance(
+            animation_type, CapCutOutroType
+        ):
             duration = duration or animation_type.value.duration
             start = self.target_timerange.duration - duration
-        elif isinstance(animation_type, GroupAnimationType) or isinstance(animation_type, CapCutGroupAnimationType):
+        elif isinstance(animation_type, GroupAnimationType) or isinstance(
+            animation_type, CapCutGroupAnimationType
+        ):
             start = 0
             duration = duration or self.target_timerange.duration
         else:
@@ -417,12 +479,17 @@ class VideoSegment(VisualSegment):
             self.animations_instance = Segment_animations()
             self.extra_material_refs.append(self.animations_instance.animation_id)
 
-        self.animations_instance.add_animation(Video_animation(animation_type, start, duration))
+        self.animations_instance.add_animation(
+            Video_animation(animation_type, start, duration)
+        )
 
         return self
 
-    def add_effect(self, effect_type: Union[VideoSceneEffectType, VideoCharacterEffectType],
-                   params: Optional[List[Optional[float]]] = None) -> "VideoSegment":
+    def add_effect(
+        self,
+        effect_type: Union[VideoSceneEffectType, VideoCharacterEffectType],
+        params: Optional[List[Optional[float]]] = None,
+    ) -> "VideoSegment":
         """为视频片段添加一个作用于整个片段的特效
 
         Args:
@@ -442,7 +509,9 @@ class VideoSegment(VisualSegment):
 
         return self
 
-    def add_fade(self, in_duration: Union[str, int], out_duration: Union[str, int]) -> "VideoSegment":
+    def add_fade(
+        self, in_duration: Union[str, int], out_duration: Union[str, int]
+    ) -> "VideoSegment":
         """为视频片段添加音频淡入淡出效果, 仅对有音轨的视频片段有效
 
         Args:
@@ -455,15 +524,19 @@ class VideoSegment(VisualSegment):
         if self.fade is not None:
             raise ValueError("当前片段已存在淡入淡出效果")
 
-        if isinstance(in_duration, str): in_duration = tim(in_duration)
-        if isinstance(out_duration, str): out_duration = tim(out_duration)
+        if isinstance(in_duration, str):
+            in_duration = tim(in_duration)
+        if isinstance(out_duration, str):
+            out_duration = tim(out_duration)
 
         self.fade = AudioFade(in_duration, out_duration)
         self.extra_material_refs.append(self.fade.fade_id)
 
         return self
 
-    def add_filter(self, filter_type: FilterType, intensity: float = 100.0) -> "VideoSegment":
+    def add_filter(
+        self, filter_type: FilterType, intensity: float = 100.0
+    ) -> "VideoSegment":
         """为视频片段添加一个滤镜
 
         Args:
@@ -476,9 +549,20 @@ class VideoSegment(VisualSegment):
 
         return self
 
-    def add_mask(self, draft: "ScriptFile", mask_type: Union[MaskType, CapCutMaskType], *, center_x: float = 0.0, center_y: float = 0.0, size: float = 0.5,
-                 rotation: float = 0.0, feather: float = 0.0, invert: bool = False,
-                 rect_width: Optional[float] = None, round_corner: Optional[float] = None) -> "VideoSegment":
+    def add_mask(
+        self,
+        draft: "ScriptFile",
+        mask_type: Union[MaskType, CapCutMaskType],
+        *,
+        center_x: float = 0.0,
+        center_y: float = 0.0,
+        size: float = 0.5,
+        rotation: float = 0.0,
+        feather: float = 0.0,
+        invert: bool = False,
+        rect_width: Optional[float] = None,
+        round_corner: Optional[float] = None,
+    ) -> "VideoSegment":
         """为视频片段添加蒙版
 
         Args:
@@ -498,9 +582,15 @@ class VideoSegment(VisualSegment):
 
         if self.mask is not None:
             raise ValueError("当前片段已有蒙版, 不能再添加新的蒙版")
-        if (rect_width is not None or round_corner is not None) and (mask_type != MaskType.矩形 and mask_type != CapCutMaskType.Rectangle):
-            raise ValueError("`rect_width` 以及 `round_corner` 仅在蒙版类型为矩形时允许设置")
-        if rect_width is None and (mask_type == MaskType.矩形 or mask_type == CapCutMaskType.Rectangle):
+        if (rect_width is not None or round_corner is not None) and (
+            mask_type != MaskType.矩形 and mask_type != CapCutMaskType.Rectangle
+        ):
+            raise ValueError(
+                "`rect_width` 以及 `round_corner` 仅在蒙版类型为矩形时允许设置"
+            )
+        if rect_width is None and (
+            mask_type == MaskType.矩形 or mask_type == CapCutMaskType.Rectangle
+        ):
             rect_width = size
         if round_corner is None:
             round_corner = 0
@@ -509,14 +599,31 @@ class VideoSegment(VisualSegment):
         draft_width = draft.width
         draft_height = draft.height
 
-        width = rect_width or size * draft_height * mask_type.value.default_aspect_ratio / draft_width
-        self.mask = Mask(mask_type.value, center_x / (draft_width / 2), center_y / (draft_height / 2),
-                         w=width, h=size, ratio=mask_type.value.default_aspect_ratio,
-                         rot=rotation, inv=invert, feather=feather/100, round_corner=round_corner/100)
+        width = (
+            rect_width
+            or size * draft_height * mask_type.value.default_aspect_ratio / draft_width
+        )
+        self.mask = Mask(
+            mask_type.value,
+            center_x / (draft_width / 2),
+            center_y / (draft_height / 2),
+            w=width,
+            h=size,
+            ratio=mask_type.value.default_aspect_ratio,
+            rot=rotation,
+            inv=invert,
+            feather=feather / 100,
+            round_corner=round_corner / 100,
+        )
         self.extra_material_refs.append(self.mask.global_id)
         return self
 
-    def add_transition(self, transition_type: Union[TransitionType, CapCutTransitionType], *, duration: Optional[Union[int, str]] = None) -> "VideoSegment":
+    def add_transition(
+        self,
+        transition_type: Union[TransitionType, CapCutTransitionType],
+        *,
+        duration: Optional[Union[int, str]] = None,
+    ) -> "VideoSegment":
         """为视频片段添加转场, 注意转场应当添加在**前面的**片段上
 
         Args:
@@ -528,13 +635,19 @@ class VideoSegment(VisualSegment):
         """
         if self.transition is not None:
             raise ValueError("当前片段已有转场, 不能再添加新的转场")
-        if isinstance(duration, str): duration = tim(duration)
+        if isinstance(duration, str):
+            duration = tim(duration)
 
         self.transition = Transition(transition_type, duration)
         self.extra_material_refs.append(self.transition.global_id)
         return self
 
-    def add_background_filling(self, fill_type: Literal["blur", "color"], blur: float = 0.0625, color: str = "#00000000") -> "VideoSegment":
+    def add_background_filling(
+        self,
+        fill_type: Literal["blur", "color"],
+        blur: float = 0.0625,
+        color: str = "#00000000",
+    ) -> "VideoSegment":
         """为视频片段添加背景填充
 
         注意: 背景填充仅对底层视频轨道上的片段生效
@@ -562,10 +675,13 @@ class VideoSegment(VisualSegment):
 
     def export_json(self) -> Dict[str, Any]:
         json_dict = super().export_json()
-        json_dict.update({
-            "hdr_settings": {"intensity": 1.0, "mode": 1, "nits": 1000},
-        })
+        json_dict.update(
+            {
+                "hdr_settings": {"intensity": 1.0, "mode": 1, "nits": 1000},
+            }
+        )
         return json_dict
+
 
 class StickerSegment(VisualSegment):
     """安放在轨道上的一个贴纸片段"""
@@ -573,7 +689,13 @@ class StickerSegment(VisualSegment):
     resource_id: str
     """贴纸资源id"""
 
-    def __init__(self, resource_id: str, target_timerange: Timerange, *, clip_settings: Optional[ClipSettings] = None):
+    def __init__(
+        self,
+        resource_id: str,
+        target_timerange: Timerange,
+        *,
+        clip_settings: Optional[ClipSettings] = None,
+    ):
         """根据贴纸resource_id构建一个贴纸片段, 并指定其时间信息及图像调节设置
 
         片段创建完成后, 可通过`Script_file.add_segment`方法将其添加到轨道中
@@ -583,7 +705,14 @@ class StickerSegment(VisualSegment):
             target_timerange (`Timerange`): 片段在轨道上的目标时间范围
             clip_settings (`Clip_settings`, optional): 图像调节设置, 默认不作任何变换
         """
-        super().__init__(uuid.uuid4().hex, None, target_timerange, 1.0, 1.0, clip_settings=clip_settings)
+        super().__init__(
+            uuid.uuid4().hex,
+            None,
+            target_timerange,
+            1.0,
+            1.0,
+            clip_settings=clip_settings,
+        )
         self.resource_id = resource_id
 
     def export_material(self) -> Dict[str, Any]:

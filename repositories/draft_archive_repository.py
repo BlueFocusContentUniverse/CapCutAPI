@@ -63,7 +63,9 @@ class PostgresDraftArchiveStorage:
                 )
                 session.add(archive)
                 session.commit()
-                logger.info(f"Created draft archive {archive_id} for draft {draft_id} version {draft_version} with archive_name={archive_name}")
+                logger.info(
+                    f"Created draft archive {archive_id} for draft {draft_id} version {draft_version} with archive_name={archive_name}"
+                )
                 return str(archive_id)
         except SQLAlchemyError as e:
             logger.error(f"Database error creating draft archive for {draft_id}: {e}")
@@ -87,10 +89,14 @@ class PostgresDraftArchiveStorage:
         """
         try:
             with get_session() as session:
-                query = select(DraftArchiveModel).where(DraftArchiveModel.draft_id == draft_id)
+                query = select(DraftArchiveModel).where(
+                    DraftArchiveModel.draft_id == draft_id
+                )
 
                 if draft_version is not None:
-                    query = query.where(DraftArchiveModel.draft_version == draft_version)
+                    query = query.where(
+                        DraftArchiveModel.draft_version == draft_version
+                    )
                 else:
                     query = query.where(DraftArchiveModel.draft_version.is_(None))
 
@@ -98,7 +104,9 @@ class PostgresDraftArchiveStorage:
                 row = q.scalar_one_or_none()
 
                 if row is None:
-                    logger.debug(f"Archive not found for draft {draft_id} version {draft_version}")
+                    logger.debug(
+                        f"Archive not found for draft {draft_id} version {draft_version}"
+                    )
                     return None
 
                 return {
@@ -136,7 +144,9 @@ class PostgresDraftArchiveStorage:
         try:
             with get_session() as session:
                 q = session.execute(
-                    select(DraftArchiveModel).where(DraftArchiveModel.archive_id == uuid.UUID(archive_id))
+                    select(DraftArchiveModel).where(
+                        DraftArchiveModel.archive_id == uuid.UUID(archive_id)
+                    )
                 )
                 row = q.scalar_one_or_none()
 
@@ -177,7 +187,7 @@ class PostgresDraftArchiveStorage:
         progress: Optional[float] = None,
         downloaded_files: Optional[int] = None,
         message: Optional[str] = None,
-        draft_version: Optional[int] = None
+        draft_version: Optional[int] = None,
     ) -> bool:
         """
         Update archive record fields.
@@ -240,7 +250,7 @@ class PostgresDraftArchiveStorage:
         draft_id: Optional[str] = None,
         user_id: Optional[str] = None,
         page: int = 1,
-        page_size: int = 100
+        page_size: int = 100,
     ) -> Dict[str, Any]:
         """
         List draft archives with optional filtering and pagination.
@@ -270,41 +280,56 @@ class PostgresDraftArchiveStorage:
 
                 # Get total count
                 from sqlalchemy import func
+
                 count_query = select(func.count(DraftArchiveModel.id))
                 if draft_id:
-                    count_query = count_query.where(DraftArchiveModel.draft_id == draft_id)
+                    count_query = count_query.where(
+                        DraftArchiveModel.draft_id == draft_id
+                    )
                 if user_id:
-                    count_query = count_query.where(DraftArchiveModel.user_id == user_id)
+                    count_query = count_query.where(
+                        DraftArchiveModel.user_id == user_id
+                    )
 
                 count_q = session.execute(count_query)
                 total_count = count_q.scalar() or 0
 
                 # Get paginated results
-                query = query.order_by(DraftArchiveModel.created_at.desc()).limit(page_size).offset(offset)
+                query = (
+                    query.order_by(DraftArchiveModel.created_at.desc())
+                    .limit(page_size)
+                    .offset(offset)
+                )
                 q = session.execute(query)
                 rows = q.scalars().all()
 
                 results = []
                 for row in rows:
-                    results.append({
-                        "archive_id": str(row.archive_id),
-                        "draft_id": row.draft_id,
-                        "draft_version": row.draft_version,
-                        "user_id": row.user_id,
-                        "user_name": row.user_name,
-                        "archive_name": row.archive_name,
-                        "download_url": row.download_url,
-                        "total_files": row.total_files,
-                        "progress": row.progress,
-                        "downloaded_files": row.downloaded_files,
-                        "message": row.message,
-                        "created_at": int(row.created_at.timestamp()),
-                        "updated_at": int(row.updated_at.timestamp()),
-                    })
+                    results.append(
+                        {
+                            "archive_id": str(row.archive_id),
+                            "draft_id": row.draft_id,
+                            "draft_version": row.draft_version,
+                            "user_id": row.user_id,
+                            "user_name": row.user_name,
+                            "archive_name": row.archive_name,
+                            "download_url": row.download_url,
+                            "total_files": row.total_files,
+                            "progress": row.progress,
+                            "downloaded_files": row.downloaded_files,
+                            "message": row.message,
+                            "created_at": int(row.created_at.timestamp()),
+                            "updated_at": int(row.updated_at.timestamp()),
+                        }
+                    )
 
-                total_pages = (total_count + page_size - 1) // page_size if page_size > 0 else 0
+                total_pages = (
+                    (total_count + page_size - 1) // page_size if page_size > 0 else 0
+                )
 
-                logger.info(f"Listed archives: page={page}, page_size={page_size}, total={total_count}")
+                logger.info(
+                    f"Listed archives: page={page}, page_size={page_size}, total={total_count}"
+                )
 
                 return {
                     "archives": results,
@@ -314,8 +339,8 @@ class PostgresDraftArchiveStorage:
                         "total_count": total_count,
                         "total_pages": total_pages,
                         "has_next": page < total_pages,
-                        "has_prev": page > 1
-                    }
+                        "has_prev": page > 1,
+                    },
                 }
         except Exception as e:
             logger.error(f"Failed to list archives: {e}")
@@ -327,8 +352,8 @@ class PostgresDraftArchiveStorage:
                     "total_count": 0,
                     "total_pages": 0,
                     "has_next": False,
-                    "has_prev": False
-                }
+                    "has_prev": False,
+                },
             }
 
     def delete_archive(self, archive_id: str) -> bool:
@@ -344,7 +369,9 @@ class PostgresDraftArchiveStorage:
         try:
             with get_session() as session:
                 q = session.execute(
-                    select(DraftArchiveModel).where(DraftArchiveModel.archive_id == uuid.UUID(archive_id))
+                    select(DraftArchiveModel).where(
+                        DraftArchiveModel.archive_id == uuid.UUID(archive_id)
+                    )
                 )
                 row = q.scalar_one_or_none()
 
@@ -376,4 +403,3 @@ def get_postgres_archive_storage() -> PostgresDraftArchiveStorage:
     if pg_archive_storage is None:
         pg_archive_storage = PostgresDraftArchiveStorage()
     return pg_archive_storage
-

@@ -15,6 +15,7 @@ from fastapi import HTTPException, Request, status
 
 try:
     import redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -40,7 +41,7 @@ def _get_redis_client():
             password=parsed.password,
             decode_responses=True,
             socket_connect_timeout=5,
-            socket_timeout=5
+            socket_timeout=5,
         )
         client.ping()
         return client
@@ -56,7 +57,7 @@ class RateLimiter:
         self,
         redis_client: Optional[Any] = None,
         requests_per_minute: int = 60,
-        key_prefix: str = "rate_limit:"
+        key_prefix: str = "rate_limit:",
     ):
         """
         初始化速率限制器
@@ -93,7 +94,7 @@ class RateLimiter:
                 "allowed": True,
                 "limit": self.requests_per_minute,
                 "remaining": self.requests_per_minute,
-                "reset_time": int(time.time()) + 60
+                "reset_time": int(time.time()) + 60,
             }
 
         normalized_id = self._normalize_identifier(identifier)
@@ -112,14 +113,14 @@ class RateLimiter:
                         "limit": self.requests_per_minute,
                         "current": current_count,
                         "reset_time": reset_time,
-                        "retry_after": reset_time - int(time.time())
+                        "retry_after": reset_time - int(time.time()),
                     },
                     headers={
                         "X-RateLimit-Limit": str(self.requests_per_minute),
                         "X-RateLimit-Remaining": "0",
                         "X-RateLimit-Reset": str(reset_time),
-                        "Retry-After": str(reset_time - int(time.time()))
-                    }
+                        "Retry-After": str(reset_time - int(time.time())),
+                    },
                 )
 
             new_count = current_count + 1
@@ -130,7 +131,7 @@ class RateLimiter:
                 "limit": self.requests_per_minute,
                 "remaining": self.requests_per_minute - new_count,
                 "current": new_count,
-                "reset_time": self._get_reset_time()
+                "reset_time": self._get_reset_time(),
             }
 
         except HTTPException:
@@ -141,7 +142,7 @@ class RateLimiter:
                 "allowed": True,
                 "limit": self.requests_per_minute,
                 "remaining": self.requests_per_minute,
-                "error": str(e)
+                "error": str(e),
             }
 
     def get_rate_limit_info(self, identifier: str) -> Dict[str, Any]:
@@ -149,7 +150,7 @@ class RateLimiter:
         if not self.enabled:
             return {
                 "limit": self.requests_per_minute,
-                "remaining": self.requests_per_minute
+                "remaining": self.requests_per_minute,
             }
 
         normalized_id = self._normalize_identifier(identifier)
@@ -160,12 +161,12 @@ class RateLimiter:
             return {
                 "limit": self.requests_per_minute,
                 "remaining": max(0, self.requests_per_minute - current_count),
-                "current": current_count
+                "current": current_count,
             }
         except Exception:
             return {
                 "limit": self.requests_per_minute,
-                "remaining": self.requests_per_minute
+                "remaining": self.requests_per_minute,
             }
 
 
@@ -182,16 +183,19 @@ def get_rate_limiter() -> RateLimiter:
 
     if _default_rate_limiter is None:
         _default_rate_limiter = RateLimiter(
-            requests_per_minute=default_rpm,
-            key_prefix=default_prefix
+            requests_per_minute=default_rpm, key_prefix=default_prefix
         )
     return _default_rate_limiter
 
 
-def get_identifier_from_request(request: Request, claims: Optional[Dict[str, Any]] = None) -> str:
+def get_identifier_from_request(
+    request: Request, claims: Optional[Dict[str, Any]] = None
+) -> str:
     """从请求中提取标识符(优先级:claims > token hash > IP)"""
     if claims:
-        identifier = claims.get("client_id") or claims.get("sub") or claims.get("user_id")
+        identifier = (
+            claims.get("client_id") or claims.get("sub") or claims.get("user_id")
+        )
         if identifier:
             return str(identifier)
 
@@ -204,7 +208,6 @@ def get_identifier_from_request(request: Request, claims: Optional[Dict[str, Any
     client_ip = request.client.host if request.client else "unknown"
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
-        client_ip = forwarded_for.split(',')[0].strip()
+        client_ip = forwarded_for.split(",")[0].strip()
 
     return client_ip
-

@@ -6,9 +6,7 @@ from util.cognito.cognito_auth import get_current_user_claims
 def get_api_router() -> tuple[APIRouter, APIRouter]:
     """Get the main API router with all sub-routers included."""
 
-    router = APIRouter(
-        dependencies=[Depends(get_current_user_claims)]
-    )
+    router = APIRouter(dependencies=[Depends(get_current_user_claims)])
 
     unprotected_router = APIRouter()
 

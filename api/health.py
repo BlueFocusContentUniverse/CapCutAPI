@@ -31,8 +31,10 @@ def health_check(response: Response):
         return health_info
 
     except Exception as e:
-        error_info = {"status": "unhealthy", "timestamp": datetime.now().isoformat(), "error": str(e)}
+        error_info = {
+            "status": "unhealthy",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e),
+        }
         response.status_code = 503
         return error_info
-
-

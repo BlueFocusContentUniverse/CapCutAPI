@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def get_font_types_impl() -> Dict[str, Any]:
     """Core logic for getting font types (without Flask dependency).
-    
+
     Returns:
         Dictionary with success status and font types or error message
     """
@@ -28,5 +28,3 @@ def get_font_types_impl() -> Dict[str, Any]:
         result["error"] = f"Error occurred while getting font types: {e!s}"
         logger.error(f"Failed to get font types: {e!s}", exc_info=True)
         return result
-
-

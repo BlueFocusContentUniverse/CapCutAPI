@@ -33,7 +33,7 @@ class PostgresDraftStorage:
         draft_id: str,
         script_obj: draft.ScriptFile,
         expected_version: Optional[int] = None,
-        create_version: bool = True
+        create_version: bool = True,
     ) -> bool:
         """
         Save draft with optimistic locking support.
@@ -65,7 +65,9 @@ class PostgresDraftStorage:
                 if existing is None:
                     # New draft
                     if expected_version is not None and expected_version != 0:
-                        logger.warning(f"Cannot create new draft {draft_id} with expected_version={expected_version}")
+                        logger.warning(
+                            f"Cannot create new draft {draft_id} with expected_version={expected_version}"
+                        )
                         return False
 
                     row = DraftModel(
@@ -88,7 +90,10 @@ class PostgresDraftStorage:
                     # Existing draft - check version if expected_version provided
                     current_version = existing.current_version or 1
 
-                    if expected_version is not None and expected_version != current_version:
+                    if (
+                        expected_version is not None
+                        and expected_version != current_version
+                    ):
                         logger.warning(
                             f"Version mismatch for draft {draft_id}: expected {expected_version}, "
                             f"but current is {current_version}. Save aborted."
@@ -112,7 +117,9 @@ class PostgresDraftStorage:
                             resource=existing.resource,
                         )
                         session.add(history)
-                        logger.debug(f"Created version history for draft {draft_id} version {previous_version}")
+                        logger.debug(
+                            f"Created version history for draft {draft_id} version {previous_version}"
+                        )
 
                     # Update in place; if previously soft-deleted, resurrect it
                     # Version number always increments on persistence, even if we don't create a history record
@@ -131,11 +138,17 @@ class PostgresDraftStorage:
                     existing.accessed_at = datetime.now(timezone.utc)
 
                     if create_version:
-                        logger.info(f"Updated draft {draft_id} from version {previous_version} to {new_version} (version history created)")
+                        logger.info(
+                            f"Updated draft {draft_id} from version {previous_version} to {new_version} (version history created)"
+                        )
                     else:
-                        logger.info(f"Updated draft {draft_id} from version {previous_version} to {new_version} (no version history)")
+                        logger.info(
+                            f"Updated draft {draft_id} from version {previous_version} to {new_version} (no version history)"
+                        )
 
-            logger.info(f"Successfully saved draft {draft_id} to Postgres (size: {len(serialized_data)} bytes)")
+            logger.info(
+                f"Successfully saved draft {draft_id} to Postgres (size: {len(serialized_data)} bytes)"
+            )
             return True
         except SQLAlchemyError as e:
             logger.error(f"Database error saving draft {draft_id}: {e}")
@@ -148,7 +161,12 @@ class PostgresDraftStorage:
         """Get draft without version information"""
         try:
             with get_session() as session:
-                q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id, DraftModel.is_deleted.is_(False)))
+                q = session.execute(
+                    select(DraftModel).where(
+                        DraftModel.draft_id == draft_id,
+                        DraftModel.is_deleted.is_(False),
+                    )
+                )
                 row = q.scalar_one_or_none()
                 if row is None:
                     logger.warning(f"Draft {draft_id} not found in Postgres")
@@ -163,7 +181,9 @@ class PostgresDraftStorage:
             logger.error(f"Failed to retrieve draft {draft_id}: {e}")
             return None
 
-    def get_draft_with_version(self, draft_id: str) -> Optional[tuple[draft.ScriptFile, int]]:
+    def get_draft_with_version(
+        self, draft_id: str
+    ) -> Optional[tuple[draft.ScriptFile, int]]:
         """
         Get draft along with its current version number.
 
@@ -172,7 +192,12 @@ class PostgresDraftStorage:
         """
         try:
             with get_session() as session:
-                q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id, DraftModel.is_deleted.is_(False)))
+                q = session.execute(
+                    select(DraftModel).where(
+                        DraftModel.draft_id == draft_id,
+                        DraftModel.is_deleted.is_(False),
+                    )
+                )
                 row = q.scalar_one_or_none()
                 if row is None:
                     logger.warning(f"Draft {draft_id} not found in Postgres")
@@ -180,7 +205,9 @@ class PostgresDraftStorage:
                 script_obj = pickle.loads(row.data)
                 current_version = row.current_version or 1
                 row.accessed_at = datetime.now(timezone.utc)
-                logger.debug(f"Retrieved draft {draft_id} with version {current_version}")
+                logger.debug(
+                    f"Retrieved draft {draft_id} with version {current_version}"
+                )
                 return (script_obj, current_version)
         except SQLAlchemyError as e:
             logger.error(f"Database error retrieving draft {draft_id}: {e}")
@@ -189,13 +216,14 @@ class PostgresDraftStorage:
             logger.error(f"Failed to retrieve draft {draft_id}: {e}")
             return None
 
-    def get_draft_version(self, draft_id: str, version: int) -> Optional[draft.ScriptFile]:
+    def get_draft_version(
+        self, draft_id: str, version: int
+    ) -> Optional[draft.ScriptFile]:
         try:
             with get_session() as session:
                 # First try to fetch from history table
                 q = session.execute(
-                    select(DraftVersionModel)
-                    .where(
+                    select(DraftVersionModel).where(
                         DraftVersionModel.draft_id == draft_id,
                         DraftVersionModel.version == version,
                     )
@@ -211,7 +239,9 @@ class PostgresDraftStorage:
                         )
                     ).scalar_one_or_none()
                     if current is None:
-                        logger.warning(f"Draft {draft_id} not found when requesting version {version}")
+                        logger.warning(
+                            f"Draft {draft_id} not found when requesting version {version}"
+                        )
                         return None
                     if (current.current_version or 1) != version:
                         logger.warning(
@@ -225,7 +255,9 @@ class PostgresDraftStorage:
                 script_obj = pickle.loads(row.data)
                 return script_obj
         except SQLAlchemyError as e:
-            logger.error(f"Database error retrieving draft {draft_id} version {version}: {e}")
+            logger.error(
+                f"Database error retrieving draft {draft_id} version {version}: {e}"
+            )
             return None
         except Exception as e:
             logger.error(f"Failed to retrieve draft {draft_id} version {version}: {e}")
@@ -234,7 +266,12 @@ class PostgresDraftStorage:
     def exists(self, draft_id: str) -> bool:
         try:
             with get_session() as session:
-                q = session.execute(select(DraftModel.id).where(DraftModel.draft_id == draft_id, DraftModel.is_deleted.is_(False)))
+                q = session.execute(
+                    select(DraftModel.id).where(
+                        DraftModel.draft_id == draft_id,
+                        DraftModel.is_deleted.is_(False),
+                    )
+                )
                 return q.scalar_one_or_none() is not None
         except Exception as e:
             logger.error(f"Failed to check existence of draft {draft_id}: {e}")
@@ -243,7 +280,9 @@ class PostgresDraftStorage:
     def delete_draft(self, draft_id: str) -> bool:
         try:
             with get_session() as session:
-                q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id))
+                q = session.execute(
+                    select(DraftModel).where(DraftModel.draft_id == draft_id)
+                )
                 row = q.scalar_one_or_none()
                 if row is None:
                     return False
@@ -257,7 +296,12 @@ class PostgresDraftStorage:
     def get_metadata(self, draft_id: str) -> Optional[Dict[str, Any]]:
         try:
             with get_session() as session:
-                q = session.execute(select(DraftModel).where(DraftModel.draft_id == draft_id, DraftModel.is_deleted.is_(False)))
+                q = session.execute(
+                    select(DraftModel).where(
+                        DraftModel.draft_id == draft_id,
+                        DraftModel.is_deleted.is_(False),
+                    )
+                )
                 row = q.scalar_one_or_none()
                 if row is None:
                     return None
@@ -274,13 +318,17 @@ class PostgresDraftStorage:
                     "version": row.version,
                     "current_version": row.current_version,
                     "size_bytes": row.size_bytes,
-                    "accessed_at": int(row.accessed_at.timestamp()) if row.accessed_at else None,
+                    "accessed_at": int(row.accessed_at.timestamp())
+                    if row.accessed_at
+                    else None,
                 }
         except Exception as e:
             logger.error(f"Failed to get metadata for draft {draft_id}: {e}")
             return None
 
-    def list_drafts(self, page: int = 1, page_size: int = 100, limit: Optional[int] = None) -> Dict[str, Any]:
+    def list_drafts(
+        self, page: int = 1, page_size: int = 100, limit: Optional[int] = None
+    ) -> Dict[str, Any]:
         """
         List drafts with pagination support
 
@@ -305,8 +353,11 @@ class PostgresDraftStorage:
             with get_session() as session:
                 # Get total count
                 from sqlalchemy import func
+
                 count_q = session.execute(
-                    select(func.count(DraftModel.id)).where(DraftModel.is_deleted.is_(False))
+                    select(func.count(DraftModel.id)).where(
+                        DraftModel.is_deleted.is_(False)
+                    )
                 )
                 total_count = count_q.scalar() or 0
 
@@ -322,24 +373,30 @@ class PostgresDraftStorage:
 
                 results = []
                 for row in rows:
-                    results.append({
-                        "draft_id": row.draft_id,
-                        "draft_name": row.draft_name,
-                        "resource": row.resource,
-                        "width": row.width,
-                        "height": row.height,
-                        "duration": row.duration,
-                        "fps": row.fps,
-                        "created_at": int(row.created_at.timestamp()),
-                        "updated_at": int(row.updated_at.timestamp()),
-                        "version": row.version,
-                        "current_version": row.current_version,
-                        "size_bytes": row.size_bytes,
-                    })
+                    results.append(
+                        {
+                            "draft_id": row.draft_id,
+                            "draft_name": row.draft_name,
+                            "resource": row.resource,
+                            "width": row.width,
+                            "height": row.height,
+                            "duration": row.duration,
+                            "fps": row.fps,
+                            "created_at": int(row.created_at.timestamp()),
+                            "updated_at": int(row.updated_at.timestamp()),
+                            "version": row.version,
+                            "current_version": row.current_version,
+                            "size_bytes": row.size_bytes,
+                        }
+                    )
 
-                total_pages = (total_count + page_size - 1) // page_size if page_size > 0 else 0
+                total_pages = (
+                    (total_count + page_size - 1) // page_size if page_size > 0 else 0
+                )
 
-                logger.info(f"Listed drafts: page={page}, page_size={page_size}, total={total_count}")
+                logger.info(
+                    f"Listed drafts: page={page}, page_size={page_size}, total={total_count}"
+                )
 
                 return {
                     "drafts": results,
@@ -349,8 +406,8 @@ class PostgresDraftStorage:
                         "total_count": total_count,
                         "total_pages": total_pages,
                         "has_next": page < total_pages,
-                        "has_prev": page > 1
-                    }
+                        "has_prev": page > 1,
+                    },
                 }
         except Exception as e:
             logger.error(f"Failed to list drafts: {e}")
@@ -362,8 +419,8 @@ class PostgresDraftStorage:
                     "total_count": 0,
                     "total_pages": 0,
                     "has_next": False,
-                    "has_prev": False
-                }
+                    "has_prev": False,
+                },
             }
 
     def cleanup_expired(self) -> int:
@@ -378,7 +435,7 @@ class PostgresDraftStorage:
                 current_q = session.execute(
                     select(DraftModel).where(
                         DraftModel.draft_id == draft_id,
-                        DraftModel.is_deleted.is_(False)
+                        DraftModel.is_deleted.is_(False),
                     )
                 )
                 current_row = current_q.scalar_one_or_none()
@@ -387,24 +444,26 @@ class PostgresDraftStorage:
 
                 # Add current version if exists
                 if current_row:
-                    versions.append({
-                        "version": current_row.current_version or 1,
-                        "is_current": True,
-                        "created_at": int(current_row.created_at.timestamp()),
-                        "updated_at": int(current_row.updated_at.timestamp()),
-                        "draft_name": current_row.draft_name,
-                        "width": current_row.width,
-                        "height": current_row.height,
-                        "duration": current_row.duration,
-                        "fps": current_row.fps,
-                        "size_bytes": current_row.size_bytes,
-                    })
+                    versions.append(
+                        {
+                            "version": current_row.current_version or 1,
+                            "is_current": True,
+                            "created_at": int(current_row.created_at.timestamp()),
+                            "updated_at": int(current_row.updated_at.timestamp()),
+                            "draft_name": current_row.draft_name,
+                            "width": current_row.width,
+                            "height": current_row.height,
+                            "duration": current_row.duration,
+                            "fps": current_row.fps,
+                            "size_bytes": current_row.size_bytes,
+                        }
+                    )
 
                 # Get historical versions
                 history_q = session.execute(
-                    select(DraftVersionModel).where(
-                        DraftVersionModel.draft_id == draft_id
-                    ).order_by(DraftVersionModel.version.desc())
+                    select(DraftVersionModel)
+                    .where(DraftVersionModel.draft_id == draft_id)
+                    .order_by(DraftVersionModel.version.desc())
                 )
                 history_rows = history_q.scalars().all()
 
@@ -413,18 +472,20 @@ class PostgresDraftStorage:
                     if any(v["version"] == row.version for v in versions):
                         continue
 
-                    versions.append({
-                        "version": row.version,
-                        "is_current": False,
-                        "created_at": int(row.created_at.timestamp()),
-                        "updated_at": int(row.created_at.timestamp()),
-                        "draft_name": row.draft_name,
-                        "width": row.width,
-                        "height": row.height,
-                        "duration": row.duration,
-                        "fps": row.fps,
-                        "size_bytes": row.size_bytes,
-                    })
+                    versions.append(
+                        {
+                            "version": row.version,
+                            "is_current": False,
+                            "created_at": int(row.created_at.timestamp()),
+                            "updated_at": int(row.created_at.timestamp()),
+                            "draft_name": row.draft_name,
+                            "width": row.width,
+                            "height": row.height,
+                            "duration": row.duration,
+                            "fps": row.fps,
+                            "size_bytes": row.size_bytes,
+                        }
+                    )
 
                 # Sort by version number descending
                 versions.sort(key=lambda x: x["version"], reverse=True)
@@ -434,7 +495,9 @@ class PostgresDraftStorage:
             logger.error(f"Failed to list versions for draft {draft_id}: {e}")
             return []
 
-    def get_draft_version_metadata(self, draft_id: str, version: int) -> Optional[Dict[str, Any]]:
+    def get_draft_version_metadata(
+        self, draft_id: str, version: int
+    ) -> Optional[Dict[str, Any]]:
         """Get metadata for a specific version of a draft"""
         try:
             with get_session() as session:
@@ -442,7 +505,7 @@ class PostgresDraftStorage:
                 current_q = session.execute(
                     select(DraftModel).where(
                         DraftModel.draft_id == draft_id,
-                        DraftModel.is_deleted.is_(False)
+                        DraftModel.is_deleted.is_(False),
                     )
                 )
                 current_row = current_q.scalar_one_or_none()
@@ -467,7 +530,7 @@ class PostgresDraftStorage:
                 history_q = session.execute(
                     select(DraftVersionModel).where(
                         DraftVersionModel.draft_id == draft_id,
-                        DraftVersionModel.version == version
+                        DraftVersionModel.version == version,
                     )
                 )
                 history_row = history_q.scalar_one_or_none()
@@ -490,17 +553,16 @@ class PostgresDraftStorage:
                 return None
 
         except Exception as e:
-            logger.error(f"Failed to get metadata for draft {draft_id} version {version}: {e}")
+            logger.error(
+                f"Failed to get metadata for draft {draft_id} version {version}: {e}"
+            )
             return None
 
     def get_stats(self) -> Dict[str, Any]:
         try:
             with get_session() as session:
                 total = session.execute(select(DraftModel.id)).scalars().all()
-                return {
-                    "total_drafts": len(total),
-                    "backend": "postgresql"
-                }
+                return {"total_drafts": len(total), "backend": "postgresql"}
         except Exception as e:
             logger.error(f"Failed to get storage stats: {e}")
             return {}
@@ -515,5 +577,3 @@ def get_postgres_storage() -> PostgresDraftStorage:
     if pg_storage is None:
         pg_storage = PostgresDraftStorage()
     return pg_storage
-
-
