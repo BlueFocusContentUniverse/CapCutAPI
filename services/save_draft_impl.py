@@ -628,18 +628,33 @@ def save_draft_impl(
             )
         else:
             # Create new archive record
-            archive_id = archive_storage.create_archive(
-                draft_id=draft_id,
-                draft_version=actual_version,
-                user_id=user_id,
-                user_name=user_name,
-                archive_name=archive_name,
-            )
-            if not archive_id:
-                raise Exception("Failed to create draft archive record")
-            logger.info(
-                f"Created new archive {archive_id} for draft {draft_id} version {actual_version} with archive_name={archive_name}"
-            )
+            try:
+                archive_id = archive_storage.create_archive(
+                    draft_id=draft_id,
+                    draft_version=actual_version,
+                    user_id=user_id,
+                    user_name=user_name,
+                    archive_name=archive_name,
+                )
+                if not archive_id:
+                    raise Exception("Failed to create draft archive record")
+                logger.info(
+                    f"Created new archive {archive_id} for draft {draft_id} version {actual_version} with archive_name={archive_name}"
+                )
+            except Exception as e:
+                # 如果创建失败（可能是并发创建导致的重复键错误），尝试获取已存在的记录
+                if "duplicate key" in str(e).lower() or "unique constraint" in str(e).lower():
+                    logger.warning(f"Archive creation failed due to duplicate key, attempting to retrieve existing archive: {e}")
+                    existing_archive = archive_storage.get_archive_by_draft(draft_id, actual_version)
+                    if existing_archive:
+                        archive_id = existing_archive["archive_id"]
+                        logger.info(
+                            f"Retrieved existing archive {archive_id} for draft {draft_id} version {actual_version}"
+                        )
+                    else:
+                        raise Exception(f"Failed to create archive and could not retrieve existing one: {e}") from e
+                else:
+                    raise
 
         # 决定使用 Lambda 还是本地线程
         if USE_LAMBDA_ARCHIVE:
