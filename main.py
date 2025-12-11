@@ -19,7 +19,7 @@ from util.rate_limit import get_rate_limiter
 # Load environment variables
 env_file = Path(__file__).parent / ".env"
 if env_file.exists():
-    load_dotenv(env_file)
+    load_dotenv(env_file, override=False)  # override=False 让 build-args 的值优先，只在环境变量不存在时从 .env 加载
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -61,7 +61,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"关闭Redis缓存时出错: {e}")
 
 
-app = FastAPI(lifespan=lifespan, title="CapCut API Service", version="1.7.0")
+# 生产环境关闭 API 文档
+app = FastAPI(
+    lifespan=lifespan,
+    title="CapCut API Service",
+    version="1.7.0",
+    docs_url=None,        # 关闭 Swagger UI
+    redoc_url=None,       # 关闭 ReDoc
+    openapi_url=None      # 关闭 OpenAPI 规范文档
+)
 
 # Configure CORS
 app.add_middleware(

@@ -106,6 +106,23 @@ def get_lambda_client():
         aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
         
+        # 如果环境变量是空字符串，尝试从 .env 文件加载（兜底）
+        if not aws_access_key_id or not aws_secret_access_key:
+            try:
+                from pathlib import Path
+                from dotenv import load_dotenv
+                env_file = Path(__file__).parent.parent / ".env"
+                if env_file.exists():
+                    # 临时加载 .env 文件，只读取 AWS 相关的变量
+                    load_dotenv(env_file, override=True)
+                    # 重新读取
+                    if not aws_access_key_id:
+                        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
+                    if not aws_secret_access_key:
+                        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
+            except Exception as e:
+                logger.debug(f"尝试从 .env 文件加载 AWS 凭证失败: {e}")
+        
         # 构建客户端参数
         client_kwargs = {"region_name": LAMBDA_REGION}
         
@@ -628,18 +645,33 @@ def save_draft_impl(
             )
         else:
             # Create new archive record
-            archive_id = archive_storage.create_archive(
-                draft_id=draft_id,
-                draft_version=actual_version,
-                user_id=user_id,
-                user_name=user_name,
-                archive_name=archive_name,
-            )
-            if not archive_id:
-                raise Exception("Failed to create draft archive record")
-            logger.info(
-                f"Created new archive {archive_id} for draft {draft_id} version {actual_version} with archive_name={archive_name}"
-            )
+            try:
+                archive_id = archive_storage.create_archive(
+                    draft_id=draft_id,
+                    draft_version=actual_version,
+                    user_id=user_id,
+                    user_name=user_name,
+                    archive_name=archive_name,
+                )
+                if not archive_id:
+                    raise Exception("Failed to create draft archive record")
+                logger.info(
+                    f"Created new archive {archive_id} for draft {draft_id} version {actual_version} with archive_name={archive_name}"
+                )
+            except Exception as e:
+                # 如果创建失败（可能是并发创建导致的重复键错误），尝试获取已存在的记录
+                if "duplicate key" in str(e).lower() or "unique constraint" in str(e).lower():
+                    logger.warning(f"Archive creation failed due to duplicate key, attempting to retrieve existing archive: {e}")
+                    existing_archive = archive_storage.get_archive_by_draft(draft_id, actual_version)
+                    if existing_archive:
+                        archive_id = existing_archive["archive_id"]
+                        logger.info(
+                            f"Retrieved existing archive {archive_id} for draft {draft_id} version {actual_version}"
+                        )
+                    else:
+                        raise Exception(f"Failed to create archive and could not retrieve existing one: {e}") from e
+                else:
+                    raise
 
         # 决定使用 Lambda 还是本地线程
         if USE_LAMBDA_ARCHIVE:
