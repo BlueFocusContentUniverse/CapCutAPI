@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from util.rate_limit import get_rate_limiter
 # Load environment variables
 env_file = Path(__file__).parent / ".env"
 if env_file.exists():
-    load_dotenv(env_file, override=False)  # override=False 让 build-args 的值优先，只在环境变量不存在时从 .env 加载
+    load_dotenv(env_file, override=True)
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -61,14 +62,17 @@ async def lifespan(app: FastAPI):
         logger.error(f"关闭Redis缓存时出错: {e}")
 
 
-# 生产环境关闭 API 文档
+# 根据环境变量决定是否关闭 API 文档
+environment = os.getenv("ENVIRONMENT", "").lower()
+is_production = environment in ("production", "prod")
+
 app = FastAPI(
     lifespan=lifespan,
     title="CapCut API Service",
     version="1.7.0",
-    docs_url=None,        # 关闭 Swagger UI
-    redoc_url=None,       # 关闭 ReDoc
-    openapi_url=None      # 关闭 OpenAPI 规范文档
+    docs_url=None if is_production else "/docs",        # 生产环境关闭 Swagger UI
+    redoc_url=None if is_production else "/redoc",      # 生产环境关闭 ReDoc
+    openapi_url=None if is_production else "/openapi.json"  # 生产环境关闭 OpenAPI 规范文档
 )
 
 # Configure CORS

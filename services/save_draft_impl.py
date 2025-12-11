@@ -106,23 +106,6 @@ def get_lambda_client():
         aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
         
-        # 如果环境变量是空字符串，尝试从 .env 文件加载（兜底）
-        if not aws_access_key_id or not aws_secret_access_key:
-            try:
-                from pathlib import Path
-                from dotenv import load_dotenv
-                env_file = Path(__file__).parent.parent / ".env"
-                if env_file.exists():
-                    # 临时加载 .env 文件，只读取 AWS 相关的变量
-                    load_dotenv(env_file, override=True)
-                    # 重新读取
-                    if not aws_access_key_id:
-                        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
-                    if not aws_secret_access_key:
-                        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
-            except Exception as e:
-                logger.debug(f"尝试从 .env 文件加载 AWS 凭证失败: {e}")
-        
         # 构建客户端参数
         client_kwargs = {"region_name": LAMBDA_REGION}
         
