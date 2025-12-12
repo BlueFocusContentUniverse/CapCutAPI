@@ -15,9 +15,6 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
-# 先复制依赖文件，利用缓存层
-COPY pyproject.toml .
-
 # 复制代码
 COPY . .
 

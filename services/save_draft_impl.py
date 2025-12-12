@@ -31,7 +31,7 @@ CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL") or f"redis://{os.getenv('REDI
 
 
 def get_m2m_token() -> Optional[str]:
-    """获取 Cognito M2M token（用于 Lambda 回调认证）"""
+    """获取 Cognito M2M token（用于 Celery worker 回调认证）"""
     try:
         region = os.getenv("COGNITO_REGION", "").strip()
         user_pool_id = os.getenv("COGNITO_USER_POOL_ID", "").strip()
@@ -581,7 +581,7 @@ def save_draft_impl(
     user_name: Optional[str] = None,
     archive_name: Optional[str] = None,
 ) -> Dict[str, str]:
-    """Start a background task to save the draft (via Lambda or local thread)"""
+    """Start a background task to save the draft (via Celery worker or local thread)"""
     logger.info(
         f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}, archive_name={archive_name}"
     )
@@ -652,8 +652,8 @@ def save_draft_impl(
                 else:
                     raise
 
-        # 使用 Celery 归档，如果失败则回退到本地线程
-        celery_result = _invoke_celery_archive(
+        # 使用 Celery 归档，任务执行结果通过回调接口异步通知
+        return _invoke_celery_archive(
             draft_id=draft_id,
             draft_folder=draft_folder,
             archive_id=archive_id,
@@ -661,23 +661,6 @@ def save_draft_impl(
             archive_name=archive_name,
             script=script,
         )
-        if celery_result.get("success"):
-            return celery_result
-
-        # Celery 失败，回退到本地线程
-        logger.warning(f"Celery failed, falling back to local thread: {celery_result.get('error')}")
-        thread = threading.Thread(
-            target=save_draft_background,
-            args=(draft_id, draft_folder, archive_id, actual_version, archive_name),
-            daemon=True,
-        )
-        thread.start()
-        logger.info(f"Started background thread for archive {archive_id}")
-        return {
-            "success": True,
-            "archive_id": archive_id,
-            "message": "Draft archiving started in background (local fallback)",
-        }
 
     except Exception as e:
         logger.error(
@@ -736,7 +719,7 @@ def _invoke_celery_archive(
                 "Celery app not available. Check CELERY_BROKER_URL configuration."
             )
 
-        # 发送 Celery 任务
+        # 任务执行结果通过 callback_url 异步回调通知
         result = celery_app.send_task(
             CELERY_TASK_NAME,
             kwargs=task_kwargs,

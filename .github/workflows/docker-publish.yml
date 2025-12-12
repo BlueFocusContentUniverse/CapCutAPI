@@ -10,7 +10,7 @@ env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: uswccr.ccs.tencentyun.com
   # github.repository as <account>/<repo>
-  IMAGE_NAME: jyapi/jy-capcut-api
+  IMAGE_NAME: jyapi/jyapi-mcp
 
 
 jobs:
@@ -60,12 +60,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha
 
       - name: Materialize env file secret
         run: printf '%s' "${{ secrets.ENV_FILE_PROD }}" > /tmp/.env.prod
