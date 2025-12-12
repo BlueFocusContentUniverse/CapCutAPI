@@ -13,8 +13,6 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Literal, Optional, Tuple
 
-import boto3
-
 import pyJianYingDraft as draft
 from downloader import download_file
 from draft_cache import get_from_cache_with_version
@@ -27,15 +25,13 @@ from settings import IS_CAPCUT_ENV
 from util.cos_client import get_cos_client
 from util.helpers import is_windows_path, zip_draft
 
-# Lambda 配置
-USE_LAMBDA_ARCHIVE = os.getenv("USE_LAMBDA_ARCHIVE", "true").lower() == "true"
-LAMBDA_FUNCTION_NAME = os.getenv("ARCHIVE_LAMBDA_FUNCTION", "draft-archive-function")
-LAMBDA_REGION = os.getenv("AWS_REGION", "us-west-2")
 ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL", "")
+# db0 = notification/draft_archive, db1 = token
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL") or f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('CELERY_REDIS_DB', '0')}"
 
 
 def get_m2m_token() -> Optional[str]:
-    """获取 Cognito M2M token（用于 Lambda 回调认证）"""
+    """获取 Cognito M2M token（用于 Celery worker 回调认证）"""
     try:
         region = os.getenv("COGNITO_REGION", "").strip()
         user_pool_id = os.getenv("COGNITO_USER_POOL_ID", "").strip()
@@ -94,31 +90,31 @@ def get_m2m_token() -> Optional[str]:
         logger.warning(f"获取 M2M token 失败: {e}")
         return None
 
-# Lambda 客户端（延迟初始化）
-_lambda_client = None
+# Celery 应用（延迟初始化）
+_celery_app = None
 
 
-def get_lambda_client():
-    """获取 Lambda 客户端（单例）"""
-    global _lambda_client
-    if _lambda_client is None and USE_LAMBDA_ARCHIVE:
-        # 从环境变量获取 AWS 凭证
-        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        
-        # 构建客户端参数
-        client_kwargs = {"region_name": LAMBDA_REGION}
-        
-        # 如果环境变量中有凭证，显式传递
-        if aws_access_key_id and aws_secret_access_key:
-            client_kwargs["aws_access_key_id"] = aws_access_key_id
-            client_kwargs["aws_secret_access_key"] = aws_secret_access_key
-            logger.info("使用环境变量中的 AWS 凭证创建 Lambda 客户端")
-        else:
-            logger.warning("未找到 AWS_ACCESS_KEY_ID 或 AWS_SECRET_ACCESS_KEY，将使用默认凭证链（可能失败）")
-        
-        _lambda_client = boto3.client("lambda", **client_kwargs)
-    return _lambda_client
+def get_celery_app():
+    """获取 Celery 应用（单例）"""
+    global _celery_app
+    if _celery_app is None:
+        try:
+            from celery import Celery
+            _celery_app = Celery(
+                "draft_archive",
+                broker=CELERY_BROKER_URL,
+                backend=CELERY_BROKER_URL
+            )
+            _celery_app.conf.update(
+                task_serializer="json",
+                accept_content=["json"],
+                result_serializer="json",
+            )
+            logger.info(f"Celery app initialized, broker: {CELERY_BROKER_URL[:50]}...")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Celery app: {e}")
+            return None
+    return _celery_app
 
 
 # --- Get your Logger instance ---
@@ -585,7 +581,7 @@ def save_draft_impl(
     user_name: Optional[str] = None,
     archive_name: Optional[str] = None,
 ) -> Dict[str, str]:
-    """Start a background task to save the draft (via Lambda or local thread)"""
+    """Start a background task to save the draft (via Celery worker or local thread)"""
     logger.info(
         f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}, archive_name={archive_name}"
     )
@@ -656,33 +652,15 @@ def save_draft_impl(
                 else:
                     raise
 
-        # 决定使用 Lambda 还是本地线程
-        if USE_LAMBDA_ARCHIVE:
-            return _invoke_lambda_archive(
-                draft_id=draft_id,
-                draft_folder=draft_folder,
-                archive_id=archive_id,
-                draft_version=actual_version,
-                archive_name=archive_name,
-                script=script,
-            )
-        else:
-            # 使用本地线程（原有逻辑）
-            thread = threading.Thread(
-                target=save_draft_background,
-                args=(draft_id, draft_folder, archive_id, actual_version, archive_name),
-                daemon=True,
-            )
-            thread.start()
-            logger.info(
-                f"Started background thread for archive {archive_id} (version: {actual_version}, archive_name: {archive_name})"
-            )
-
-            return {
-                "success": True,
-                "archive_id": archive_id,
-                "message": "Draft archiving started in background",
-            }
+        # 使用 Celery 归档，任务执行结果通过回调接口异步通知
+        return _invoke_celery_archive(
+            draft_id=draft_id,
+            draft_folder=draft_folder,
+            archive_id=archive_id,
+            draft_version=actual_version,
+            archive_name=archive_name,
+            script=script,
+        )
 
     except Exception as e:
         logger.error(
@@ -691,11 +669,11 @@ def save_draft_impl(
         return {"success": False, "error": str(e)}
 
 
-# Lambda invoke payload 上限 (256KB，预留 10KB 给其他字段)
-LAMBDA_PAYLOAD_LIMIT = 245 * 1024  # 245KB
+# Celery 任务名称
+CELERY_TASK_NAME = "tasks.archive_draft"
 
 
-def _invoke_lambda_archive(
+def _invoke_celery_archive(
     draft_id: str,
     draft_folder: Optional[str],
     archive_id: str,
@@ -703,10 +681,10 @@ def _invoke_lambda_archive(
     archive_name: Optional[str],
     script,
 ) -> Dict[str, str]:
-    """调用 Lambda 执行草稿打包
-
-    注意：Lambda invoke payload 上限为 256KB (Amazon SQS 限制)
-    如果 draft_content 超过此限制，将回退到本地线程处理
+    """通过 Celery 执行草稿打包
+    
+    Celery 没有 payload 大小限制（消息通过 Redis 传递），
+    但为了性能考虑，建议 draft_content 不要太大
     """
     # 生成文件夹名称
     if archive_name:
@@ -714,66 +692,53 @@ def _invoke_lambda_archive(
     else:
         folder_name = draft_id
 
-    # 准备 Lambda 参数
+    # 准备任务参数
     draft_content = json.loads(script.dumps())
     
     # 获取 M2M token 用于回调认证
     m2m_token = get_m2m_token()
     
-    payload = {
+    # 构建 callback_url: 优先 ARCHIVE_CALLBACK_URL，其次 API_BASE_URL
+    api_base = ARCHIVE_CALLBACK_URL or os.getenv("API_BASE_URL", f"http://localhost:{os.getenv('PORT', '9000')}")
+    callback_url = f"{api_base.rstrip('/')}/api/draft_archives/callback" if not ARCHIVE_CALLBACK_URL else ARCHIVE_CALLBACK_URL
+    
+    task_kwargs = {
         "archive_id": archive_id,
         "draft_id": draft_id,
         "draft_version": draft_version,
         "draft_content": draft_content,
         "folder_name": folder_name,
-        "callback_url": ARCHIVE_CALLBACK_URL,
-        "callback_token": m2m_token  # 传递 M2M token 给 Lambda
+        "callback_url": callback_url,
+        "callback_token": m2m_token
     }
 
-    # 序列化 payload 并检查大小
-    payload_bytes = json.dumps(payload).encode("utf-8")
-    payload_size = len(payload_bytes)
-
-    if payload_size > LAMBDA_PAYLOAD_LIMIT:
-        # Payload 超过 Lambda 限制，使用本地线程
-        logger.warning(
-            f"Draft {draft_id} payload size ({payload_size / 1024:.1f}KB) exceeds Lambda limit "
-            f"({LAMBDA_PAYLOAD_LIMIT / 1024:.0f}KB), using local thread"
-        )
-        return _fallback_to_local_thread(
-            draft_id, draft_folder, archive_id, draft_version, archive_name
-        )
-
     try:
-        lambda_client = get_lambda_client()
-        if lambda_client is None:
+        celery_app = get_celery_app()
+        if celery_app is None:
             raise Exception(
-                "Lambda client not available. Check USE_LAMBDA_ARCHIVE and AWS credentials."
+                "Celery app not available. Check CELERY_BROKER_URL configuration."
             )
 
-        # 异步调用 Lambda
-        response = lambda_client.invoke(
-            FunctionName=LAMBDA_FUNCTION_NAME,
-            InvocationType="Event",  # 异步调用
-            Payload=payload_bytes,
+        # 任务执行结果通过 callback_url 异步回调通知
+        result = celery_app.send_task(
+            CELERY_TASK_NAME,
+            kwargs=task_kwargs,
+            queue="draft_archive"
         )
-
-        status_code = response.get("StatusCode", 0)
-        if status_code == 202:  # 异步调用成功返回 202
-            logger.info(
-                f"Successfully invoked Lambda for archive {archive_id}, draft {draft_id}"
-            )
-            return {
-                "success": True,
-                "archive_id": archive_id,
-                "message": "Draft archiving started via Lambda",
-            }
-        else:
-            logger.error(f"Lambda invocation returned unexpected status: {status_code}")
-            raise Exception(f"Lambda invocation failed with status {status_code}")
+        
+        logger.info(
+            f"Successfully sent Celery task for archive {archive_id}, draft {draft_id}, task_id={result.id}"
+        )
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "message": "Draft archiving started via Celery",
+            "task_id": result.id
+        }
 
     except Exception as e:
-        logger.error(f"Failed to invoke Lambda for archive {archive_id}: {e!s}")
+        logger.error(f"Failed to send Celery task for archive {archive_id}: {e!s}")
+        # 回退到本地线程
         return _fallback_to_local_thread(
             draft_id, draft_folder, archive_id, draft_version, archive_name
         )

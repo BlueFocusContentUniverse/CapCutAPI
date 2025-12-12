@@ -248,7 +248,7 @@ class RedisDraftCache:
     def get_draft_with_version(
         self, draft_id: str
     ) -> Optional[Tuple[draft.ScriptFile, int]]:
-        """获取草稿及版本号"""
+        """获取草稿及版本号（草稿从 Redis，版本号从 PG）"""
         script_obj = self.get_draft(draft_id)
         if script_obj is None:
             return None
@@ -257,7 +257,8 @@ class RedisDraftCache:
         try:
             result = self.pg_storage.get_draft_with_version(draft_id)
             if result:
-                return result
+                _, version = result  # 只取版本号
+                return (script_obj, version)  # 返回 Redis 草稿 + PG 版本号
         except Exception as e:
             logger.warning(f"获取版本号失败: {e}")
 

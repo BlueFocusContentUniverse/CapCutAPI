@@ -307,11 +307,22 @@ def cache_exists(key: str) -> bool:
         return False
 
     try:
-        if cache_key in DRAFT_CACHE:
-            return True
+        if REDIS_CACHE_AVAILABLE:
+            try:
+                redis_cache = get_redis_draft_cache()
+                if redis_cache and redis_cache.exists(cache_key):
+                    return True
+            except Exception as e:
+                logger.warning(f"Redis exists check failed for {cache_key}: {e}")
 
-        pg_storage = get_postgres_storage()
-        return pg_storage.exists(cache_key)
+            pg_storage = get_postgres_storage()
+            return pg_storage.exists(cache_key)
+        else:
+            if cache_key in DRAFT_CACHE:
+                return True
+
+            pg_storage = get_postgres_storage()
+            return pg_storage.exists(cache_key)
 
     except Exception as e:
         logger.error(f"Failed to check if draft {cache_key} exists: {e}")
