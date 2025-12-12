@@ -300,16 +300,28 @@ def remove_from_cache(key: str) -> bool:
 
 
 def cache_exists(key: str) -> bool:
-    """Check if draft exists in cache"""
+    """Check if draft exists in cache (Memory -> Redis -> PostgreSQL)"""
     cache_key = _normalize_cache_key(key)
     if not cache_key:
         logger.error("Cannot check existence for invalid draft key: %s", key)
         return False
 
     try:
+        # 1. 检查内存缓存
         if cache_key in DRAFT_CACHE:
             return True
 
+        # 2. 检查 Redis 缓存
+        if REDIS_CACHE_AVAILABLE:
+            try:
+                redis_cache = get_redis_draft_cache()
+                if redis_cache and redis_cache.exists(cache_key):
+                    logger.debug(f"Draft {cache_key} found in Redis cache")
+                    return True
+            except Exception as e:
+                logger.warning(f"Redis exists check failed for {cache_key}: {e}")
+
+        # 3. 检查 PostgreSQL
         pg_storage = get_postgres_storage()
         return pg_storage.exists(cache_key)
 
