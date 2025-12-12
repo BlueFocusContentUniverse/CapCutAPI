@@ -1,49 +1,43 @@
-# Use a slim Python base image
+# syntax=docker/dockerfile:1.7
+
 FROM python:3.14-slim-trixie
-
-# Accept build arguments for COS credentials
-ARG COS_SECRET_ID
-ARG COS_SECRET_KEY
-
-# Accept build arguments for AWS credentials
-ARG AWS_ACCESS_KEY_ID
-ARG AWS_SECRET_ACCESS_KEY
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PYTHONIOENCODING=UTF-8 \
-    COS_SECRET_ID=${COS_SECRET_ID} \
-    COS_SECRET_KEY=${COS_SECRET_KEY} \
-    AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
-    AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONIOENCODING=UTF-8
 
 WORKDIR /app
 
-# Use noninteractive frontend to avoid prompts during build and install ffmpeg
+# 安装系统依赖（ffmpeg）
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the source code
+# 先复制依赖文件，利用缓存层
+COPY pyproject.toml .
+
+# 复制代码
 COPY . .
 
-# Install dependencies and the application from pyproject.toml
-RUN pip install --upgrade pip \
+# 安装 Python 依赖
+RUN pip install --upgrade pip --trusted-host pypi.org --trusted-host files.pythonhosted.org \
     && pip install .
 
-# Copy production environment file (create from .env.prod.example if needed)
-COPY .env.prod* ./
-RUN if [ -f .env.prod ]; then cp .env.prod .env; else echo "Warning: .env.prod not found, using defaults"; fi
+# 使用 secret 挂载方式读取 .env.prod（不会留在镜像层中）
+RUN --mount=type=secret,id=env_file cat /run/secrets/env_file > /app/.env
 
-# Create logs directory
-RUN mkdir -p logs
+# 创建日志目录和非 root 用户
+RUN mkdir -p logs && \
+    useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
 
-# Default Port
+# 切换到非 root 用户
+USER appuser
+
+# 默认端口
 EXPOSE 9000
 
-# Run with Uvicorn in production
+# 启动命令
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-9000}"]
-
-
-
