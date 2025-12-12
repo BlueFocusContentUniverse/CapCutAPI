@@ -715,18 +715,9 @@ def _invoke_celery_archive(
     # 获取 M2M token 用于回调认证
     m2m_token = get_m2m_token()
     
-    # 构建 callback_url
-    callback_url = ARCHIVE_CALLBACK_URL
-    if not callback_url:
-        # 尝试从其他环境变量构建
-        api_base_url = os.getenv("API_BASE_URL", "").strip()
-        if api_base_url:
-            callback_url = f"{api_base_url.rstrip('/')}/api/draft_archives/callback"
-        else:
-            host = os.getenv("HOST", "localhost").strip()
-            port = os.getenv("PORT", "9000").strip()
-            protocol = "https" if os.getenv("HTTPS", "false").lower() == "true" else "http"
-            callback_url = f"{protocol}://{host}:{port}/api/draft_archives/callback"
+    # 构建 callback_url: 优先 ARCHIVE_CALLBACK_URL，其次 API_BASE_URL
+    api_base = ARCHIVE_CALLBACK_URL or os.getenv("API_BASE_URL", f"http://localhost:{os.getenv('PORT', '9000')}")
+    callback_url = f"{api_base.rstrip('/')}/api/draft_archives/callback" if not ARCHIVE_CALLBACK_URL else ARCHIVE_CALLBACK_URL
     
     task_kwargs = {
         "archive_id": archive_id,
