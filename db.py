@@ -59,13 +59,13 @@ def _get_pool_config() -> dict:
     """Get connection pool configuration from environment variables."""
     return {
         "pool_size": int(
-            os.getenv("DB_POOL_SIZE", "10")
+            os.getenv("DB_POOL_SIZE", "15")
         ),  # Number of persistent connections
         "max_overflow": int(
-            os.getenv("DB_MAX_OVERFLOW", "20")
+            os.getenv("DB_MAX_OVERFLOW", "30")
         ),  # Additional connections beyond pool_size
         "pool_recycle": int(
-            os.getenv("DB_POOL_RECYCLE", "3600")
+            os.getenv("DB_POOL_RECYCLE", "600")
         ),  # Recycle connections after 1 hour (in seconds)
         "pool_timeout": int(
             os.getenv("DB_POOL_TIMEOUT", "30")
