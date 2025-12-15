@@ -8,8 +8,6 @@ import string
 import subprocess
 import threading
 import uuid
-import base64
-import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Literal, Optional, Tuple
 
@@ -26,94 +24,37 @@ from util.cos_client import get_cos_client
 from util.helpers import is_windows_path, zip_draft
 
 ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL", "")
-# db0 = notification/draft_archive, db1 = token
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL") or f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('CELERY_REDIS_DB', '0')}"
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
 
-
-def get_m2m_token() -> Optional[str]:
-    """获取 Cognito M2M token（用于 Celery worker 回调认证）"""
-    try:
-        region = os.getenv("COGNITO_REGION", "").strip()
-        user_pool_id = os.getenv("COGNITO_USER_POOL_ID", "").strip()
-        client_id = os.getenv("COGNITO_CLIENT_ID", "").strip()
-        client_secret = os.getenv("COGNITO_CLIENT_SECRET", "").strip()
-        cognito_domain = os.getenv("COGNITO_DOMAIN", "").strip()
-        scope = os.getenv("COGNITO_SCOPE", "").strip()
-        
-        if not all([region, user_pool_id, client_id, client_secret]):
-            logger.warning("缺少 Cognito M2M 配置，无法获取 token")
-            return None
-        
-        # 构建 token 端点
-        if cognito_domain:
-            if cognito_domain.startswith("http"):
-                token_endpoint = f"{cognito_domain.rstrip('/')}/oauth2/token"
-            else:
-                token_endpoint = f"https://{cognito_domain}/oauth2/token"
-        else:
-            metadata_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/openid-configuration"
-            response = requests.get(metadata_url, timeout=10)
-            response.raise_for_status()
-            metadata = response.json()
-            token_endpoint = metadata.get("token_endpoint")
-            if not token_endpoint:
-                logger.error("Metadata 响应中缺少 token_endpoint")
-                return None
-        
-        # 准备 Basic 认证
-        auth_string = f"{client_id}:{client_secret}"
-        auth_header = base64.b64encode(auth_string.encode("utf-8")).decode("utf-8")
-        
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": f"Basic {auth_header}",
-        }
-        
-        data = {"grant_type": "client_credentials"}
-        if scope:
-            data["scope"] = scope
-        
-        # 获取 token
-        response = requests.post(token_endpoint, headers=headers, data=data, timeout=10)
-        response.raise_for_status()
-        token_data = response.json()
-        access_token = token_data.get("access_token")
-        
-        if access_token:
-            logger.debug("成功获取 M2M token")
-            return access_token
-        else:
-            logger.error("Token 响应中缺少 access_token")
-            return None
-            
-    except Exception as e:
-        logger.warning(f"获取 M2M token 失败: {e}")
-        return None
-
-# Celery 应用（延迟初始化）
+# Celery 应用（延迟初始化，线程安全）
 _celery_app = None
+_celery_lock = threading.RLock()
 
 
 def get_celery_app():
-    """获取 Celery 应用（单例）"""
+    """获取 Celery 应用（线程安全的单例）"""
     global _celery_app
-    if _celery_app is None:
-        try:
-            from celery import Celery
-            _celery_app = Celery(
-                "draft_archive",
-                broker=CELERY_BROKER_URL,
-                backend=CELERY_BROKER_URL
-            )
-            _celery_app.conf.update(
-                task_serializer="json",
-                accept_content=["json"],
-                result_serializer="json",
-            )
-            logger.info(f"Celery app initialized, broker: {CELERY_BROKER_URL[:50]}...")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Celery app: {e}")
-            return None
+    
+    # 快速路径：无锁检查
+    if _celery_app is not None:
+        return _celery_app
+    
+    # 慢速路径：加锁初始化
+    with _celery_lock:
+        # Double-checked locking
+        if _celery_app is None:
+            try:
+                from celery import Celery
+                _celery_app = Celery(
+                    "draft_archive",
+                    broker=CELERY_BROKER_URL
+                )
+                _celery_app.conf.task_serializer = "json"
+                logger.info(f"Celery app initialized, broker: {CELERY_BROKER_URL[:50]}...")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Celery app: {e}")
+                return None
+    
     return _celery_app
 
 
@@ -248,23 +189,23 @@ def save_draft_background(
                 f"Successfully retrieved draft {draft_id} version {draft_version} from storage."
             )
         else:
-            # Get current version draft information from cache (memory first, then PostgreSQL)
-            script, actual_version = get_from_cache_with_version(draft_id)
-            if script is None:
-                error_msg = (
-                    f"Draft {draft_id} does not exist in cache (memory or PostgreSQL)"
-                )
+            # Get current version draft information from cache (Redis first, fallback to PostgreSQL)
+            cache_result = get_from_cache_with_version(draft_id)
+            if cache_result is None:
+                error_msg = f"Draft {draft_id} does not exist in cache (Redis or PostgreSQL)"
                 archive_storage.update_archive(
                     archive_id,
                     progress=0.0,
                     downloaded_files=0,
                     total_files=0,
                     message=error_msg,
-                    draft_version=actual_version,
+                    draft_version=0,  # 0 表示草稿不存在，无法获取版本号
                 )
                 logger.error(f"{error_msg}, archive {archive_id} failed.")
                 return
-
+            script, actual_version = cache_result
+            
+            # Update archive with draft version info
             archive_storage.update_archive(
                 archive_id,
                 progress=0.0,
@@ -609,11 +550,11 @@ def save_draft_impl(
             script = pg_storage.get_draft_version(draft_id, draft_version)
             actual_version = draft_version
         else:
-            script, actual_version = get_from_cache_with_version(draft_id)
-
-        if script is None:
-            logger.error(f"Draft {draft_id} not found in cache or storage")
-            return {"success": False, "error": f"Draft {draft_id} not found"}
+            cache_result = get_from_cache_with_version(draft_id)
+            if cache_result is None:
+                logger.error(f"Draft {draft_id} not found in cache or storage")
+                return {"success": False, "error": f"Draft {draft_id} not found"}
+            script, actual_version = cache_result
 
         # Create or get archive_id
         if existing_archive:
@@ -695,9 +636,6 @@ def _invoke_celery_archive(
     # 准备任务参数
     draft_content = json.loads(script.dumps())
     
-    # 获取 M2M token 用于回调认证
-    m2m_token = get_m2m_token()
-    
     # 构建 callback_url: 优先 ARCHIVE_CALLBACK_URL，其次 API_BASE_URL
     api_base = ARCHIVE_CALLBACK_URL or os.getenv("API_BASE_URL", f"http://localhost:{os.getenv('PORT', '9000')}")
     callback_url = f"{api_base.rstrip('/')}/api/draft_archives/callback" if not ARCHIVE_CALLBACK_URL else ARCHIVE_CALLBACK_URL
@@ -708,8 +646,7 @@ def _invoke_celery_archive(
         "draft_version": draft_version,
         "draft_content": draft_content,
         "folder_name": folder_name,
-        "callback_url": callback_url,
-        "callback_token": m2m_token
+        "callback_url": callback_url
     }
 
     try:
