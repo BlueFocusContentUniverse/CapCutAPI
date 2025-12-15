@@ -24,9 +24,7 @@ from util.cos_client import get_cos_client
 from util.helpers import is_windows_path, zip_draft
 
 ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL", "")
-# db0 = notification/draft_archive, db1 = token
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL") or f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('CELERY_REDIS_DB', '2')}"
-
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
 
 # Celery 应用（延迟初始化，线程安全）
 _celery_app = None
@@ -49,14 +47,9 @@ def get_celery_app():
                 from celery import Celery
                 _celery_app = Celery(
                     "draft_archive",
-                    broker=CELERY_BROKER_URL,
-                    backend=CELERY_BROKER_URL
+                    broker=CELERY_BROKER_URL
                 )
-                _celery_app.conf.update(
-                    task_serializer="json",
-                    accept_content=["json"],
-                    result_serializer="json",
-                )
+                _celery_app.conf.task_serializer = "json"
                 logger.info(f"Celery app initialized, broker: {CELERY_BROKER_URL[:50]}...")
             except Exception as e:
                 logger.warning(f"Failed to initialize Celery app: {e}")
