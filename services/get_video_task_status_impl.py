@@ -3,13 +3,13 @@ from typing import Any, Dict
 
 from sqlalchemy import select
 
-from db import get_session
+from db import get_async_session
 from models import Video, VideoTask
 
 logger = logging.getLogger(__name__)
 
 
-def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
+async def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
     """Get the status of a video generation task.
 
     Args:
@@ -42,9 +42,11 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
         return result
 
     try:
-        with get_session() as session:
-            task = session.execute(
-                select(VideoTask).where(VideoTask.task_id == task_id)
+        async with get_async_session() as session:
+            task = (
+                await session.execute(
+                    select(VideoTask).where(VideoTask.task_id == task_id)
+                )
             ).scalar_one_or_none()
 
             if not task:
@@ -55,8 +57,10 @@ def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
             # Get oss_url from Video model if video_id exists
             oss_url = None
             if task.video_id:
-                video = session.execute(
-                    select(Video).where(Video.video_id == task.video_id)
+                video = (
+                    await session.execute(
+                        select(Video).where(Video.video_id == task.video_id)
+                    )
                 ).scalar_one_or_none()
                 if video:
                     oss_url = video.oss_url

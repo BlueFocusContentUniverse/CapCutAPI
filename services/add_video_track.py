@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pyJianYingDraft as draft
 from draft_cache import update_draft_with_retry
-from pyJianYingDraft import ClipSettings, exceptions, trange
+from pyJianYingDraft import ClipSettings, ScriptFile, exceptions, trange
 from settings.local import IS_CAPCUT_ENV
 from util.helpers import (
     get_extension_from_format,
@@ -145,11 +145,13 @@ def _prepare_video_segment_payload(
     if end is None or end <= 0:
         video_end = video_duration
         source_duration = video_end - start
-        print(f"📹 裁剪模式：从{start}秒截取到{video_end}秒（共{source_duration}秒）")
+        logger.debug(
+            f"End parameter not provided or non-positive, using video duration: {video_end} seconds"
+        )
     else:
         video_end = end
         source_duration = video_end - start
-        print(f"📹 裁剪模式：从{start}秒截取到{video_end}秒（共{source_duration}秒）")
+        logger.debug(f"Using provided end parameter: {video_end} seconds")
 
     # 4. 关键验证：防止负数时长（仅在已知时长时检查）
     if video_duration > 0 and source_duration <= 0:
@@ -170,7 +172,7 @@ def _prepare_video_segment_payload(
                 f"建议：start应小于{video_duration}秒"
             )
         if video_end > video_duration:
-            print(
+            logger.warning(
                 f"⚠️  警告：end={video_end}秒超出视频总时长{video_duration}秒，自动调整为{video_duration}秒"
             )
             video_end = video_duration
@@ -193,7 +195,7 @@ def _prepare_video_segment_payload(
 
     # 7. 输出处理信息
     if video_duration > 0:
-        print(
+        logger.debug(
             f"""
             📹 视频素材处理信息：
             - 素材URL: {video_url}
@@ -327,7 +329,7 @@ def _prepare_video_segment_payload(
 
 
 def _apply_video_segment_to_script(
-    script,
+    script: ScriptFile,
     payload: VideoSegmentPayload,
     draft_id: str,
 ) -> None:

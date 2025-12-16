@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Response
 from sqlalchemy import text
 
-from db import get_engine
+from db import get_async_engine
 
 router = APIRouter(tags=["health"])
 
@@ -14,7 +14,7 @@ def health_check(response: Response):
         db_status = "unknown"
         try:
             # Try opening a connection
-            eng = get_engine()
+            eng = get_async_engine().sync_engine
             with eng.connect() as conn:
                 conn.execute(text("SELECT 1"))
             db_status = "healthy"

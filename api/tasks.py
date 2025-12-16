@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from db import get_session
+from db import get_async_session
 from models import VideoTask
 
 logger = logging.getLogger(__name__)
@@ -20,16 +20,18 @@ class CreateTaskRequest(BaseModel):
 
 
 @router.post("/tasks")
-def create_task(request: CreateTaskRequest):
+async def create_task(request: CreateTaskRequest):
     if not request.task_id or not request.draft_id:
         return JSONResponse(
             status_code=400,
             content={"success": False, "error": "task_id and draft_id are required"},
         )
 
-    with get_session() as session:
-        existing = session.execute(
-            select(VideoTask).where(VideoTask.task_id == request.task_id)
+    async with get_async_session() as session:
+        existing = (
+            await session.execute(
+                select(VideoTask).where(VideoTask.task_id == request.task_id)
+            )
         ).scalar_one_or_none()
         if existing:
             return {"success": True, "output": {"task_id": existing.task_id}}
@@ -46,10 +48,10 @@ def create_task(request: CreateTaskRequest):
 
 
 @router.get("/tasks/{task_id}")
-def get_task(task_id: str):
-    with get_session() as session:
-        row = session.execute(
-            select(VideoTask).where(VideoTask.task_id == task_id)
+async def get_task(task_id: str):
+    async with get_async_session() as session:
+        row = (
+            await session.execute(select(VideoTask).where(VideoTask.task_id == task_id))
         ).scalar_one_or_none()
         if not row:
             return JSONResponse(
@@ -77,10 +79,10 @@ class UpdateTaskRequest(BaseModel):
 
 
 @router.patch("/tasks/{task_id}")
-def update_task(task_id: str, request: UpdateTaskRequest):
-    with get_session() as session:
-        row = session.execute(
-            select(VideoTask).where(VideoTask.task_id == task_id)
+async def update_task(task_id: str, request: UpdateTaskRequest):
+    async with get_async_session() as session:
+        row = (
+            await session.execute(select(VideoTask).where(VideoTask.task_id == task_id))
         ).scalar_one_or_none()
         if not row:
             return JSONResponse(
@@ -97,10 +99,14 @@ def update_task(task_id: str, request: UpdateTaskRequest):
 
 
 @router.patch("/tasks/by_draft/{draft_id}")
-def update_tasks_by_draft(draft_id: str, request: UpdateTaskRequest):
-    with get_session() as session:
+async def update_tasks_by_draft(draft_id: str, request: UpdateTaskRequest):
+    async with get_async_session() as session:
         rows = (
-            session.execute(select(VideoTask).where(VideoTask.draft_id == draft_id))
+            (
+                await session.execute(
+                    select(VideoTask).where(VideoTask.draft_id == draft_id)
+                )
+            )
             .scalars()
             .all()
         )

@@ -5,7 +5,7 @@ from typing import Any, Dict, Literal, Optional
 
 from sqlalchemy import select
 
-from db import get_session
+from db import get_async_session
 from models import VideoTask, VideoTaskStatus
 from services.save_draft_impl import query_script_impl
 
@@ -15,7 +15,7 @@ ResolutionType = Literal["720P", "1080P", "2K", "4K"]
 FramerateType = Literal["30fps", "50fps", "60fps"]
 
 
-def generate_video_impl(
+async def generate_video_impl(
     draft_id: str,
     resolution: Optional[ResolutionType] = "1080P",
     framerate: Optional[FramerateType] = "30fps",
@@ -112,9 +112,11 @@ def generate_video_impl(
 
         # Create task record BEFORE task starts
         try:
-            with get_session() as session:
-                existing = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == final_task_id)
+            async with get_async_session() as session:
+                existing = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == final_task_id)
+                    )
                 ).scalar_one_or_none()
                 video_name = (
                     draft_content.get("name")

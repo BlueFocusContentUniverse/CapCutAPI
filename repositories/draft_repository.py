@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 import pyJianYingDraft as draft
-from db import get_session, init_db
+from db import get_async_session
 from models import Draft as DraftModel
 from models import DraftVersion as DraftVersionModel
 
@@ -21,14 +21,10 @@ logger = logging.getLogger(__name__)
 
 class PostgresDraftStorage:
     def __init__(self) -> None:
-        # Ensure tables exist
-        try:
-            init_db()
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
-            raise
+        # Tables are expected to be initialized during app startup via init_db_async
+        pass
 
-    def save_draft(
+    async def save_draft(
         self,
         draft_id: str,
         script_obj: draft.ScriptFile,
@@ -52,10 +48,10 @@ class PostgresDraftStorage:
         try:
             serialized_data = pickle.dumps(script_obj)
 
-            with get_session() as session:
+            async with get_async_session() as session:
                 # Find any existing row regardless of deletion status
                 # Use SELECT FOR UPDATE to acquire row-level lock
-                q = session.execute(
+                q = await session.execute(
                     select(DraftModel)
                     .where(DraftModel.draft_id == draft_id)
                     .with_for_update()
@@ -157,11 +153,11 @@ class PostgresDraftStorage:
             logger.error(f"Failed to save draft {draft_id}: {e}")
             return False
 
-    def get_draft(self, draft_id: str) -> Optional[draft.ScriptFile]:
+    async def get_draft(self, draft_id: str) -> Optional[draft.ScriptFile]:
         """Get draft without version information"""
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftModel).where(
                         DraftModel.draft_id == draft_id,
                         DraftModel.is_deleted.is_(False),
@@ -181,7 +177,7 @@ class PostgresDraftStorage:
             logger.error(f"Failed to retrieve draft {draft_id}: {e}")
             return None
 
-    def get_draft_with_version(
+    async def get_draft_with_version(
         self, draft_id: str
     ) -> Optional[tuple[draft.ScriptFile, int]]:
         """
@@ -191,8 +187,8 @@ class PostgresDraftStorage:
             Tuple of (script_obj, version) or None if not found
         """
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftModel).where(
                         DraftModel.draft_id == draft_id,
                         DraftModel.is_deleted.is_(False),
@@ -216,13 +212,13 @@ class PostgresDraftStorage:
             logger.error(f"Failed to retrieve draft {draft_id}: {e}")
             return None
 
-    def get_draft_version(
+    async def get_draft_version(
         self, draft_id: str, version: int
     ) -> Optional[draft.ScriptFile]:
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 # First try to fetch from history table
-                q = session.execute(
+                q = await session.execute(
                     select(DraftVersionModel).where(
                         DraftVersionModel.draft_id == draft_id,
                         DraftVersionModel.version == version,
@@ -232,7 +228,7 @@ class PostgresDraftStorage:
 
                 if row is None:
                     # If version equals current_version we can read from main table
-                    current = session.execute(
+                    current = await session.execute(
                         select(DraftModel).where(
                             DraftModel.draft_id == draft_id,
                             DraftModel.is_deleted.is_(False),
@@ -263,10 +259,10 @@ class PostgresDraftStorage:
             logger.error(f"Failed to retrieve draft {draft_id} version {version}: {e}")
             return None
 
-    def exists(self, draft_id: str) -> bool:
+    async def exists(self, draft_id: str) -> bool:
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftModel.id).where(
                         DraftModel.draft_id == draft_id,
                         DraftModel.is_deleted.is_(False),
@@ -277,10 +273,10 @@ class PostgresDraftStorage:
             logger.error(f"Failed to check existence of draft {draft_id}: {e}")
             return False
 
-    def delete_draft(self, draft_id: str) -> bool:
+    async def delete_draft(self, draft_id: str) -> bool:
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftModel).where(DraftModel.draft_id == draft_id)
                 )
                 row = q.scalar_one_or_none()
@@ -293,10 +289,10 @@ class PostgresDraftStorage:
             logger.error(f"Failed to delete draft {draft_id}: {e}")
             return False
 
-    def get_metadata(self, draft_id: str) -> Optional[Dict[str, Any]]:
+    async def get_metadata(self, draft_id: str) -> Optional[Dict[str, Any]]:
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftModel).where(
                         DraftModel.draft_id == draft_id,
                         DraftModel.is_deleted.is_(False),
@@ -326,7 +322,7 @@ class PostgresDraftStorage:
             logger.error(f"Failed to get metadata for draft {draft_id}: {e}")
             return None
 
-    def list_drafts(
+    async def list_drafts(
         self, page: int = 1, page_size: int = 100, limit: Optional[int] = None
     ) -> Dict[str, Any]:
         """
@@ -350,11 +346,11 @@ class PostgresDraftStorage:
             page_size = min(max(1, page_size), 1000)  # Cap at 1000 items per page
             offset = (page - 1) * page_size
 
-            with get_session() as session:
+            async with get_async_session() as session:
                 # Get total count
                 from sqlalchemy import func
 
-                count_q = session.execute(
+                count_q = await session.execute(
                     select(func.count(DraftModel.id)).where(
                         DraftModel.is_deleted.is_(False)
                     )
@@ -362,7 +358,7 @@ class PostgresDraftStorage:
                 total_count = count_q.scalar() or 0
 
                 # Get paginated results
-                q = session.execute(
+                q = await session.execute(
                     select(DraftModel)
                     .where(DraftModel.is_deleted.is_(False))
                     .order_by(DraftModel.updated_at.desc())
@@ -423,16 +419,16 @@ class PostgresDraftStorage:
                 },
             }
 
-    def cleanup_expired(self) -> int:
+    async def cleanup_expired(self) -> int:
         # TTL semantics are not supported here; return 0 for compatibility
         return 0
 
-    def list_draft_versions(self, draft_id: str) -> list:
+    async def list_draft_versions(self, draft_id: str) -> list:
         """List all versions of a draft"""
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 # Get current version from main table
-                current_q = session.execute(
+                current_q = await session.execute(
                     select(DraftModel).where(
                         DraftModel.draft_id == draft_id,
                         DraftModel.is_deleted.is_(False),
@@ -460,7 +456,7 @@ class PostgresDraftStorage:
                     )
 
                 # Get historical versions
-                history_q = session.execute(
+                history_q = await session.execute(
                     select(DraftVersionModel)
                     .where(DraftVersionModel.draft_id == draft_id)
                     .order_by(DraftVersionModel.version.desc())
@@ -495,14 +491,14 @@ class PostgresDraftStorage:
             logger.error(f"Failed to list versions for draft {draft_id}: {e}")
             return []
 
-    def get_draft_version_metadata(
+    async def get_draft_version_metadata(
         self, draft_id: str, version: int
     ) -> Optional[Dict[str, Any]]:
         """Get metadata for a specific version of a draft"""
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 # Check if this is the current version first
-                current_q = session.execute(
+                current_q = await session.execute(
                     select(DraftModel).where(
                         DraftModel.draft_id == draft_id,
                         DraftModel.is_deleted.is_(False),
@@ -527,7 +523,7 @@ class PostgresDraftStorage:
                     }
 
                 # Check historical versions
-                history_q = session.execute(
+                history_q = await session.execute(
                     select(DraftVersionModel).where(
                         DraftVersionModel.draft_id == draft_id,
                         DraftVersionModel.version == version,
@@ -558,10 +554,10 @@ class PostgresDraftStorage:
             )
             return None
 
-    def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> Dict[str, Any]:
         try:
-            with get_session() as session:
-                total = session.execute(select(DraftModel.id)).scalars().all()
+            async with get_async_session() as session:
+                total = (await session.execute(select(DraftModel.id))).scalars().all()
                 return {"total_drafts": len(total), "backend": "postgresql"}
         except Exception as e:
             logger.error(f"Failed to get storage stats: {e}")
