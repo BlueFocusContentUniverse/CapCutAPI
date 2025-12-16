@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from db import get_session, init_db
+from db import get_async_session
 from models import DraftArchive as DraftArchiveModel
 
 logger = logging.getLogger(__name__)
@@ -19,14 +19,10 @@ logger = logging.getLogger(__name__)
 
 class PostgresDraftArchiveStorage:
     def __init__(self) -> None:
-        # Ensure tables exist
-        try:
-            init_db()
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
-            raise
+        # Tables are initialized during app startup via init_db_async
+        pass
 
-    def create_archive(
+    async def create_archive(
         self,
         draft_id: str,
         draft_version: Optional[int] = None,
@@ -48,7 +44,7 @@ class PostgresDraftArchiveStorage:
             The archive_id (UUID as string) if created successfully, None otherwise
         """
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 archive_id = uuid.uuid4()
                 archive = DraftArchiveModel(
                     archive_id=archive_id,
@@ -62,7 +58,6 @@ class PostgresDraftArchiveStorage:
                     downloaded_files=0,
                 )
                 session.add(archive)
-                session.commit()
                 logger.info(
                     f"Created draft archive {archive_id} for draft {draft_id} version {draft_version} with archive_name={archive_name}"
                 )
@@ -74,7 +69,7 @@ class PostgresDraftArchiveStorage:
             logger.error(f"Failed to create draft archive for {draft_id}: {e}")
             return None
 
-    def get_archive_by_draft(
+    async def get_archive_by_draft(
         self, draft_id: str, draft_version: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         """
@@ -88,7 +83,7 @@ class PostgresDraftArchiveStorage:
             Dictionary with archive details or None if not found
         """
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 query = select(DraftArchiveModel).where(
                     DraftArchiveModel.draft_id == draft_id
                 )
@@ -100,7 +95,7 @@ class PostgresDraftArchiveStorage:
                 else:
                     query = query.where(DraftArchiveModel.draft_version.is_(None))
 
-                q = session.execute(query)
+                q = await session.execute(query)
                 row = q.scalar_one_or_none()
 
                 if row is None:
@@ -131,7 +126,7 @@ class PostgresDraftArchiveStorage:
             logger.error(f"Failed to retrieve archive for draft {draft_id}: {e}")
             return None
 
-    def get_archive_by_id(self, archive_id: str) -> Optional[Dict[str, Any]]:
+    async def get_archive_by_id(self, archive_id: str) -> Optional[Dict[str, Any]]:
         """
         Get archive record by archive_id.
 
@@ -142,8 +137,8 @@ class PostgresDraftArchiveStorage:
             Dictionary with archive details or None if not found
         """
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftArchiveModel).where(
                         DraftArchiveModel.archive_id == uuid.UUID(archive_id)
                     )
@@ -179,7 +174,7 @@ class PostgresDraftArchiveStorage:
             logger.error(f"Failed to retrieve archive {archive_id}: {e}")
             return None
 
-    def update_archive(
+    async def update_archive(
         self,
         archive_id: str,
         download_url: Optional[str] = None,
@@ -205,8 +200,8 @@ class PostgresDraftArchiveStorage:
             True if update succeeded, False otherwise
         """
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftArchiveModel)
                     .where(DraftArchiveModel.archive_id == uuid.UUID(archive_id))
                     .with_for_update()
@@ -231,8 +226,6 @@ class PostgresDraftArchiveStorage:
                 if draft_version is not None:
                     row.draft_version = draft_version
                 row.updated_at = datetime.now(timezone.utc)
-                session.commit()
-
                 logger.info(f"Updated archive {archive_id}")
                 return True
         except ValueError as e:
@@ -245,7 +238,7 @@ class PostgresDraftArchiveStorage:
             logger.error(f"Failed to update archive {archive_id}: {e}")
             return False
 
-    def list_archives(
+    async def list_archives(
         self,
         draft_id: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -269,7 +262,7 @@ class PostgresDraftArchiveStorage:
             page_size = min(max(1, page_size), 1000)
             offset = (page - 1) * page_size
 
-            with get_session() as session:
+            async with get_async_session() as session:
                 # Build query
                 query = select(DraftArchiveModel)
 
@@ -291,7 +284,7 @@ class PostgresDraftArchiveStorage:
                         DraftArchiveModel.user_id == user_id
                     )
 
-                count_q = session.execute(count_query)
+                count_q = await session.execute(count_query)
                 total_count = count_q.scalar() or 0
 
                 # Get paginated results
@@ -300,7 +293,7 @@ class PostgresDraftArchiveStorage:
                     .limit(page_size)
                     .offset(offset)
                 )
-                q = session.execute(query)
+                q = await session.execute(query)
                 rows = q.scalars().all()
 
                 results = []
@@ -356,7 +349,7 @@ class PostgresDraftArchiveStorage:
                 },
             }
 
-    def delete_archive(self, archive_id: str) -> bool:
+    async def delete_archive(self, archive_id: str) -> bool:
         """
         Delete an archive record.
 
@@ -367,8 +360,8 @@ class PostgresDraftArchiveStorage:
             True if deletion succeeded, False otherwise
         """
         try:
-            with get_session() as session:
-                q = session.execute(
+            async with get_async_session() as session:
+                q = await session.execute(
                     select(DraftArchiveModel).where(
                         DraftArchiveModel.archive_id == uuid.UUID(archive_id)
                     )
@@ -380,7 +373,6 @@ class PostgresDraftArchiveStorage:
                     return False
 
                 session.delete(row)
-                session.commit()
                 logger.info(f"Deleted archive {archive_id}")
                 return True
         except ValueError as e:

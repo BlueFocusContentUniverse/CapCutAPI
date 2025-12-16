@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import get_api_router
-from db import init_db
+from db import init_db_async
 from mcp_services import create_fastmcp_app
 from middleware import LoggingMiddleware, RateLimitMiddleware
 from repositories.redis_draft_cache import (
@@ -39,7 +39,7 @@ mcp_app = mcp_server.http_app(path="/mcp")
 async def lifespan(app: FastAPI):
     # Startup
     try:
-        init_db()
+        await init_db_async()
         logger.info("Database initialization successful")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
@@ -74,9 +74,11 @@ app = FastAPI(
     lifespan=lifespan,
     title="CapCut API Service",
     version="1.7.0",
-    docs_url=None if is_production else "/docs",        # 生产环境关闭 Swagger UI
-    redoc_url=None if is_production else "/redoc",      # 生产环境关闭 ReDoc
-    openapi_url=None if is_production else "/openapi.json"  # 生产环境关闭 OpenAPI 规范文档
+    docs_url=None if is_production else "/docs",  # 生产环境关闭 Swagger UI
+    redoc_url=None if is_production else "/redoc",  # 生产环境关闭 ReDoc
+    openapi_url=None
+    if is_production
+    else "/openapi.json",  # 生产环境关闭 OpenAPI 规范文档
 )
 
 # Configure CORS

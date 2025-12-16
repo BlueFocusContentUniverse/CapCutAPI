@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
-from db import get_session
+from db import get_async_session
 from models import Video, VideoTask, VideoTaskStatus
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class VideoTaskRepository:
     """Repository for managing VideoTask records."""
 
-    def update_task_status(
+    async def update_task_status(
         self,
         task_id: str,
         status: Optional[str] = None,
@@ -44,9 +44,11 @@ class VideoTaskRepository:
             True if update succeeded, False otherwise
         """
         try:
-            with get_session() as session:
-                task = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
+            async with get_async_session() as session:
+                task = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
                 ).scalar_one_or_none()
 
                 if task is None:
@@ -87,7 +89,7 @@ class VideoTaskRepository:
             logger.error(f"Failed to update VideoTask {task_id}: {e}")
             return False
 
-    def link_video_to_task(self, task_id: str, video_id: str) -> bool:
+    async def link_video_to_task(self, task_id: str, video_id: str) -> bool:
         """
         Link a video_id to a VideoTask.
 
@@ -99,9 +101,11 @@ class VideoTaskRepository:
             True if link succeeded, False otherwise
         """
         try:
-            with get_session() as session:
-                task = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
+            async with get_async_session() as session:
+                task = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
                 ).scalar_one_or_none()
 
                 if task is None:
@@ -121,7 +125,7 @@ class VideoTaskRepository:
             logger.error(f"Failed to link video to VideoTask {task_id}: {e}")
             return False
 
-    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
         """
         Retrieve a VideoTask by task_id.
 
@@ -132,9 +136,11 @@ class VideoTaskRepository:
             Dict with task metadata or None if not found
         """
         try:
-            with get_session() as session:
-                task = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
+            async with get_async_session() as session:
+                task = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
                 ).scalar_one_or_none()
 
                 if task is None:
@@ -164,7 +170,7 @@ class VideoTaskRepository:
             logger.error(f"Failed to retrieve VideoTask {task_id}: {e}")
             return None
 
-    def create_task(
+    async def create_task(
         self,
         task_id: str,
         draft_id: str,
@@ -188,10 +194,12 @@ class VideoTaskRepository:
             True if creation succeeded, False otherwise
         """
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 # Check if task_id already exists
-                existing = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
+                existing = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
                 ).scalar_one_or_none()
 
                 if existing:
@@ -218,7 +226,7 @@ class VideoTaskRepository:
             logger.error(f"Failed to create VideoTask {task_id}: {e}")
             return False
 
-    def list_tasks(
+    async def list_tasks(
         self,
         page: int = 1,
         page_size: int = 50,
@@ -237,7 +245,7 @@ class VideoTaskRepository:
             page_size = min(max(1, page_size), 500)
             offset = (page - 1) * page_size
 
-            with get_session() as session:
+            async with get_async_session() as session:
                 base_query = select(VideoTask, Video.oss_url.label("oss_url")).join(
                     Video, VideoTask.video_id == Video.video_id, isouter=True
                 )
@@ -264,10 +272,10 @@ class VideoTaskRepository:
                     base_query = base_query.where(VideoTask.created_at <= end_date)
                     count_query = count_query.where(VideoTask.created_at <= end_date)
 
-                total_count = session.execute(count_query).scalar() or 0
+                total_count = (await session.execute(count_query)).scalar() or 0
 
                 rows = (
-                    session.execute(
+                    await session.execute(
                         base_query.order_by(VideoTask.created_at.desc())
                         .limit(page_size)
                         .offset(offset)

@@ -50,7 +50,7 @@ async def create_video(request: CreateVideoRequest):
 
         # Get draft_id from VideoTask
         task_repo = get_video_task_repository()
-        task = task_repo.get_task(request.task_id)
+        task = await task_repo.get_task(request.task_id)
 
         if task is None:
             logger.warning(f"VideoTask {request.task_id} not found")
@@ -66,7 +66,7 @@ async def create_video(request: CreateVideoRequest):
 
         # Create video record
         video_repo = get_video_repository()
-        video_id = video_repo.create_video(
+        video_id = await video_repo.create_video(
             draft_id=draft_id,
             oss_url=request.oss_url,
             video_name=request.video_name,
@@ -80,7 +80,7 @@ async def create_video(request: CreateVideoRequest):
 
         if video_id is not None:
             # Link video_id to the task
-            task_repo.link_video_to_task(request.task_id, video_id)
+            await task_repo.link_video_to_task(request.task_id, video_id)
 
             logger.info(
                 f"Successfully created video {video_id} for task {request.task_id}, draft {draft_id}"
@@ -113,7 +113,7 @@ async def get_video(video_id: str):
     """
     try:
         repo = get_video_repository()
-        video = repo.get_video(video_id)
+        video = await repo.get_video(video_id)
 
         if video is None:
             logger.warning(f"Video {video_id} not found")
@@ -137,7 +137,7 @@ async def get_videos_by_draft(draft_id: str):
     """
     try:
         repo = get_video_repository()
-        videos = repo.get_videos_by_draft(draft_id)
+        videos = await repo.get_videos_by_draft(draft_id)
 
         return {"success": True, "output": {"videos": videos, "count": len(videos)}}
 
@@ -166,7 +166,7 @@ async def update_video(video_id: str, request: UpdateVideoRequest):
     """
     try:
         repo = get_video_repository()
-        success = repo.update_video(
+        success = await repo.update_video(
             video_id=video_id,
             video_name=request.video_name,
             resolution=request.resolution,
@@ -204,7 +204,7 @@ async def delete_video(
     """
     try:
         repo = get_video_repository()
-        success = repo.delete_video(video_id, delete_oss=delete_oss)
+        success = await repo.delete_video(video_id, delete_oss=delete_oss)
 
         if success:
             logger.info(
@@ -241,7 +241,9 @@ async def list_videos(
     """
     try:
         repo = get_video_repository()
-        result = repo.list_videos(page=page, page_size=page_size, draft_id=draft_id)
+        result = await repo.list_videos(
+            page=page, page_size=page_size, draft_id=draft_id
+        )
 
         return {
             "success": True,

@@ -1,9 +1,11 @@
+import asyncio
 import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from alembic import context
 
@@ -15,7 +17,7 @@ if str(project_root) not in sys.path:
 # Import metadata from our models
 from dotenv import load_dotenv
 
-from db import Base, _database_url
+from db import Base, _database_url, _make_async_url
 from models import Draft, VideoTask  # noqa: F401
 
 load_dotenv()
@@ -23,7 +25,9 @@ load_dotenv()
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", _database_url()))
+config.set_main_option(
+    "sqlalchemy.url", _make_async_url(os.getenv("DATABASE_URL", _database_url()))
+)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -35,7 +39,7 @@ target_metadata = Base.metadata
 
 # Allow env var DATABASE_URL to override
 def get_url() -> str:
-    return os.getenv("DATABASE_URL", _database_url())
+    return _make_async_url(os.getenv("DATABASE_URL", _database_url()))
 
 
 def run_migrations_offline() -> None:
@@ -52,20 +56,19 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    configuration = config.get_section(config.config_ini_section) or {}
-    configuration["sqlalchemy.url"] = get_url()
+    connectable: AsyncEngine = create_async_engine(get_url(), poolclass=pool.NullPool)
 
-    connectable = engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
+    def do_run_migrations(connection) -> None:
         context.configure(connection=connection, target_metadata=target_metadata)
-
         with context.begin_transaction():
             context.run_migrations()
+
+    async def run_async_migrations() -> None:
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
+        await connectable.dispose()
+
+    asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

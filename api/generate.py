@@ -19,7 +19,7 @@ class GenerateVideoRequest(BaseModel):
 
 
 @router.get("/video_task_status")
-def get_video_task_status(task_id: str):
+async def get_video_task_status(task_id: str):
     """API endpoint to get the status of a video generation task.
 
     Query Parameters:
@@ -30,13 +30,13 @@ def get_video_task_status(task_id: str):
     """
     logger.info(f"Getting video task status for task_id: {task_id}")
 
-    result = get_video_task_status_impl(task_id)
+    result = await get_video_task_status_impl(task_id)
 
     return result
 
 
 @router.post("/generate_video")
-def generate_video_api(request: GenerateVideoRequest, response: Response):
+async def generate_video_api(request: GenerateVideoRequest, response: Response):
     """API endpoint to generate a video from a draft.
 
     Request Body:
@@ -54,7 +54,7 @@ def generate_video_api(request: GenerateVideoRequest, response: Response):
         f"Generating video for draft_id: {request.draft_id}, resolution: {request.resolution}, framerate: {request.framerate}"
     )
 
-    result = generate_video_impl(
+    result = await generate_video_impl(
         draft_id=request.draft_id,
         resolution=request.resolution,
         framerate=request.framerate,

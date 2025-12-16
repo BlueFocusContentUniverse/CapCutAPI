@@ -545,7 +545,7 @@ def tool_add_video_keyframe(
     return execute_tool("add_video_keyframe", arguments)
 
 
-def tool_generate_video(
+async def tool_generate_video(
     draft_id: str,
     resolution: str = "1080P",
     framerate: str = "30fps",
@@ -558,14 +558,14 @@ def tool_generate_video(
         "name": name,
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    return generate_video_impl(**arguments)
+    return await generate_video_impl(**arguments)
 
 
-def tool_get_video_task_status(task_id: str) -> Dict[str, Any]:
+async def tool_get_video_task_status(task_id: str) -> Dict[str, Any]:
     """Get the status of a video generation task."""
     from services.get_video_task_status_impl import get_video_task_status_impl
 
-    return get_video_task_status_impl(task_id=task_id)
+    return await get_video_task_status_impl(task_id=task_id)
 
 
 def tool_get_font_types() -> Dict[str, Any]:

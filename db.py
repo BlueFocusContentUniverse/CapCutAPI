@@ -1,34 +1,41 @@
 """
-SQLAlchemy database setup for PostgreSQL.
-Reads DATABASE_URL from environment, provides Base, Session and init_db.
+SQLAlchemy async database setup for PostgreSQL (asyncpg only).
+Reads DATABASE_URL from environment, provides Base, AsyncSession helpers and init hooks.
 
 Environment Variables for Database Configuration:
 - DATABASE_URL: Complete database connection string (overrides individual settings)
 
 Connection Pool Configuration (environment variables):
-- DB_POOL_SIZE: Number of persistent connections in pool (default: 10)
-- DB_MAX_OVERFLOW: Additional connections beyond pool_size (default: 20)
-- DB_POOL_RECYCLE: Recycle connections after N seconds (default: 3600)
+- DB_POOL_SIZE: Number of persistent connections in pool (default: 15)
+- DB_MAX_OVERFLOW: Additional connections beyond pool_size (default: 30)
+- DB_POOL_RECYCLE: Recycle connections after N seconds (default: 600)
 - DB_POOL_TIMEOUT: Timeout for getting connection from pool (default: 30)
+
+Async driver: defaults to asyncpg via driver rewrite (postgresql -> postgresql+asyncpg).
 """
 
 import logging
 import os
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import AsyncIterator
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import declarative_base
 
 logger = logging.getLogger(__name__)
 Base = declarative_base()
 
-# Global engine instance - created once and reused
-_engine: Engine | None = None
-_SessionLocal: sessionmaker | None = None
+# Global async engine instance - created once and reused
+_async_engine: AsyncEngine | None = None
+_AsyncSessionLocal: async_sessionmaker[AsyncSession] | None = None
 
 
 # Load .env early so any importers that touch DB use the correct settings
@@ -55,6 +62,18 @@ def _database_url() -> str:
     )
 
 
+def _make_async_url(url: str) -> str:
+    """Ensure the URL uses the asyncpg driver."""
+
+    if "+asyncpg" in url:
+        return url
+    if url.startswith("postgresql+psycopg2://"):
+        return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
 def _get_pool_config() -> dict:
     """Get connection pool configuration from environment variables."""
     return {
@@ -66,7 +85,7 @@ def _get_pool_config() -> dict:
         ),  # Additional connections beyond pool_size
         "pool_recycle": int(
             os.getenv("DB_POOL_RECYCLE", "600")
-        ),  # Recycle connections after 1 hour (in seconds)
+        ),  # Recycle connections after N seconds
         "pool_timeout": int(
             os.getenv("DB_POOL_TIMEOUT", "30")
         ),  # Timeout for getting connection from pool
@@ -74,81 +93,70 @@ def _get_pool_config() -> dict:
     }
 
 
-def get_engine(echo: bool = False) -> Engine:
-    """Get or create the singleton database engine with proper connection pooling."""
-    global _engine
-    if _engine is None:
+def get_async_engine(echo: bool = False) -> AsyncEngine:
+    """Get or create the async engine (asyncpg driver)."""
+
+    global _async_engine
+    if _async_engine is None:
         pool_config = _get_pool_config()
-        logger.info(f"Creating database engine with pool config: {pool_config}")
+        logger.info(f"Creating async database engine with pool config: {pool_config}")
 
-        _engine = create_engine(_database_url(), echo=echo, future=True, **pool_config)
-        logger.info(f"Created engine: {_engine}")
-    return _engine
-
-
-def get_sessionmaker() -> sessionmaker:
-    """Get or create the singleton sessionmaker."""
-    global _SessionLocal
-    if _SessionLocal is None:
-        engine = get_engine()
-        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        logger.info("Created sessionmaker")
-    return _SessionLocal
+        async_url = _make_async_url(_database_url())
+        _async_engine = create_async_engine(
+            async_url, echo=echo, future=True, **pool_config
+        )
+        logger.info(f"Created async engine: {_async_engine}")
+    return _async_engine
 
 
-@contextmanager
-def get_session() -> Iterator[Session]:
-    """Get a database session with proper connection management."""
-    SessionLocal = get_sessionmaker()
-    session: Session = SessionLocal()
+def get_async_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """Get or create the async sessionmaker."""
+
+    global _AsyncSessionLocal
+    if _AsyncSessionLocal is None:
+        engine = get_async_engine()
+        _AsyncSessionLocal = async_sessionmaker(
+            autocommit=False, autoflush=False, bind=engine
+        )
+        logger.info("Created async sessionmaker")
+    return _AsyncSessionLocal
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncIterator[AsyncSession]:
+    """Get an async database session with proper connection management."""
+
+    SessionLocal = get_async_sessionmaker()
+    session: AsyncSession = SessionLocal()
     try:
         yield session
-        session.commit()
+        await session.commit()
     except Exception:
-        session.rollback()
+        await session.rollback()
         raise
     finally:
-        session.close()
+        await session.close()
 
 
-def init_db(engine: Engine | None = None) -> None:
-    """Create tables if they do not exist."""
-    eng = engine or get_engine()
-    logger.info(f"Initializing database with engine: {eng}")
-    # Import models to ensure metadata is populated
+async def init_db_async(engine: AsyncEngine | None = None) -> None:
+    """Create tables if they do not exist using the async engine."""
+
+    eng = engine or get_async_engine()
+    logger.info(f"Initializing database (async) with engine: {eng}")
     from models import Draft, DraftVersion, Video, VideoTask  # noqa: F401
 
-    Base.metadata.create_all(bind=eng)
-    # Simple connectivity check
-    with eng.connect() as conn:
-        conn.execute(text("SELECT 1"))
-        conn.commit()
-    logger.info("Database initialization completed")
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("SELECT 1"))
+    logger.info("Async database initialization completed")
 
 
-def get_pool_status() -> dict:
-    """Get current connection pool status for monitoring."""
-    engine = get_engine()
-    pool = engine.pool
+async def dispose_async_engine() -> None:
+    """Dispose of the async engine and reset async sessionmaker."""
 
-    # Get pool statistics (these are internal SQLAlchemy attributes)
-    status = {
-        "pool_size": getattr(pool, "_pool_size", "N/A"),
-        "checked_in": len(getattr(pool, "_checked_in", [])),
-        "checked_out": len(getattr(pool, "_checked_out", [])),
-        "overflow": getattr(pool, "_overflow", 0),
-        "invalid": len(getattr(pool, "_invalid", [])),
-    }
-
-    logger.info(f"Pool status: {status}")
-    return status
-
-
-def dispose_engine() -> None:
-    """Dispose of the engine and reset global state. Useful for testing or forced cleanup."""
-    global _engine, _SessionLocal
-    if _engine:
-        logger.info("Disposing database engine")
-        _engine.dispose()
-        _engine = None
-    _SessionLocal = None
+    global _async_engine, _AsyncSessionLocal
+    if _async_engine:
+        logger.info("Disposing async database engine")
+        await _async_engine.dispose()
+    _async_engine = None
+    _AsyncSessionLocal = None

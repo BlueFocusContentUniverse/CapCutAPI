@@ -21,7 +21,7 @@ router = APIRouter(
 
 
 @router.get("")
-def list_tasks(
+async def list_tasks(
     response: Response,
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(50, ge=1, le=500, description="Items per page"),
@@ -57,7 +57,7 @@ def list_tasks(
         parsed_end = _parse_date(end_date)
 
         repo = get_video_task_repository()
-        result = repo.list_tasks(
+        result = await repo.list_tasks(
             page=page,
             page_size=page_size,
             draft_id=draft_id,
@@ -118,7 +118,7 @@ def _parse_render_status(status_str: str) -> VideoTaskStatus:
 
 
 @router.put("/{task_id}/status")
-def update_task_status(
+async def update_task_status(
     task_id: str, request: UpdateTaskStatusRequest, response: Response
 ):
     """
@@ -174,7 +174,7 @@ def update_task_status(
 
         # Update task status
         repo = get_video_task_repository()
-        success = repo.update_task_status(
+        success = await repo.update_task_status(
             task_id=task_id,
             status=request.status,
             render_status=render_status,
@@ -198,7 +198,7 @@ def update_task_status(
 
 
 @router.get("/{task_id}")
-def get_task(task_id: str, response: Response):
+async def get_task(task_id: str, response: Response):
     """
     Get VideoTask details by task_id.
 
@@ -210,7 +210,7 @@ def get_task(task_id: str, response: Response):
     """
     try:
         repo = get_video_task_repository()
-        task = repo.get_task(task_id)
+        task = await repo.get_task(task_id)
 
         if task is None:
             logger.warning(f"VideoTask {task_id} not found")
@@ -226,7 +226,9 @@ def get_task(task_id: str, response: Response):
 
 
 @router.post("/{task_id}/link-video")
-def link_video_to_task(task_id: str, request: LinkVideoRequest, response: Response):
+async def link_video_to_task(
+    task_id: str, request: LinkVideoRequest, response: Response
+):
     """
     Link a video_id to a VideoTask.
 
@@ -243,7 +245,7 @@ def link_video_to_task(task_id: str, request: LinkVideoRequest, response: Respon
     """
     try:
         repo = get_video_task_repository()
-        success = repo.link_video_to_task(task_id, request.video_id)
+        success = await repo.link_video_to_task(task_id, request.video_id)
 
         if success:
             logger.info(
