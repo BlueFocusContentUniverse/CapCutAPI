@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 #     logger.debug(f"Redis草稿缓存层不可用: {e}")
 
 REDIS_CACHE_AVAILABLE = False
-logger.debug(f"Redis草稿缓存层不可用: {e}")
+logger.debug("Redis草稿缓存层不可用")
 
 # Keep in-memory cache for active drafts (faster access)
 # Note: In-memory cache should be invalidated when using version-based locking
