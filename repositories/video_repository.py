@@ -353,6 +353,7 @@ class VideoRepository:
                             "extra": video.extra,
                             "created_at": int(video.created_at.timestamp()),
                             "updated_at": int(video.updated_at.timestamp()),
+                            "render_status": video.render_status,
                         }
                     )
 

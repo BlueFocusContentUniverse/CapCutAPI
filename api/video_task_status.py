@@ -3,9 +3,10 @@ API endpoints for updating VideoTask status (intended for Celery workers).
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel
 
 from models import VideoTaskStatus
@@ -17,6 +18,64 @@ router = APIRouter(
     prefix="/api/video-tasks",
     tags=["video-tasks"],
 )
+
+
+@router.get("")
+def list_tasks(
+    response: Response,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(50, ge=1, le=500, description="Items per page"),
+    draft_id: Optional[str] = Query(None, description="Filter by draft_id"),
+    render_status: Optional[str] = Query(None, description="Filter by render_status"),
+    start_date: Optional[str] = Query(
+        None, description="Filter created_at >= this ISO datetime or unix seconds"
+    ),
+    end_date: Optional[str] = Query(
+        None, description="Filter created_at <= this ISO datetime or unix seconds"
+    ),
+):
+    """List video tasks with pagination, including video.oss_url if present."""
+    try:
+        parsed_render_status = None
+        if render_status:
+            parsed_render_status = _parse_render_status(render_status)
+
+        def _parse_date(value: Optional[str]) -> Optional[datetime]:
+            if not value:
+                return None
+            try:
+                # unix seconds
+                ts = float(value)
+                return datetime.fromtimestamp(ts, tz=timezone.utc)
+            except ValueError:
+                dt = datetime.fromisoformat(value)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+
+        parsed_start = _parse_date(start_date)
+        parsed_end = _parse_date(end_date)
+
+        repo = get_video_task_repository()
+        result = repo.list_tasks(
+            page=page,
+            page_size=page_size,
+            draft_id=draft_id,
+            render_status=parsed_render_status,
+            start_date=parsed_start,
+            end_date=parsed_end,
+        )
+
+        return result
+
+    except ValueError as e:
+        # render_status parse error
+        response.status_code = 400
+        return {"error": str(e)}
+    except Exception as e:
+        logger.error(f"Error listing VideoTasks: {e}")
+        response.status_code = 500
+        return {"error": str(e)}
 
 
 class UpdateTaskStatusRequest(BaseModel):

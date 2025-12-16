@@ -6,11 +6,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from db import get_session
-from models import VideoTask, VideoTaskStatus
+from models import Video, VideoTask, VideoTaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +217,130 @@ class VideoTaskRepository:
         except Exception as e:
             logger.error(f"Failed to create VideoTask {task_id}: {e}")
             return False
+
+    def list_tasks(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        draft_id: Optional[str] = None,
+        render_status: Optional[VideoTaskStatus] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        List VideoTasks with optional filters and include related Video.oss_url.
+
+        Returns camelCase keys to match Node.js consumers.
+        """
+        try:
+            page = max(1, page)
+            page_size = min(max(1, page_size), 500)
+            offset = (page - 1) * page_size
+
+            with get_session() as session:
+                base_query = select(VideoTask, Video.oss_url.label("oss_url")).join(
+                    Video, VideoTask.video_id == Video.video_id, isouter=True
+                )
+
+                count_query = select(func.count(VideoTask.id))
+
+                if draft_id:
+                    base_query = base_query.where(VideoTask.draft_id == draft_id)
+                    count_query = count_query.where(VideoTask.draft_id == draft_id)
+
+                if render_status:
+                    base_query = base_query.where(
+                        VideoTask.render_status == render_status
+                    )
+                    count_query = count_query.where(
+                        VideoTask.render_status == render_status
+                    )
+
+                if start_date:
+                    base_query = base_query.where(VideoTask.created_at >= start_date)
+                    count_query = count_query.where(VideoTask.created_at >= start_date)
+
+                if end_date:
+                    base_query = base_query.where(VideoTask.created_at <= end_date)
+                    count_query = count_query.where(VideoTask.created_at <= end_date)
+
+                total_count = session.execute(count_query).scalar() or 0
+
+                rows = (
+                    session.execute(
+                        base_query.order_by(VideoTask.created_at.desc())
+                        .limit(page_size)
+                        .offset(offset)
+                    )
+                ).all()
+
+                items: list[dict[str, Any]] = []
+                for video_task, oss_url in rows:
+                    items.append(
+                        {
+                            "id": video_task.id,
+                            "taskId": video_task.task_id,
+                            "draftId": video_task.draft_id,
+                            "videoId": video_task.video_id,
+                            "videoName": video_task.video_name,
+                            "renderStatus": video_task.render_status.value
+                            if video_task.render_status
+                            else None,
+                            "progress": video_task.progress,
+                            "message": video_task.message,
+                            "extra": video_task.extra,
+                            "createdAt": int(video_task.created_at.timestamp())
+                            if video_task.created_at
+                            else None,
+                            "updatedAt": int(video_task.updated_at.timestamp())
+                            if video_task.updated_at
+                            else None,
+                            "ossUrl": oss_url,
+                        }
+                    )
+
+                total_pages = (
+                    (total_count + page_size - 1) // page_size if page_size else 0
+                )
+
+                return {
+                    "items": items,
+                    "pagination": {
+                        "page": page,
+                        "page_size": page_size,
+                        "total_count": total_count,
+                        "total_pages": total_pages,
+                        "has_next": page < total_pages,
+                        "has_prev": page > 1,
+                    },
+                }
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error listing VideoTasks: {e}")
+            return {
+                "items": [],
+                "pagination": {
+                    "page": 1,
+                    "page_size": page_size,
+                    "total_count": 0,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_prev": False,
+                },
+            }
+        except Exception as e:
+            logger.error(f"Failed to list VideoTasks: {e}")
+            return {
+                "items": [],
+                "pagination": {
+                    "page": 1,
+                    "page_size": page_size,
+                    "total_count": 0,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_prev": False,
+                },
+            }
 
 
 # Global repository instance
