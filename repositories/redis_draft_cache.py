@@ -262,7 +262,19 @@ class RedisDraftCache:
         except Exception as e:
             logger.warning(f"获取版本号失败: {e}")
 
-        # 降级：返回默认版本
+        # 降级：检查PostgreSQL中是否存在草稿
+        # 如果不存在，返回版本0（表示新草稿，尚未创建）
+        # 如果存在但获取版本号失败，返回版本1（保守估计）
+        try:
+            if not self.pg_storage.exists(draft_id):
+                logger.debug(
+                    f"草稿 {draft_id} 在PostgreSQL中不存在，返回版本0（新草稿）"
+                )
+                return (script_obj, 0)
+        except Exception as e:
+            logger.warning(f"检查草稿是否存在失败: {e}")
+
+        # 如果无法确定，返回版本1（保守估计，避免版本冲突）
         return (script_obj, 1)
 
     def _is_retryable_error(self, error: Exception) -> bool:
@@ -392,6 +404,49 @@ class RedisDraftCache:
             # 2. 如果提供了expected_version，立即同步到PG（保证一致性）
             # 这种情况下需要创建版本记录，因为涉及版本控制
             if expected_version is not None:
+                # 检查草稿在PostgreSQL中是否存在
+                draft_exists = self.pg_storage.exists(draft_id)
+                
+                if not draft_exists:
+                    # 草稿在PostgreSQL中不存在
+                    if expected_version == 0:
+                        # expected_version=0 表示新草稿，允许立即同步创建
+                        logger.debug(
+                            f"草稿 {draft_id} 在PostgreSQL中不存在，但 expected_version=0，"
+                            f"立即同步创建新草稿"
+                        )
+                        success = self.pg_storage.save_draft(
+                            draft_id,
+                            script_obj,
+                            expected_version=0,  # 创建新草稿
+                            create_version=True,
+                        )
+                        if success:
+                            # 清除脏数据标记（如果存在）
+                            if mark_dirty and dirty_key:
+                                try:
+                                    self.redis_client.delete(dirty_key)
+                                except Exception as e:
+                                    logger.warning(f"清除脏数据标记失败: {draft_id}: {e}")
+                            logger.debug(
+                                f"立即同步创建新草稿到PostgreSQL: {draft_id}"
+                            )
+                        else:
+                            # 同步失败，如果标记了脏数据则保留标记以便后台任务重试
+                            if mark_dirty:
+                                logger.warning(f"立即同步创建新草稿失败，保留脏数据标记: {draft_id}")
+                        return success
+                    else:
+                        # expected_version != 0 但草稿不存在，说明版本号不匹配
+                        # 不立即同步，标记为脏数据，由后台任务统一处理
+                        logger.debug(
+                            f"草稿 {draft_id} 在PostgreSQL中不存在，但传入了 expected_version={expected_version}，"
+                            f"不立即同步，标记为脏数据，由后台任务统一处理"
+                        )
+                        # 返回True表示Redis写入成功，脏数据标记已设置，等待后台同步
+                        return True
+                
+                # 草稿已存在，进行立即同步（版本控制）
                 success = self.pg_storage.save_draft(
                     draft_id,
                     script_obj,
