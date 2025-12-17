@@ -98,7 +98,7 @@ class AddTextRequest(BaseModel):
 
 
 @router.post("/add_text")
-def add_text(request: AddTextRequest, response: Response):
+async def add_text(request: AddTextRequest, response: Response):
     # Handle aliases
     font_color = (
         request.color
@@ -177,7 +177,7 @@ def add_text(request: AddTextRequest, response: Response):
     result = {"success": False, "output": "", "error": ""}
 
     try:
-        draft_result = add_text_impl(
+        draft_result = await add_text_impl(
             text=request.text,
             start=request.start,
             end=request.end,

@@ -11,7 +11,7 @@ from util.helpers import hex_to_rgb
 from .create_draft import get_draft
 
 
-def add_subtitle_impl(
+async def add_subtitle_impl(
     srt_path: str,
     draft_id: str = None,
     track_name: str = "subtitle",
@@ -60,7 +60,7 @@ def add_subtitle_impl(
     :return: Draft information
     """
     # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
+    draft_id, script = await get_draft(draft_id=draft_id)
 
     # Process subtitle content
     srt_content = None
@@ -155,7 +155,7 @@ def add_subtitle_impl(
     )
 
     # Persist updated script
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     return {
         "draft_id": draft_id,

@@ -50,7 +50,7 @@ async def get_segment_details_api(request: GetSegmentDetailsRequest):
         return result
 
     try:
-        segment_details = get_segment_details(
+        segment_details = await get_segment_details(
             request.draft_id, request.track_name, request.segment_id
         )
 
@@ -106,7 +106,7 @@ async def delete_segment_api(request: DeleteSegmentRequest):
         return result
 
     try:
-        delete_result = delete_segment(
+        delete_result = await delete_segment(
             request.draft_id,
             request.track_name,
             segment_index=request.segment_index,
@@ -193,7 +193,7 @@ async def modify_segment_api(request: ModifySegmentRequest):
         if request.clip_settings:
             clip_settings_dict = request.clip_settings.model_dump(exclude_none=True)
 
-        modify_result = modify_segment(
+        modify_result = await modify_segment(
             request.draft_id,
             request.track_name,
             request.segment_id,

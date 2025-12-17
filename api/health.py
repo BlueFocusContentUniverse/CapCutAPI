@@ -9,14 +9,13 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-def health_check(response: Response):
+async def health_check(response: Response):
     try:
         db_status = "unknown"
         try:
-            # Try opening a connection
-            eng = get_async_engine().sync_engine
-            with eng.connect() as conn:
-                conn.execute(text("SELECT 1"))
+            eng = get_async_engine()
+            async with eng.connect() as conn:
+                await conn.execute(text("SELECT 1"))
             db_status = "healthy"
         except Exception:
             db_status = "unavailable"

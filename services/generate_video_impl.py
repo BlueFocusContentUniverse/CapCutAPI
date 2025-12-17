@@ -64,7 +64,7 @@ async def generate_video_impl(
 
         from celery import Celery
 
-        script = query_script_impl(draft_id, force_update=False)
+        script = await query_script_impl(draft_id, force_update=False)
         if script is None:
             result["error"] = (
                 f"Draft {draft_id} not found in cache. Please create or save the draft first."

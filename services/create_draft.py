@@ -4,7 +4,8 @@ import uuid
 from enum import Enum
 
 import pyJianYingDraft as draft
-from draft_cache import cache_exists, get_from_cache, normalize_draft_id, update_cache
+from draft_cache import cache_exists, get_from_cache, normalize_draft_id
+from repositories.draft_repository import get_postgres_storage
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class DraftFramerate(Enum):
     FR_60 = 60.0
 
 
-def create_draft(
+async def create_draft(
     width=1080,
     height=1920,
     framerate=DraftFramerate.FR_30.value,
@@ -42,13 +43,14 @@ def create_draft(
         width, height, fps=framerate, name=name, resource=resource
     )
 
-    # Store in global cache
-    update_cache(draft_id, script)
+    # Persist the new draft immediately
+    pg_storage = get_postgres_storage()
+    await pg_storage.save_draft(draft_id, script, expected_version=0)
 
     return script, draft_id
 
 
-def get_draft(draft_id=None):
+async def get_draft(draft_id=None):
     """
     Get existing CapCut draft from storage
     :param draft_id: Draft ID (required), raises ValueError if None or not found
@@ -65,13 +67,13 @@ def get_draft(draft_id=None):
         logger.error("Invalid draft_id provided: %s", draft_id)
         raise ValueError("draft_id is required and must be a non-empty string.")
 
-    if not cache_exists(normalized_id):
+    if not await cache_exists(normalized_id):
         raise ValueError(f"Draft with ID '{normalized_id}' does not exist in storage.")
 
     # Get existing draft from cache (memory or PostgreSQL)
     logger.info("Retrieving draft %s from storage", normalized_id)
     print(f"Getting draft from storage: {normalized_id}")
-    script = get_from_cache(normalized_id)
+    script = await get_from_cache(normalized_id)
 
     if script is None:
         raise ValueError(
