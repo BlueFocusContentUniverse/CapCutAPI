@@ -181,7 +181,7 @@ def update_cache(
 
 def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
     """
-    Get draft from cache (Redis -> PostgreSQL -> Memory).
+    Get draft from cache (Redis -> PostgreSQL).
 
     Read-Through策略：优先从Redis获取，未命中则从PostgreSQL获取并缓存到Redis。
     """
@@ -224,11 +224,6 @@ def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
 
     except Exception as e:
         logger.error(f"Failed to get draft {cache_key} from PostgreSQL: {e}")
-        # Fallback to memory cache only
-        cached = DRAFT_CACHE.get(cache_key)
-        if cached:
-            logger.warning(f"Falling back to memory cache for draft {cache_key}")
-            return cached[0] if isinstance(cached, tuple) else cached
         return None
 
 
@@ -343,18 +338,14 @@ def cache_exists(key: str) -> bool:
             except Exception as e:
                 logger.warning(f"Redis exists check failed for {cache_key}: {e}")
 
-            pg_storage = get_postgres_storage()
-            return pg_storage.exists(cache_key)
-        else:
-            if cache_key in DRAFT_CACHE:
-                return True
-
-            pg_storage = get_postgres_storage()
-            return pg_storage.exists(cache_key)
+        # 2. 检查 PostgreSQL（最权威）
+        pg_storage = get_postgres_storage()
+        return pg_storage.exists(cache_key)
 
     except Exception as e:
+        # 评估是否需要降级
         logger.error(f"Failed to check if draft {cache_key} exists: {e}")
-        return cache_key in DRAFT_CACHE
+        return False
 
 
 def get_cache_stats() -> Dict:
