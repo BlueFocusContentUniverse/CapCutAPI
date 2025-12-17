@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Redis草稿缓存层（读取侧基于dogpile.cache，写入侧使用Redis客户端保证事务完整性）
+- add: dogpile.cache 的本地内存缓存：关闭，避免持有 ScriptFile 对象的引用导致内存泄漏
 - L1缓存：Redis（10分钟TTL）
 - L2持久化：PostgreSQL
 - 写入策略：Write-Through + Write-Behind
@@ -11,16 +12,19 @@ import logging
 import pickle
 import threading
 import time
+import os
+import pyJianYingDraft as draft
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 
 from dogpile.cache import make_region
-
-import pyJianYingDraft as draft
 from repositories.draft_repository import PostgresDraftStorage, get_postgres_storage
 
 logger = logging.getLogger(__name__)
+# 确保日志级别为 INFO
+if logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
 
 # Redis配置
 DRAFT_CACHE_TTL = 600  # 10分钟
@@ -61,19 +65,24 @@ class RedisDraftCache:
         self.max_sync_batch_size = max_sync_batch_size
         self.max_sync_workers = max_sync_workers
 
-        # 解析Redis URL
-        if redis_url:
-            redis_config = self._parse_redis_url(redis_url)
-        else:
-            # 从环境变量读取
-            import os
-
-            redis_url = os.getenv("DRAFT_CACHE_REDIS_URL", "redis://localhost:6379/3")
-            redis_config = self._parse_redis_url(redis_url)
+        # 从环境变量读取 Redis URL
+        redis_url = redis_url or os.getenv("DRAFT_CACHE_REDIS_URL")
+        if not redis_url:
+            raise ValueError("Redis URL 未配置，请设置环境变量 DRAFT_CACHE_REDIS_URL")
+        redis_config = self._parse_redis_url(redis_url)
 
         # 创建dogpile.cache region
         # key_mangler 直接返回原 key（不添加前缀）
-        self.cache_region = make_region(key_mangler=lambda key: key).configure(
+        # 配置说明：
+        # 1. 使用 dogpile.cache.redis 后端，数据只存储在Redis中
+        # 2. 禁用本地内存缓存（local_cache=None），避免 dogpile 持有 ScriptFile 对象的引用
+        #    这样所有请求都直接从 Redis 读取 bytes，反序列化后对象可以被 GC 回收
+        # 3. 配置 distributed_lock=True 启用分布式锁，防止缓存击穿（不受本地缓存影响）
+        # 4. 配置 redis_expiration_time 确保Redis中的键有过期时间
+        self.cache_region = make_region(
+            key_mangler=lambda key: key,
+            function_key_generator=None,  # 使用默认的 key 生成器
+        ).configure(
             "dogpile.cache.redis",
             arguments={
                 "host": redis_config["host"],
@@ -83,9 +92,15 @@ class RedisDraftCache:
                 "socket_timeout": 5,
                 "socket_connect_timeout": 5,
                 "decode_responses": False,  # 使用bytes模式（pickle需要）
+                "redis_expiration_time": DRAFT_CACHE_TTL,  # Redis中的键过期时间
+                "distributed_lock": True,  # 启用分布式锁，防止缓存击穿
+                "thread_local_lock": False,  # 当 distributed_lock=True 时，必须设置为 False
             },
-            expiration_time=DRAFT_CACHE_TTL,
+            expiration_time=DRAFT_CACHE_TTL,  # dogpile.cache的过期时间，用于锁机制
         )
+        # 禁用本地内存缓存，避免持有 ScriptFile 对象的引用导致内存泄漏
+        # 这样所有请求都直接从 Redis 读取 bytes，反序列化后对象可以被 GC 回收
+        self.cache_region.backend.local_cache = None
 
         # 创建Redis客户端用于脏数据标记和统计
         try:
@@ -161,14 +176,19 @@ class RedisDraftCache:
 
         Args:
             cached_data: 从 dogpile.cache 获取的数据
-                - 通常是 ScriptFile 对象（dogpile.cache 已自动反序列化）
-                - 也可能是 bytes（异常情况或旧数据）
+                - 通常是 ScriptFile 对象（dogpile.cache.redis 后端自动反序列化）
+                - 也可能是 bytes（异常情况，兼容处理）
             draft_id: 草稿ID（用于日志）
 
         Returns:
             ScriptFile 对象，如果反序列化失败则返回 None
+
+        注意：由于已禁用 dogpile.cache 的本地内存缓存（local_cache=None），
+        每次调用都直接从 Redis 读取 bytes 并反序列化，返回的是新对象，可以被 GC 回收。
+        因此，如果是 ScriptFile 对象，可以直接返回，无需重新序列化/反序列化。
         """
         # 如果已经是 ScriptFile 对象，直接返回
+        # 由于已禁用本地缓存，每次都是从 Redis 读取并反序列化的新对象，不会有内存泄漏问题
         if isinstance(cached_data, draft.ScriptFile):
             return cached_data
 
@@ -210,25 +230,36 @@ class RedisDraftCache:
         1. 先查Redis（dogpile.cache自动处理缓存击穿）
         2. 未命中则查PostgreSQL并写入Redis
         3. 命中后自动刷新TTL
+
+        注意：反序列化后的 ScriptFile 对象很大，会在Python内存中存在直到被垃圾回收
+        为了减少内存占用，我们确保只返回必要的对象，不保留额外的引用
         """
         cache_key = self._get_cache_key(draft_id)
 
         try:
             # 使用dogpile.cache的get_or_create，自动处理缓存击穿
-            def _get_from_pg() -> Optional[bytes]:
-                """从PostgreSQL获取并序列化"""
+            # 注意：dogpile.cache.redis 后端会自动序列化/反序列化
+            # 所以 _get_from_pg 应该返回 ScriptFile 对象，而不是 bytes
+            def _get_from_pg() -> Optional[draft.ScriptFile]:
+                """从PostgreSQL获取草稿对象"""
                 script_obj = self.pg_storage.get_draft(draft_id)
-                if script_obj:
-                    return pickle.dumps(script_obj)
-                return None
+                # dogpile.cache 会自动序列化这个对象并存储到 Redis
+                # 读取时会自动反序列化，返回 ScriptFile 对象
+                return script_obj
 
             # 使用get_or_create，自动处理缓存击穿和并发
+            # dogpile.cache.redis 后端会自动序列化/反序列化
+            # 所以 cached_data 可能是 ScriptFile 对象（如果来自缓存）或 None
             cached_data = self.cache_region.get_or_create(
                 cache_key, _get_from_pg, expiration_time=DRAFT_CACHE_TTL
             )
 
             if cached_data:
+                # dogpile.cache.redis 后端会自动反序列化，返回 ScriptFile 对象
+                # 但为了避免内存泄漏，我们需要确保每次都是新对象
                 script_obj = self._deserialize_cached_data(cached_data, draft_id)
+                # 清除 cached_data 引用，帮助垃圾回收
+                del cached_data
                 if script_obj:
                     logger.debug(f"从Redis缓存获取草稿: {draft_id}")
                     return script_obj
@@ -364,6 +395,7 @@ class RedisDraftCache:
         注意：写入时绕过dogpile.cache，直接使用Redis客户端以保证事务原子性
         """
         try:
+            logger.info(f"save_draft 被调用: draft_id={draft_id}, mark_dirty={mark_dirty}, expected_version={expected_version}")
             # 获取完整缓存key（字符串格式，Redis客户端会自动编码为bytes）
             cache_key = self._get_cache_key(draft_id)
 
@@ -380,97 +412,62 @@ class RedisDraftCache:
             # 操作1：写入缓存（直接使用Redis，但使用dogpile.cache的序列化格式）
             # Redis客户端会自动将字符串key编码为bytes（因为decode_responses=False）
             pipe.setex(cache_key, DRAFT_CACHE_TTL, serialized_data)
+            logger.debug(f"Pipeline 添加缓存写入: cache_key={cache_key}")
 
             # 操作2：标记为脏数据（如果需要）
             dirty_key = None
             if mark_dirty:
                 dirty_key = self._get_dirty_key(draft_id)
+                # 确保 key 格式正确（字符串会被 Redis 客户端自动编码为 bytes）
                 pipe.setex(dirty_key, DRAFT_CACHE_TTL * 2, b"1")
+                logger.info(f"Pipeline 添加脏数据标记: dirty_key={dirty_key}, TTL={DRAFT_CACHE_TTL * 2}")
+            else:
+                logger.warning(f"警告: 保存草稿 {draft_id} 时 mark_dirty=False，不会标记为脏数据")
 
             # 执行事务（保证原子性：所有命令一起执行）
             try:
+                logger.debug(f"执行 Redis 事务: draft_id={draft_id}, 命令数量={len(pipe.command_stack) if hasattr(pipe, 'command_stack') else 'unknown'}")
                 results = pipe.execute()
+                logger.info(f"Redis 事务执行完成: draft_id={draft_id}, results={results}, mark_dirty={mark_dirty}")
                 # 检查结果（Redis事务不保证回滚，需要检查返回值）
                 # results 是一个列表，每个元素对应一个命令的执行结果
                 if not results or not all(results):
-                    logger.warning(
-                        f"Redis事务执行部分失败: {draft_id}, results: {results}"
+                    logger.error(
+                        f"Redis事务执行部分失败: {draft_id}, results: {results}, mark_dirty={mark_dirty}, dirty_key={dirty_key}"
                     )
                     return False
+                # 验证脏数据标记是否成功设置
+                if mark_dirty and dirty_key:
+                    # 检查脏数据标记是否真的存在
+                    # Redis 客户端在 decode_responses=False 时需要 bytes，但字符串会自动编码
+                    # 为了确保兼容性，统一转换为 bytes
+                    dirty_key_bytes = dirty_key.encode('utf-8') if isinstance(dirty_key, str) else dirty_key
+                    # 等待一小段时间，确保 Redis 事务完全提交
+                    import time
+                    time.sleep(0.01)  # 10ms 延迟
+                    exists = self.redis_client.exists(dirty_key_bytes)
+                    ttl = self.redis_client.ttl(dirty_key_bytes)
+                    if not exists:
+                        logger.error(f"❌ 脏数据标记设置失败: {draft_id}, dirty_key={dirty_key}, dirty_key_bytes={dirty_key_bytes}, results={results}")
+                        # 尝试手动设置一次
+                        try:
+                            self.redis_client.setex(dirty_key_bytes, DRAFT_CACHE_TTL * 2, b"1")
+                            logger.info(f"手动设置脏数据标记成功: {draft_id}, dirty_key={dirty_key}")
+                        except Exception as e2:
+                            logger.error(f"手动设置脏数据标记也失败: {draft_id}, error={e2}")
+                    else:
+                        logger.info(f"✅ 脏数据标记设置成功: {draft_id}, dirty_key={dirty_key}, TTL={ttl}")
             except Exception as e:
-                logger.error(f"Redis事务执行失败: {draft_id}: {e}")
+                logger.error(f"Redis事务执行失败: {draft_id}: {e}", exc_info=True)
                 return False
 
-            # 2. 如果提供了expected_version，立即同步到PG（保证一致性）
-            # 这种情况下需要创建版本记录，因为涉及版本控制
-            if expected_version is not None:
-                # 检查草稿在PostgreSQL中是否存在
-                draft_exists = self.pg_storage.exists(draft_id)
-                
-                if not draft_exists:
-                    # 草稿在PostgreSQL中不存在
-                    if expected_version == 0:
-                        # expected_version=0 表示新草稿，允许立即同步创建
-                        logger.debug(
-                            f"草稿 {draft_id} 在PostgreSQL中不存在，但 expected_version=0，"
-                            f"立即同步创建新草稿"
-                        )
-                        success = self.pg_storage.save_draft(
-                            draft_id,
-                            script_obj,
-                            expected_version=0,  # 创建新草稿
-                            create_version=True,
-                        )
-                        if success:
-                            # 清除脏数据标记（如果存在）
-                            if mark_dirty and dirty_key:
-                                try:
-                                    self.redis_client.delete(dirty_key)
-                                except Exception as e:
-                                    logger.warning(f"清除脏数据标记失败: {draft_id}: {e}")
-                            logger.debug(
-                                f"立即同步创建新草稿到PostgreSQL: {draft_id}"
-                            )
-                        else:
-                            # 同步失败，如果标记了脏数据则保留标记以便后台任务重试
-                            if mark_dirty:
-                                logger.warning(f"立即同步创建新草稿失败，保留脏数据标记: {draft_id}")
-                        return success
-                    else:
-                        # expected_version != 0 但草稿不存在，说明版本号不匹配
-                        # 不立即同步，标记为脏数据，由后台任务统一处理
-                        logger.debug(
-                            f"草稿 {draft_id} 在PostgreSQL中不存在，但传入了 expected_version={expected_version}，"
-                            f"不立即同步，标记为脏数据，由后台任务统一处理"
-                        )
-                        # 返回True表示Redis写入成功，脏数据标记已设置，等待后台同步
-                        return True
-                
-                # 草稿已存在，进行立即同步（版本控制）
-                success = self.pg_storage.save_draft(
-                    draft_id,
-                    script_obj,
-                    expected_version=expected_version,
-                    create_version=True,  # 版本控制需要创建版本记录
-                )
-                if success:
-                    # 清除脏数据标记（如果存在）
-                    if mark_dirty and dirty_key:
-                        try:
-                            self.redis_client.delete(dirty_key)
-                        except Exception as e:
-                            logger.warning(f"清除脏数据标记失败: {draft_id}: {e}")
-                    logger.debug(
-                        f"立即同步草稿到PostgreSQL: {draft_id}（已创建版本记录）"
-                    )
-                else:
-                    # 同步失败，如果标记了脏数据则保留标记以便后台任务重试
-                    if mark_dirty:
-                        logger.warning(f"立即同步失败，保留脏数据标记: {draft_id}")
-                return success
-
-            # 3. 否则标记为脏数据，等待后台同步
-            logger.debug(f"草稿已写入Redis缓存: {draft_id}，等待后台同步")
+            # 2. 所有写入都使用 Write-Behind 策略，先写入 Redis，标记为脏数据
+            #    后台任务定期同步到 PostgreSQL，这样可以减轻 PG 压力
+            #    版本检查在后台同步时进行（_sync_single_draft 中会获取当前版本号并检查）
+            logger.info(
+                f"草稿已写入Redis缓存: {draft_id}，"
+                f"标记为脏数据，等待后台同步到PostgreSQL"
+            )
             return True
 
         except Exception as e:
@@ -495,7 +492,9 @@ class RedisDraftCache:
             try:
                 # 检查脏数据标记是否仍然存在（可能已被立即同步清除）
                 if not self.redis_client.exists(dirty_key):
-                    return (draft_id or "unknown", "skipped")
+                    draft_id_str = dirty_key.decode("utf-8").replace(DRAFT_DIRTY_KEY_PREFIX, "") if draft_id is None else draft_id
+                    logger.debug(f"跳过同步 {draft_id_str}: 脏数据标记已不存在（可能已被其他线程清除）")
+                    return (draft_id_str, "skipped")
 
                 # 提取draft_id（dirty_key 从 SCAN 返回的是 bytes，需要解码）
                 draft_id = dirty_key.decode("utf-8").replace(DRAFT_DIRTY_KEY_PREFIX, "")
@@ -506,20 +505,37 @@ class RedisDraftCache:
                     cached_data = self.cache_region.get(cache_key)
                 except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as e:
                     # 数据格式错误（永久性错误，不重试）
-                    logger.error(f"缓存数据格式错误 {draft_id}: {e}，清除脏标记并跳过")
-                    self.redis_client.delete(dirty_key)
+                    # 漏洞 3 修复：清理 Redis 缓存和 dogpile 缓存
+                    logger.error(f"缓存数据格式错误 {draft_id}: {e}，清除缓存和脏标记并跳过")
+                    try:
+                        self.cache_region.delete(cache_key)
+                        self.redis_client.delete(dirty_key)
+                    except Exception as cleanup_error:
+                        logger.error(f"清理缓存失败: {cleanup_error}")
                     return (draft_id, "skipped")
 
                 if not cached_data:
                     # 缓存已过期，清除脏数据标记（永久性错误，不重试）
-                    self.redis_client.delete(dirty_key)
+                    # 漏洞 3 修复：清理 Redis 缓存和 dogpile 缓存
+                    logger.warning(f"跳过同步 {draft_id}: 缓存已过期（TTL到期）")
+                    try:
+                        self.cache_region.delete(cache_key)
+                        self.redis_client.delete(dirty_key)
+                    except Exception as cleanup_error:
+                        logger.error(f"清理缓存失败: {cleanup_error}")
                     return (draft_id, "skipped")
 
                 # 反序列化缓存数据
                 script_obj = self._deserialize_cached_data(cached_data, draft_id)
                 if not script_obj:
                     # 反序列化失败（永久性错误，不重试）
-                    self.redis_client.delete(dirty_key)
+                    # 漏洞 3 修复：清理 Redis 缓存和 dogpile 缓存
+                    logger.warning(f"跳过同步 {draft_id}: 反序列化失败")
+                    try:
+                        self.cache_region.delete(cache_key)
+                        self.redis_client.delete(dirty_key)
+                    except Exception as cleanup_error:
+                        logger.error(f"清理缓存失败: {cleanup_error}")
                     return (draft_id, "skipped")
 
                 # 获取当前版本号（用于乐观锁，从PostgreSQL获取）
@@ -547,8 +563,19 @@ class RedisDraftCache:
                     return (draft_id, "synced")
                 else:
                     # 同步失败（版本冲突等永久性错误，不重试）
-                    logger.warning(f"同步草稿失败（可能是版本冲突）: {draft_id}")
-                    self.redis_client.expire(dirty_key, DRAFT_CACHE_TTL * 2)
+                    # 漏洞 2 修复：PG 写失败时，回滚 Redis 缓存，避免脏数据
+                    logger.warning(
+                        f"同步草稿失败（可能是版本冲突）: {draft_id}, "
+                        f"current_version={current_version}，回滚 Redis 缓存"
+                    )
+                    try:
+                        # 删除 Redis 缓存（回滚）
+                        self.cache_region.delete(cache_key)
+                        # 删除脏数据标记
+                        self.redis_client.delete(dirty_key)
+                        logger.info(f"已回滚 Redis 缓存: {draft_id}")
+                    except Exception as e:
+                        logger.error(f"回滚 Redis 缓存失败: {draft_id}, error={e}")
                     return (draft_id, "failed")
 
             except Exception as e:
@@ -567,19 +594,27 @@ class RedisDraftCache:
                     draft_id_str = draft_id or "unknown"
                     if retry_count >= max_retries:
                         logger.error(
-                            f"同步草稿失败（重试用尽） {draft_id_str}: {e}",
+                            f"同步草稿失败（重试用尽，已重试 {max_retries} 次） {draft_id_str}: {e}",
                             exc_info=True,
                         )
                     else:
                         logger.error(
-                            f"同步草稿失败（永久性错误） {draft_id_str}: {e}",
+                            f"同步草稿失败（永久性错误，不重试） {draft_id_str}: {e}",
                             exc_info=True,
                         )
-                    # 延长脏数据标记的TTL，确保不会丢失
+                    # 漏洞 2 修复：PG 写失败时，回滚 Redis 缓存，避免脏数据
+                    # 漏洞 3 修复：清理 Redis 缓存和 dogpile 缓存（虽然已禁用本地缓存，但为了完整性）
                     try:
-                        self.redis_client.expire(dirty_key, DRAFT_CACHE_TTL * 2)
-                    except Exception:
-                        pass  # 忽略延长TTL失败
+                        if draft_id:
+                            cache_key = self._get_cache_key(draft_id)
+                            # 删除 Redis 缓存（回滚）
+                            self.cache_region.delete(cache_key)
+                            # 删除脏数据标记
+                            if dirty_key:
+                                self.redis_client.delete(dirty_key)
+                            logger.info(f"已回滚 Redis 缓存（永久性错误）: {draft_id_str}")
+                    except Exception as rollback_error:
+                        logger.error(f"回滚 Redis 缓存失败: {draft_id_str}, error={rollback_error}")
                     return (draft_id_str, "failed")
 
         # 理论上不会到达这里
@@ -588,8 +623,11 @@ class RedisDraftCache:
     def _sync_to_postgres(self):
         """后台同步任务：将脏数据同步到PostgreSQL（支持批量限制和并发处理）"""
         try:
+            logger.info("开始执行后台同步任务：扫描脏数据标记...")
             # 使用SCAN代替KEYS，避免阻塞Redis
             pattern = f"{DRAFT_DIRTY_KEY_PREFIX}*"
+            pattern_bytes = pattern.encode('utf-8')
+            logger.debug(f"扫描模式: {pattern}, pattern_bytes: {pattern_bytes}")
             dirty_keys = []
             cursor = 0
             scan_count = 0
@@ -598,17 +636,24 @@ class RedisDraftCache:
             while scan_count < max_scan_iterations:
                 try:
                     cursor, keys = self.redis_client.scan(
-                        cursor, match=pattern.encode(), count=100
+                        cursor, match=pattern_bytes, count=100
                     )
+                    logger.debug(f"SCAN 迭代 {scan_count}: cursor={cursor}, 找到 {len(keys)} 个key")
                     dirty_keys.extend(keys)
                     scan_count += 1
                     if cursor == 0:
                         break
                 except Exception as e:
-                    logger.error(f"SCAN操作失败: {e}")
+                    logger.error(f"SCAN操作失败: {e}", exc_info=True)
                     break
 
+            logger.info(f"扫描完成: 找到 {len(dirty_keys)} 个脏数据标记")
+            if dirty_keys:
+                logger.info(f"脏数据标记列表: {[k.decode('utf-8') if isinstance(k, bytes) else k for k in dirty_keys[:5]]}")
+
             if not dirty_keys:
+                # 即使没有脏数据，也输出一条 INFO 日志，表示同步任务正常运行
+                logger.info("后台同步任务执行：当前没有脏数据需要同步")
                 return
 
             # 方案A: 限制单次同步数量（避免单次同步时间过长）
@@ -627,6 +672,19 @@ class RedisDraftCache:
             synced_count = 0
             failed_count = 0
             skipped_count = 0
+            # 统计失败和跳过的原因
+            skip_reasons = {
+                "dirty_key_not_exists": 0,  # 脏数据标记已不存在
+                "cache_expired": 0,  # 缓存已过期
+                "deserialize_failed": 0,  # 反序列化失败
+                "data_format_error": 0,  # 数据格式错误
+            }
+            fail_reasons = {
+                "version_conflict": 0,  # 版本冲突
+                "retry_exhausted": 0,  # 重试用尽
+                "permanent_error": 0,  # 永久性错误
+                "exception": 0,  # 异常
+            }
 
             with ThreadPoolExecutor(max_workers=self.max_sync_workers) as executor:
                 # 提交所有任务
@@ -638,15 +696,18 @@ class RedisDraftCache:
                 # 收集结果
                 for future in as_completed(future_to_key):
                     try:
-                        _, result = future.result()
+                        draft_id, result = future.result()
                         if result == "synced":
                             synced_count += 1
                         elif result == "failed":
                             failed_count += 1
+                            # 失败原因已在 _sync_single_draft 中记录到日志
                         elif result == "skipped":
                             skipped_count += 1
+                            # 跳过原因已在 _sync_single_draft 中记录到日志
                     except Exception as e:
                         failed_count += 1
+                        fail_reasons["exception"] += 1
                         dirty_key = future_to_key[future]
                         draft_id = (
                             dirty_key.decode("utf-8").replace(
@@ -657,13 +718,24 @@ class RedisDraftCache:
                         )
                         logger.error(f"同步任务异常 {draft_id}: {e}", exc_info=True)
 
-            if synced_count > 0 or failed_count > 0 or skipped_count > 0:
-                logger.info(
-                    f"同步完成: {synced_count} 成功, {failed_count} 失败, {skipped_count} 跳过, 共 {len(dirty_keys)} 个脏数据标记"
+            # 无论是否有同步结果，都输出日志
+            logger.info(
+                f"同步完成: {synced_count} 成功, {failed_count} 失败, {skipped_count} 跳过, 共 {len(dirty_keys)} 个脏数据标记"
+            )
+            # 输出失败和跳过的详细信息（如果有）
+            if failed_count > 0:
+                logger.warning(
+                    f"失败详情: 异常={fail_reasons.get('exception', 0)} "
+                    f"(注意：版本冲突、重试用尽等详细原因请查看上面的 WARNING/ERROR 日志)"
                 )
-                if total_count > self.max_sync_batch_size:
-                    remaining = total_count - self.max_sync_batch_size
-                    logger.info(f"剩余 {remaining} 个脏数据将在下次同步时处理")
+            if skipped_count > 0:
+                logger.info(
+                    f"跳过详情: 脏数据标记已不存在或缓存已过期 "
+                    f"(这是正常的，可能因为并发同步或缓存TTL到期)"
+                )
+            if total_count > self.max_sync_batch_size:
+                remaining = total_count - self.max_sync_batch_size
+                logger.info(f"剩余 {remaining} 个脏数据将在下次同步时处理")
 
         except Exception as e:
             logger.error(f"后台同步任务失败: {e}", exc_info=True)
@@ -672,6 +744,12 @@ class RedisDraftCache:
         """启动后台同步任务"""
 
         def sync_loop():
+            # 启动时立即执行一次同步检查
+            logger.info(f"后台同步任务已启动，同步间隔: {SYNC_INTERVAL} 秒")
+            if not self._stop_sync:
+                self._sync_to_postgres()
+            
+            # 然后按间隔定期执行
             while not self._stop_sync:
                 try:
                     time.sleep(SYNC_INTERVAL)
@@ -683,7 +761,6 @@ class RedisDraftCache:
         self._stop_sync = False
         self._sync_thread = threading.Thread(target=sync_loop, daemon=True)
         self._sync_thread.start()
-        logger.info("后台同步任务已启动")
 
     def stop_sync_task(self):
         """停止后台同步任务"""

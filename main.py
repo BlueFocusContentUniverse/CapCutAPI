@@ -23,6 +23,10 @@ if env_file.exists():
     load_dotenv(env_file, override=True)
 
 # Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Create MCP server instance
@@ -111,4 +115,5 @@ if __name__ == "__main__":
 
     from settings.local import PORT
 
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    # 配置 uvicorn 日志级别
+    uvicorn.run(app, host="0.0.0.0", port=PORT,log_level="info")
