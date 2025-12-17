@@ -95,6 +95,7 @@ async def update_cache(
     Returns:
         True if update succeeded, False if version mismatch occurred
     """
+    logger.info(f"update_cache 被调用: key={key}, expected_version={expected_version}, REDIS_CACHE_AVAILABLE={REDIS_CACHE_AVAILABLE}")
     cache_key = _normalize_cache_key(key)
     if not cache_key:
         logger.error("Cannot update cache with invalid draft key: %s", key)
@@ -106,9 +107,12 @@ async def update_cache(
             try:
                 redis_cache = get_redis_draft_cache()
                 if redis_cache:
+                    logger.info(f"准备调用 redis_cache.save_draft: cache_key={cache_key}, mark_dirty=True")
+                    # 确保标记为脏数据，以便后台任务同步到 PostgreSQL
                     success = redis_cache.save_draft(
-                        cache_key, value, expected_version=expected_version
+                        cache_key, value, expected_version=expected_version, mark_dirty=True
                     )
+                    logger.info(f"redis_cache.save_draft 返回: success={success}")
                     if success:
                         # 清除内存缓存（重要：其他进程可能已更新）
                         if cache_key in DRAFT_CACHE:
@@ -127,6 +131,7 @@ async def update_cache(
                 )
 
         # 降级到PostgreSQL
+        # 漏洞 1 修复：确保 PG 写成功后，如果 Redis 可用，也写入 Redis（保证一致性）
         pg_storage = get_postgres_storage()
         success = await pg_storage.save_draft(
             cache_key, value, expected_version=expected_version
@@ -136,7 +141,30 @@ async def update_cache(
             logger.warning(
                 f"Failed to update draft {cache_key} due to version mismatch or other error"
             )
+            # 漏洞 1 修复：PG 写失败时，如果 Redis 中有数据，应该清理 Redis 缓存
+            if REDIS_CACHE_AVAILABLE:
+                try:
+                    redis_cache = get_redis_draft_cache()
+                    if redis_cache:
+                        # 清理 Redis 缓存，避免不一致
+                        redis_cache.cache_region.delete(redis_cache._get_cache_key(cache_key))
+                        dirty_key = redis_cache._get_dirty_key(cache_key)
+                        redis_cache.redis_client.delete(dirty_key.encode('utf-8') if isinstance(dirty_key, str) else dirty_key)
+                        logger.info(f"已清理 Redis 缓存（PG 写失败）: {cache_key}")
+                except Exception as e:
+                    logger.warning(f"清理 Redis 缓存失败: {e}")
             return False
+
+        # 漏洞 1 修复：PG 写成功后，如果 Redis 可用，也写入 Redis（保证一致性）
+        # 使用 mark_dirty=False，因为数据已经在 PG 中，不需要标记为脏数据
+        if REDIS_CACHE_AVAILABLE:
+            try:
+                redis_cache = get_redis_draft_cache()
+                if redis_cache:
+                    redis_cache.save_draft(cache_key, value, mark_dirty=False)
+                    logger.debug(f"已同步到 Redis 缓存（PG 写成功）: {cache_key}")
+            except Exception as e:
+                logger.warning(f"同步到 Redis 缓存失败: {e}，但不影响主流程")
 
         # Clear in-memory cache to force reload from DB (ensures consistency)
         # This is important because another process might have updated the draft
@@ -429,9 +457,22 @@ async def update_draft_with_retry(
             modifier_func(script)
 
             # Try to save with version check
-            success = await update_cache(
-                normalized_id, script, expected_version=current_version
-            )
+            # 如果 version=0，表示草稿在 PG 中不存在，使用 Write-Behind 策略（不立即同步）
+            # 这样可以减轻 PG 压力，让后台任务统一同步
+            # 只有当 version > 0 时，才使用乐观锁控制，立即同步以保证一致性
+            if current_version == 0:
+                # 新草稿，使用 Write-Behind 策略，不立即同步到 PG
+                logger.debug(
+                    f"草稿 {normalized_id} 在 PG 中不存在（version=0），使用 Write-Behind 策略，不立即同步"
+                )
+                success = await update_cache(
+                    normalized_id, script, expected_version=None
+                )
+            else:
+                # 已存在的草稿，使用乐观锁控制，立即同步以保证一致性
+                success = await update_cache(
+                    normalized_id, script, expected_version=current_version
+                )
 
             if success:
                 logger.info(
