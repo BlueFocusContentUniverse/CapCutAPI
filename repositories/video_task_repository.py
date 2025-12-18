@@ -6,11 +6,12 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
-from db import get_session
-from models import VideoTask, VideoTaskStatus
+from db import get_async_session
+from models import Video, VideoTask, VideoTaskStatus
+from util.helpers import sign_cdn_type_d
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class VideoTaskRepository:
     """Repository for managing VideoTask records."""
 
-    def update_task_status(
+    async def update_task_status(
         self,
         task_id: str,
         status: Optional[str] = None,
@@ -44,9 +45,11 @@ class VideoTaskRepository:
             True if update succeeded, False otherwise
         """
         try:
-            with get_session() as session:
-                task = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
+            async with get_async_session() as session:
+                task = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
                 ).scalar_one_or_none()
 
                 if task is None:
@@ -87,7 +90,7 @@ class VideoTaskRepository:
             logger.error(f"Failed to update VideoTask {task_id}: {e}")
             return False
 
-    def link_video_to_task(self, task_id: str, video_id: str) -> bool:
+    async def link_video_to_task(self, task_id: str, video_id: str) -> bool:
         """
         Link a video_id to a VideoTask.
 
@@ -99,9 +102,11 @@ class VideoTaskRepository:
             True if link succeeded, False otherwise
         """
         try:
-            with get_session() as session:
-                task = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
+            async with get_async_session() as session:
+                task = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
                 ).scalar_one_or_none()
 
                 if task is None:
@@ -121,7 +126,7 @@ class VideoTaskRepository:
             logger.error(f"Failed to link video to VideoTask {task_id}: {e}")
             return False
 
-    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
         """
         Retrieve a VideoTask by task_id.
 
@@ -132,16 +137,24 @@ class VideoTaskRepository:
             Dict with task metadata or None if not found
         """
         try:
-            with get_session() as session:
-                task = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
-                ).scalar_one_or_none()
+            async with get_async_session() as session:
+                row = (
+                    await session.execute(
+                        select(VideoTask, Video.oss_url.label("oss_url"))
+                        .join(Video, VideoTask.video_id == Video.video_id, isouter=True)
+                        .where(VideoTask.task_id == task_id)
+                    )
+                ).one_or_none()
 
-                if task is None:
+                if row is None:
                     logger.warning(f"VideoTask {task_id} not found")
                     return None
 
+                task, oss_url = row
+                signed_oss_url = sign_cdn_type_d(oss_url) if oss_url else None
+
                 return {
+                    "id": task.id,
                     "task_id": task.task_id,
                     "draft_id": task.draft_id,
                     "video_id": task.video_id,
@@ -153,6 +166,7 @@ class VideoTaskRepository:
                     "progress": task.progress,
                     "message": task.message,
                     "extra": task.extra,
+                    "oss_url": signed_oss_url,
                     "created_at": int(task.created_at.timestamp()),
                     "updated_at": int(task.updated_at.timestamp()),
                 }
@@ -164,7 +178,7 @@ class VideoTaskRepository:
             logger.error(f"Failed to retrieve VideoTask {task_id}: {e}")
             return None
 
-    def create_task(
+    async def create_task(
         self,
         task_id: str,
         draft_id: str,
@@ -188,10 +202,12 @@ class VideoTaskRepository:
             True if creation succeeded, False otherwise
         """
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 # Check if task_id already exists
-                existing = session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
+                existing = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
                 ).scalar_one_or_none()
 
                 if existing:
@@ -217,6 +233,130 @@ class VideoTaskRepository:
         except Exception as e:
             logger.error(f"Failed to create VideoTask {task_id}: {e}")
             return False
+
+    async def list_tasks(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        draft_id: Optional[str] = None,
+        render_status: Optional[VideoTaskStatus] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        List VideoTasks with optional filters and include related Video.oss_url.
+
+        Returns camelCase keys to match Node.js consumers.
+        """
+        try:
+            page = max(1, page)
+            page_size = min(max(1, page_size), 500)
+            offset = (page - 1) * page_size
+
+            async with get_async_session() as session:
+                base_query = select(VideoTask, Video.oss_url.label("oss_url")).join(
+                    Video, VideoTask.video_id == Video.video_id, isouter=True
+                )
+
+                count_query = select(func.count(VideoTask.id))
+
+                if draft_id:
+                    base_query = base_query.where(VideoTask.draft_id == draft_id)
+                    count_query = count_query.where(VideoTask.draft_id == draft_id)
+
+                if render_status:
+                    base_query = base_query.where(
+                        VideoTask.render_status == render_status
+                    )
+                    count_query = count_query.where(
+                        VideoTask.render_status == render_status
+                    )
+
+                if start_date:
+                    base_query = base_query.where(VideoTask.created_at >= start_date)
+                    count_query = count_query.where(VideoTask.created_at >= start_date)
+
+                if end_date:
+                    base_query = base_query.where(VideoTask.created_at <= end_date)
+                    count_query = count_query.where(VideoTask.created_at <= end_date)
+
+                total_count = (await session.execute(count_query)).scalar() or 0
+
+                rows = (
+                    await session.execute(
+                        base_query.order_by(VideoTask.created_at.desc())
+                        .limit(page_size)
+                        .offset(offset)
+                    )
+                ).all()
+
+                items: list[dict[str, Any]] = []
+                for video_task, oss_url in rows:
+                    items.append(
+                        {
+                            "id": video_task.id,
+                            "taskId": video_task.task_id,
+                            "draftId": video_task.draft_id,
+                            "videoId": video_task.video_id,
+                            "videoName": video_task.video_name,
+                            "renderStatus": video_task.render_status.value
+                            if video_task.render_status
+                            else None,
+                            "progress": video_task.progress,
+                            "message": video_task.message,
+                            "extra": video_task.extra,
+                            "createdAt": int(video_task.created_at.timestamp())
+                            if video_task.created_at
+                            else None,
+                            "updatedAt": int(video_task.updated_at.timestamp())
+                            if video_task.updated_at
+                            else None,
+                            "ossUrl": sign_cdn_type_d(oss_url) if oss_url else None,
+                        }
+                    )
+
+                total_pages = (
+                    (total_count + page_size - 1) // page_size if page_size else 0
+                )
+
+                return {
+                    "items": items,
+                    "pagination": {
+                        "page": page,
+                        "page_size": page_size,
+                        "total_count": total_count,
+                        "total_pages": total_pages,
+                        "has_next": page < total_pages,
+                        "has_prev": page > 1,
+                    },
+                }
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error listing VideoTasks: {e}")
+            return {
+                "items": [],
+                "pagination": {
+                    "page": 1,
+                    "page_size": page_size,
+                    "total_count": 0,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_prev": False,
+                },
+            }
+        except Exception as e:
+            logger.error(f"Failed to list VideoTasks: {e}")
+            return {
+                "items": [],
+                "pagination": {
+                    "page": 1,
+                    "page_size": page_size,
+                    "total_count": 0,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_prev": False,
+                },
+            }
 
 
 # Global repository instance

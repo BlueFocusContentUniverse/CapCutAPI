@@ -243,7 +243,7 @@ async def add_audio_track(
     fade_out_duration: float = 0.0,
 ) -> Dict[str, str]:
     # Get or create draft (initial fetch for validation only)
-    draft_id, _ = get_draft(draft_id=draft_id)
+    draft_id, _ = await get_draft(draft_id=draft_id)
     logger.info(f"Starting audio track addition to draft {draft_id}")
 
     detected_format = None
@@ -282,7 +282,7 @@ async def add_audio_track(
     def modify_draft(script):
         _apply_audio_segment_to_script(script, payload, draft_id)
 
-    success, last_error = update_draft_with_retry(
+    success, last_error = await update_draft_with_retry(
         draft_id, modify_draft, return_error=True
     )
 
@@ -315,7 +315,7 @@ async def batch_add_audio_track(
     if not audios:
         raise ValueError("audios parameter must contain at least one audio entry")
 
-    draft_id, _ = get_draft(draft_id=draft_id)
+    draft_id, _ = await get_draft(draft_id=draft_id)
     logger.info(
         f"Starting batch audio track addition to draft {draft_id} (count={len(audios)})"
     )
@@ -400,7 +400,7 @@ async def batch_add_audio_track(
                     f"for URL {payload.audio_url}: {exc}"
                 ) from exc
 
-    success, last_error = update_draft_with_retry(
+    success, last_error = await update_draft_with_retry(
         draft_id, modify_draft, return_error=True
     )
     if not success:

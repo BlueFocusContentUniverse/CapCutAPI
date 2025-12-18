@@ -7,7 +7,7 @@ from pyJianYingDraft import exceptions
 from .create_draft import get_draft
 
 
-def add_video_keyframe_impl(
+async def add_video_keyframe_impl(
     draft_id: Optional[str] = None,
     track_name: str = "main",
     property_type: str = "alpha",
@@ -48,7 +48,7 @@ def add_video_keyframe_impl(
     :return: Updated draft information
     """
     # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
+    draft_id, script = await get_draft(draft_id=draft_id)
 
     try:
         # Get specified track
@@ -115,7 +115,7 @@ def add_video_keyframe_impl(
             result["added_keyframes_count"] = added_count
 
         # Persist updated script
-        update_cache(draft_id, script)
+        await update_cache(draft_id, script)
 
         return result
 

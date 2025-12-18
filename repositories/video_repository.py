@@ -1,5 +1,5 @@
 """
-Repository for Video model operations.
+Repository for Video model operations (async).
 """
 
 import logging
@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
-from db import get_session
+from db import get_async_session
 from models import Video
 from util.cos_client import get_cos_client
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class VideoRepository:
     """Repository for managing Video records and associated OSS objects."""
 
-    def create_video(
+    async def create_video(
         self,
         draft_id: str,
         oss_url: str,
@@ -32,28 +32,9 @@ class VideoRepository:
         thumbnail_url: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Optional[str]:
-        """
-        Create a new video record with auto-generated UUID video_id.
-
-        Args:
-            draft_id: Associated draft identifier
-            oss_url: Object storage URL for the video file
-            video_name: Optional video name
-            resolution: Optional resolution (e.g., "1920x1080", "1080p")
-            framerate: Optional framerate (e.g., "30", "60")
-            duration: Optional duration in seconds
-            file_size: Optional file size in bytes
-            thumbnail_url: Optional thumbnail/preview URL
-            extra: Optional additional metadata as JSONB
-
-        Returns:
-            The generated video_id (UUID string) if creation succeeded, None otherwise
-        """
         try:
-            with get_session() as session:
-                # Generate UUID for video_id
+            async with get_async_session() as session:
                 video_id = str(uuid.uuid4())
-
                 video = Video(
                     video_id=video_id,
                     draft_id=draft_id,
@@ -67,12 +48,10 @@ class VideoRepository:
                     extra=extra,
                 )
                 session.add(video)
-
                 logger.info(
                     f"Created video record: video_id={video_id} for draft {draft_id}"
                 )
                 return video_id
-
         except SQLAlchemyError as e:
             logger.error(f"Database error creating video for draft {draft_id}: {e}")
             return None
@@ -80,20 +59,13 @@ class VideoRepository:
             logger.error(f"Failed to create video for draft {draft_id}: {e}")
             return None
 
-    def get_video(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve a video by video_id (UUID string).
-
-        Args:
-            video_id: Video identifier (UUID string)
-
-        Returns:
-            Dict with video metadata or None if not found
-        """
+    async def get_video(self, video_id: str) -> Optional[Dict[str, Any]]:
         try:
-            with get_session() as session:
-                video = session.execute(
-                    select(Video).where(Video.video_id == video_id)
+            async with get_async_session() as session:
+                video = (
+                    await session.execute(
+                        select(Video).where(Video.video_id == video_id)
+                    )
                 ).scalar_one_or_none()
 
                 if video is None:
@@ -114,7 +86,6 @@ class VideoRepository:
                     "created_at": int(video.created_at.timestamp()),
                     "updated_at": int(video.updated_at.timestamp()),
                 }
-
         except SQLAlchemyError as e:
             logger.error(f"Database error retrieving video {video_id}: {e}")
             return None
@@ -122,23 +93,16 @@ class VideoRepository:
             logger.error(f"Failed to retrieve video {video_id}: {e}")
             return None
 
-    def get_videos_by_draft(self, draft_id: str) -> List[Dict[str, Any]]:
-        """
-        Get all videos associated with a draft_id.
-
-        Args:
-            draft_id: Draft identifier
-
-        Returns:
-            List of video metadata dicts
-        """
+    async def get_videos_by_draft(self, draft_id: str) -> List[Dict[str, Any]]:
         try:
-            with get_session() as session:
+            async with get_async_session() as session:
                 videos = (
-                    session.execute(
-                        select(Video)
-                        .where(Video.draft_id == draft_id)
-                        .order_by(Video.created_at.desc())
+                    (
+                        await session.execute(
+                            select(Video)
+                            .where(Video.draft_id == draft_id)
+                            .order_by(Video.created_at.desc())
+                        )
                     )
                     .scalars()
                     .all()
@@ -165,7 +129,6 @@ class VideoRepository:
 
                 logger.info(f"Retrieved {len(results)} videos for draft {draft_id}")
                 return results
-
         except SQLAlchemyError as e:
             logger.error(f"Database error retrieving videos for draft {draft_id}: {e}")
             return []
@@ -173,7 +136,7 @@ class VideoRepository:
             logger.error(f"Failed to retrieve videos for draft {draft_id}: {e}")
             return []
 
-    def update_video(
+    async def update_video(
         self,
         video_id: str,
         video_name: Optional[str] = None,
@@ -185,34 +148,18 @@ class VideoRepository:
         thumbnail_url: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """
-        Update video metadata.
-
-        Args:
-            video_id: Video identifier (UUID string)
-            video_name: Optional new video name
-            resolution: Optional new resolution
-            framerate: Optional new framerate
-            duration: Optional new duration
-            file_size: Optional new file size
-            oss_url: Optional new OSS URL
-            thumbnail_url: Optional new thumbnail URL
-            extra: Optional new extra metadata
-
-        Returns:
-            True if update succeeded, False otherwise
-        """
         try:
-            with get_session() as session:
-                video = session.execute(
-                    select(Video).where(Video.video_id == video_id)
+            async with get_async_session() as session:
+                video = (
+                    await session.execute(
+                        select(Video).where(Video.video_id == video_id)
+                    )
                 ).scalar_one_or_none()
 
                 if video is None:
                     logger.warning(f"Video {video_id} not found for update")
                     return False
 
-                # Update only provided fields
                 if video_name is not None:
                     video.video_name = video_name
                 if resolution is not None:
@@ -231,10 +178,8 @@ class VideoRepository:
                     video.extra = extra
 
                 video.updated_at = datetime.now(timezone.utc)
-
                 logger.info(f"Updated video {video_id}")
                 return True
-
         except SQLAlchemyError as e:
             logger.error(f"Database error updating video {video_id}: {e}")
             return False
@@ -242,21 +187,13 @@ class VideoRepository:
             logger.error(f"Failed to update video {video_id}: {e}")
             return False
 
-    def delete_video(self, video_id: str, delete_oss: bool = True) -> bool:
-        """
-        Delete a video record and optionally its remote OSS object.
-
-        Args:
-            video_id: Video identifier (UUID string)
-            delete_oss: If True, also delete the remote OSS object
-
-        Returns:
-            True if deletion succeeded, False otherwise
-        """
+    async def delete_video(self, video_id: str, delete_oss: bool = True) -> bool:
         try:
-            with get_session() as session:
-                video = session.execute(
-                    select(Video).where(Video.video_id == video_id)
+            async with get_async_session() as session:
+                video = (
+                    await session.execute(
+                        select(Video).where(Video.video_id == video_id)
+                    )
                 ).scalar_one_or_none()
 
                 if video is None:
@@ -264,12 +201,9 @@ class VideoRepository:
                     return False
 
                 oss_url = video.oss_url
-
-                # Delete from database
                 session.delete(video)
                 logger.info(f"Deleted video record {video_id} from database")
 
-            # Delete from OSS if requested and URL exists
             if delete_oss and oss_url:
                 cos_client = get_cos_client()
                 if cos_client.is_available():
@@ -286,7 +220,6 @@ class VideoRepository:
                     )
 
             return True
-
         except SQLAlchemyError as e:
             logger.error(f"Database error deleting video {video_id}: {e}")
             return False
@@ -294,44 +227,31 @@ class VideoRepository:
             logger.error(f"Failed to delete video {video_id}: {e}")
             return False
 
-    def list_videos(
+    async def list_videos(
         self, page: int = 1, page_size: int = 100, draft_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        List videos with pagination.
-
-        Args:
-            page: Page number (1-indexed)
-            page_size: Number of items per page
-            draft_id: Optional filter by draft_id
-
-        Returns:
-            Dict with videos list and pagination metadata
-        """
         try:
-            # Ensure valid pagination parameters
             page = max(1, page)
             page_size = min(max(1, page_size), 1000)
             offset = (page - 1) * page_size
 
-            with get_session() as session:
-                # Build query
+            async with get_async_session() as session:
                 query = select(Video)
                 if draft_id:
                     query = query.where(Video.draft_id == draft_id)
 
-                # Get total count
                 count_query = select(func.count(Video.id))
                 if draft_id:
                     count_query = count_query.where(Video.draft_id == draft_id)
-                total_count = session.execute(count_query).scalar() or 0
+                total_count = (await session.execute(count_query)).scalar() or 0
 
-                # Get paginated results
                 videos = (
-                    session.execute(
-                        query.order_by(Video.created_at.desc())
-                        .limit(page_size)
-                        .offset(offset)
+                    (
+                        await session.execute(
+                            query.order_by(Video.created_at.desc())
+                            .limit(page_size)
+                            .offset(offset)
+                        )
                     )
                     .scalars()
                     .all()
@@ -353,6 +273,7 @@ class VideoRepository:
                             "extra": video.extra,
                             "created_at": int(video.created_at.timestamp()),
                             "updated_at": int(video.updated_at.timestamp()),
+                            "render_status": video.render_status,
                         }
                     )
 
@@ -375,7 +296,6 @@ class VideoRepository:
                         "has_prev": page > 1,
                     },
                 }
-
         except SQLAlchemyError as e:
             logger.error(f"Database error listing videos: {e}")
             return {
@@ -414,3 +334,4 @@ def get_video_repository() -> VideoRepository:
     if _video_repository is None:
         _video_repository = VideoRepository()
     return _video_repository
+    """Get or create the global VideoRepository instance."""

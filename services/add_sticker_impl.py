@@ -7,7 +7,7 @@ from pyJianYingDraft import exceptions, trange
 from .create_draft import get_draft
 
 
-def add_sticker_impl(
+async def add_sticker_impl(
     resource_id: str,
     start: float,
     end: float,
@@ -42,7 +42,7 @@ def add_sticker_impl(
     :return: Updated draft information
     """
     # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
+    draft_id, script = await get_draft(draft_id=draft_id)
 
     # Add sticker track
     if track_name is not None:
@@ -81,7 +81,7 @@ def add_sticker_impl(
     script.add_segment(sticker_segment, track_name=track_name)
 
     # Persist updated script to PostgreSQL and cache
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     return {
         "draft_id": draft_id,

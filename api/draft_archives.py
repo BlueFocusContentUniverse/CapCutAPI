@@ -41,7 +41,7 @@ async def list_archives(
 
     try:
         storage = get_postgres_archive_storage()
-        archives_data = storage.list_archives(
+        archives_data = await storage.list_archives(
             draft_id=draft_id, user_id=user_id, page=page, page_size=page_size
         )
 
@@ -68,7 +68,7 @@ async def get_archive(archive_id: str):
 
     try:
         storage = get_postgres_archive_storage()
-        archive = storage.get_archive_by_id(archive_id)
+        archive = await storage.get_archive_by_id(archive_id)
 
         if archive is None:
             result["error"] = f"Archive {archive_id} not found"
@@ -97,7 +97,7 @@ async def get_archive_by_draft(
 
     try:
         storage = get_postgres_archive_storage()
-        archive = storage.get_archive_by_draft(draft_id, draft_version)
+        archive = await storage.get_archive_by_draft(draft_id, draft_version)
 
         if archive is None:
             result["error"] = (
@@ -146,7 +146,7 @@ async def update_archive(archive_id: str, request: UpdateArchiveRequest):
             return JSONResponse(status_code=400, content=result)
 
         storage = get_postgres_archive_storage()
-        success = storage.update_archive(archive_id, **update_data)
+        success = await storage.update_archive(archive_id, **update_data)
 
         if not success:
             result["error"] = (
@@ -181,7 +181,7 @@ async def delete_archive(archive_id: str):
         storage = get_postgres_archive_storage()
 
         # Get archive details first to retrieve the download_url
-        archive = storage.get_archive_by_id(archive_id)
+        archive = await storage.get_archive_by_id(archive_id)
 
         if not archive:
             result["error"] = f"Archive {archive_id} not found."
@@ -212,7 +212,7 @@ async def delete_archive(archive_id: str):
             )
 
         # Delete archive record from database
-        success = storage.delete_archive(archive_id)
+        success = await storage.delete_archive(archive_id)
 
         if not success:
             result["error"] = f"Failed to delete archive {archive_id} from database."
@@ -253,7 +253,7 @@ async def batch_delete_archives(request: BatchDeleteRequest):
         for archive_id in request.archive_ids:
             try:
                 # Get archive details first
-                archive = storage.get_archive_by_id(archive_id)
+                archive = await storage.get_archive_by_id(archive_id)
 
                 if not archive:
                     failed.append({"archive_id": archive_id, "reason": "not_found"})
@@ -269,7 +269,7 @@ async def batch_delete_archives(request: BatchDeleteRequest):
                         )
 
                 # Delete from database
-                success = storage.delete_archive(archive_id)
+                success = await storage.delete_archive(archive_id)
                 if success:
                     deleted.append(archive_id)
                 else:
@@ -315,7 +315,7 @@ async def get_stats(
 
     try:
         storage = get_postgres_archive_storage()
-        archives_data = storage.list_archives(
+        archives_data = await storage.list_archives(
             draft_id=draft_id,
             user_id=user_id,
             page=1,

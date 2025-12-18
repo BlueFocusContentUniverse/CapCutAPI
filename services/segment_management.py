@@ -47,7 +47,7 @@ class ClipSettingsUpdate:
         return result
 
 
-def get_segment_details(
+async def get_segment_details(
     draft_id: str, track_name: str, segment_id: str
 ) -> Dict[str, Any]:
     """
@@ -85,7 +85,7 @@ def get_segment_details(
     if not segment_id:
         raise ValueError("segment_id is required")
 
-    script = get_from_cache(draft_id)
+    script = await get_from_cache(draft_id)
     if script is None:
         raise ValueError(f"Draft {draft_id} not found in cache")
 
@@ -122,7 +122,7 @@ def get_segment_details(
     return result
 
 
-def delete_segment(
+async def delete_segment(
     draft_id: str,
     track_name: str,
     segment_index: Optional[int] = None,
@@ -171,7 +171,7 @@ def delete_segment(
         raise ValueError("Must provide exactly one of segment_index or segment_id")
 
     # Get the script from cache
-    script = get_from_cache(draft_id)
+    script = await get_from_cache(draft_id)
     if script is None:
         raise ValueError(f"Draft {draft_id} not found in cache")
 
@@ -188,7 +188,7 @@ def delete_segment(
         raise
 
     # Save the updated script back to cache
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     # Get the updated track for response info
     track = None
@@ -218,7 +218,7 @@ def delete_segment(
     }
 
 
-def modify_segment(
+async def modify_segment(
     draft_id: str,
     track_name: str,
     segment_id: str,
@@ -279,7 +279,7 @@ def modify_segment(
         )
 
     # Get the script from cache
-    script = get_from_cache(draft_id)
+    script = await get_from_cache(draft_id)
     if script is None:
         raise ValueError(f"Draft {draft_id} not found in cache")
 
@@ -321,7 +321,7 @@ def modify_segment(
         raise
 
     # Save the updated script back to cache
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     logger.info(
         f"Successfully modified segment {segment_id} in track {track_name}. "

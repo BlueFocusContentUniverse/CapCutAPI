@@ -123,7 +123,7 @@ async def add_image_impl(
     :return: Updated draft information, including draft_id and draft_url
     """
     # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
+    draft_id, script = await get_draft(draft_id=draft_id)
 
     # Check if video track exists, if not, add a default video track
     try:
@@ -343,7 +343,7 @@ async def add_image_impl(
     script.add_segment(image_segment, track_name=track_name)
 
     # Persist updated script
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     return {
         "draft_id": draft_id,

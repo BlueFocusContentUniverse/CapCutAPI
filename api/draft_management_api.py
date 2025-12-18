@@ -40,7 +40,7 @@ async def list_drafts(
             page = 1  # Reset to first page when using limit
 
         pg_storage = get_postgres_storage()
-        result = pg_storage.list_drafts(page=page, page_size=page_size)
+        result = await pg_storage.list_drafts(page=page, page_size=page_size)
 
         logger.info(
             f"List drafts request: page={page}, page_size={page_size}, returned {len(result['drafts'])} drafts"
@@ -58,12 +58,44 @@ async def list_drafts(
         )
 
 
+@router.get("/stats")
+async def get_storage_stats():
+    """Get storage statistics"""
+    try:
+        stats = await get_cache_stats()
+        return {"success": True, "stats": stats}
+    except Exception as e:
+        logger.error(f"Failed to get storage stats: {e}")
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@router.post("/cleanup")
+async def cleanup_expired():
+    """Clean up expired or orphaned drafts"""
+    try:
+        pg_storage = get_postgres_storage()
+        cleanup_count = await pg_storage.cleanup_expired()
+
+        return {
+            "success": True,
+            "message": f"Cleaned up {cleanup_count} expired drafts",
+            "cleanup_count": cleanup_count,
+        }
+    except Exception as e:
+        logger.error(f"Failed to cleanup expired drafts: {e}")
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
 @router.get("/{draft_id}")
 async def get_draft_info(draft_id: str):
     """Get draft metadata without loading the full object"""
     try:
         pg_storage = get_postgres_storage()
-        metadata = pg_storage.get_metadata(draft_id)
+        metadata = await pg_storage.get_metadata(draft_id)
 
         if metadata is None:
             return JSONResponse(
@@ -83,7 +115,7 @@ async def get_draft_content(draft_id: str):
     """Fetch full draft content JSON stored in Postgres."""
     try:
         pg_storage = get_postgres_storage()
-        script_obj = pg_storage.get_draft(draft_id)
+        script_obj = await pg_storage.get_draft(draft_id)
 
         if script_obj is None:
             return JSONResponse(
@@ -110,10 +142,10 @@ async def get_draft_content(draft_id: str):
 async def delete_draft(draft_id: str):
     """Delete a draft from cache and soft-delete from database"""
     try:
-        cache_removed = remove_from_cache(draft_id)
+        cache_removed = await remove_from_cache(draft_id)
 
         pg_storage = get_postgres_storage()
-        db_deleted = pg_storage.delete_draft(draft_id)
+        db_deleted = await pg_storage.delete_draft(draft_id)
 
         if cache_removed or db_deleted:
             return {
@@ -141,43 +173,11 @@ async def check_draft_exists(draft_id: str):
     """Check if a draft exists in storage"""
     try:
         pg_storage = get_postgres_storage()
-        exists = pg_storage.exists(draft_id)
+        exists = await pg_storage.exists(draft_id)
 
         return {"success": True, "exists": exists, "draft_id": draft_id}
     except Exception as e:
         logger.error(f"Failed to check if draft {draft_id} exists: {e}")
-        return JSONResponse(
-            status_code=500, content={"success": False, "error": str(e)}
-        )
-
-
-@router.get("/stats")
-async def get_storage_stats():
-    """Get storage statistics"""
-    try:
-        stats = get_cache_stats()
-        return {"success": True, "stats": stats}
-    except Exception as e:
-        logger.error(f"Failed to get storage stats: {e}")
-        return JSONResponse(
-            status_code=500, content={"success": False, "error": str(e)}
-        )
-
-
-@router.post("/cleanup")
-async def cleanup_expired():
-    """Clean up expired or orphaned drafts"""
-    try:
-        pg_storage = get_postgres_storage()
-        cleanup_count = pg_storage.cleanup_expired()
-
-        return {
-            "success": True,
-            "message": f"Cleaned up {cleanup_count} expired drafts",
-            "cleanup_count": cleanup_count,
-        }
-    except Exception as e:
-        logger.error(f"Failed to cleanup expired drafts: {e}")
         return JSONResponse(
             status_code=500, content={"success": False, "error": str(e)}
         )
@@ -188,7 +188,7 @@ async def list_draft_versions(draft_id: str):
     """List all versions of a draft"""
     try:
         pg_storage = get_postgres_storage()
-        versions = pg_storage.list_draft_versions(draft_id)
+        versions = await pg_storage.list_draft_versions(draft_id)
 
         return {
             "success": True,
@@ -208,7 +208,7 @@ async def get_draft_version_content(draft_id: str, version: int):
     """Get full draft content for a specific version"""
     try:
         pg_storage = get_postgres_storage()
-        script_obj = pg_storage.get_draft_version(draft_id, version)
+        script_obj = await pg_storage.get_draft_version(draft_id, version)
 
         if script_obj is None:
             return JSONResponse(
@@ -247,7 +247,7 @@ async def get_draft_version_metadata(draft_id: str, version: int):
     """Get metadata for a specific version of a draft"""
     try:
         pg_storage = get_postgres_storage()
-        metadata = pg_storage.get_draft_version_metadata(draft_id, version)
+        metadata = await pg_storage.get_draft_version_metadata(draft_id, version)
 
         if metadata is None:
             return JSONResponse(

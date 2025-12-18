@@ -31,7 +31,7 @@ async def get_tracks_api(request: GetTracksRequest):
         return result
 
     try:
-        tracks_info = get_tracks(request.draft_id)
+        tracks_info = await get_tracks(request.draft_id)
 
         result["success"] = True
         result["output"] = tracks_info
@@ -70,7 +70,7 @@ async def delete_track_api(request: DeleteTrackRequest):
         return result
 
     try:
-        deletion_result = delete_track(request.draft_id, request.track_name)
+        deletion_result = await delete_track(request.draft_id, request.track_name)
 
         result["success"] = True
         result["output"] = deletion_result
@@ -109,7 +109,7 @@ async def get_track_details_api(request: GetTrackDetailsRequest):
         return result
 
     try:
-        track_details = get_track_details(request.draft_id, request.track_name)
+        track_details = await get_track_details(request.draft_id, request.track_name)
 
         result["success"] = True
         result["output"] = track_details
