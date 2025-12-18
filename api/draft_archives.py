@@ -356,7 +356,7 @@ class LambdaCallbackRequest(BaseModel):
 
 @callback_router.patch("/callback")
 async def archive_callback(request: LambdaCallbackRequest):
-    """Lambda 回调接口,更新打包进度"""
+    """归档任务回调接口，更新打包进度"""
     result = {"success": False, "output": "", "error": ""}
 
     try:
@@ -375,12 +375,12 @@ async def archive_callback(request: LambdaCallbackRequest):
             result["error"] = "No fields to update"
             return JSONResponse(status_code=400, content=result)
 
-        success = storage.update_archive(request.archive_id, **update_data)
+        success = await storage.update_archive(request.archive_id, **update_data)
 
         if not success:
             result["error"] = f"Failed to update archive {request.archive_id}"
             logger.warning(
-                f"Lambda callback failed to update archive {request.archive_id}"
+                f"Archive callback failed to update archive {request.archive_id}"
             )
             return JSONResponse(status_code=404, content=result)
 
@@ -390,14 +390,14 @@ async def archive_callback(request: LambdaCallbackRequest):
             "updated_fields": list(update_data.keys()),
         }
         logger.info(
-            f"Lambda callback updated archive {request.archive_id}: progress={request.progress}, message={request.message}"
+            f"Archive callback updated archive {request.archive_id}: progress={request.progress}, message={request.message}"
         )
         return result
 
     except Exception as e:
         result["error"] = f"Callback failed: {e!s}"
         logger.error(
-            f"Lambda callback error for archive {request.archive_id}: {e!s}",
+            f"Archive callback error for archive {request.archive_id}: {e!s}",
             exc_info=True,
         )
         return JSONResponse(status_code=500, content=result)

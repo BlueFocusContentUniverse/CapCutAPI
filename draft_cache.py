@@ -9,17 +9,16 @@ from repositories.draft_repository import get_postgres_storage
 
 logger = logging.getLogger(__name__)
 
-# # 尝试导入Redis缓存
-# try:
-#     from repositories.redis_draft_cache import get_redis_draft_cache
+# 尝试导入Redis缓存
+try:
+    from repositories.redis_draft_cache import get_redis_draft_cache
+    REDIS_CACHE_AVAILABLE = True
+except Exception as e:
+    REDIS_CACHE_AVAILABLE = False
+    logger.debug(f"Redis草稿缓存层不可用: {e}")
 
-#     REDIS_CACHE_AVAILABLE = True
-# except Exception as e:
-#     REDIS_CACHE_AVAILABLE = False
-#     logger.debug(f"Redis草稿缓存层不可用: {e}")
-
-REDIS_CACHE_AVAILABLE = False
-logger.debug("Redis草稿缓存层不可用")
+# REDIS_CACHE_AVAILABLE = False
+# logger.debug("Redis草稿缓存层不可用")
 
 # Keep in-memory cache for active drafts (faster access)
 # Note: In-memory cache should be invalidated when using version-based locking
@@ -95,6 +94,7 @@ async def update_cache(
     Returns:
         True if update succeeded, False if version mismatch occurred
     """
+    logger.info(f"update_cache 被调用: key={key}, expected_version={expected_version}, REDIS_CACHE_AVAILABLE={REDIS_CACHE_AVAILABLE}")
     cache_key = _normalize_cache_key(key)
     if not cache_key:
         logger.error("Cannot update cache with invalid draft key: %s", key)
@@ -106,9 +106,12 @@ async def update_cache(
             try:
                 redis_cache = get_redis_draft_cache()
                 if redis_cache:
-                    success = redis_cache.save_draft(
-                        cache_key, value, expected_version=expected_version
+                    logger.info(f"准备调用 redis_cache.save_draft: cache_key={cache_key}, mark_dirty=True")
+                    # 确保标记为脏数据，以便后台任务同步到 PostgreSQL
+                    success = await redis_cache.save_draft(
+                        cache_key, value, expected_version=expected_version, mark_dirty=True
                     )
+                    logger.info(f"redis_cache.save_draft 返回: success={success}")
                     if success:
                         # 清除内存缓存（重要：其他进程可能已更新）
                         if cache_key in DRAFT_CACHE:
@@ -127,6 +130,7 @@ async def update_cache(
                 )
 
         # 降级到PostgreSQL
+        # 漏洞 1 修复：确保 PG 写成功后，如果 Redis 可用，也写入 Redis（保证一致性）
         pg_storage = get_postgres_storage()
         success = await pg_storage.save_draft(
             cache_key, value, expected_version=expected_version
@@ -136,7 +140,31 @@ async def update_cache(
             logger.warning(
                 f"Failed to update draft {cache_key} due to version mismatch or other error"
             )
+            # 漏洞 1 修复：PG 写失败时，如果 Redis 中有数据，应该清理 Redis 缓存
+            if REDIS_CACHE_AVAILABLE:
+                try:
+                    redis_cache = get_redis_draft_cache()
+                    if redis_cache:
+                        # 清理 Redis 缓存，避免不一致
+                        redis = await redis_cache._ensure_redis_client()
+                        cache_key_full = redis_cache._get_cache_key(cache_key)
+                        dirty_key = redis_cache._get_dirty_key(cache_key)
+                        await redis.delete(cache_key_full, dirty_key)
+                        logger.info(f"已清理 Redis 缓存（PG 写失败）: {cache_key}")
+                except Exception as e:
+                    logger.warning(f"清理 Redis 缓存失败: {e}")
             return False
+
+        # 漏洞 1 修复：PG 写成功后，如果 Redis 可用，也写入 Redis（保证一致性）
+        # 使用 mark_dirty=False，因为数据已经在 PG 中，不需要标记为脏数据
+        if REDIS_CACHE_AVAILABLE:
+            try:
+                redis_cache = get_redis_draft_cache()
+                if redis_cache:
+                    await redis_cache.save_draft(cache_key, value, mark_dirty=False)
+                    logger.debug(f"已同步到 Redis 缓存（PG 写成功）: {cache_key}")
+            except Exception as e:
+                logger.warning(f"同步到 Redis 缓存失败: {e}，但不影响主流程")
 
         # Clear in-memory cache to force reload from DB (ensures consistency)
         # This is important because another process might have updated the draft
@@ -156,7 +184,7 @@ async def update_cache(
 
 async def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
     """
-    Get draft from cache (Redis -> PostgreSQL -> Memory).
+    Get draft from cache (Redis -> PostgreSQL).
 
     Read-Through策略：优先从Redis获取，未命中则从PostgreSQL获取并缓存到Redis。
     """
@@ -170,7 +198,7 @@ async def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
         try:
             redis_cache = get_redis_draft_cache()
             if redis_cache:
-                draft_obj = redis_cache.get_draft(cache_key)
+                draft_obj = await redis_cache.get_draft(cache_key)
                 if draft_obj is not None:
                     logger.debug(f"Retrieved draft {cache_key} from Redis cache")
                     return draft_obj
@@ -189,7 +217,7 @@ async def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
                 try:
                     redis_cache = get_redis_draft_cache()
                     if redis_cache:
-                        redis_cache.save_draft(cache_key, draft_obj, mark_dirty=False)
+                        await redis_cache.save_draft(cache_key, draft_obj, mark_dirty=False)
                 except Exception:
                     pass  # 忽略Redis写入失败
             return draft_obj
@@ -199,11 +227,6 @@ async def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
 
     except Exception as e:
         logger.error(f"Failed to get draft {cache_key} from PostgreSQL: {e}")
-        # Fallback to memory cache only
-        cached = DRAFT_CACHE.get(cache_key)
-        if cached:
-            logger.warning(f"Falling back to memory cache for draft {cache_key}")
-            return cached[0] if isinstance(cached, tuple) else cached
         return None
 
 
@@ -226,7 +249,7 @@ async def get_from_cache_with_version(
         try:
             redis_cache = get_redis_draft_cache()
             if redis_cache:
-                result = redis_cache.get_draft_with_version(cache_key)
+                result = await redis_cache.get_draft_with_version(cache_key)
                 if result is not None:
                     script_obj, version = result
                     logger.debug(
@@ -251,7 +274,7 @@ async def get_from_cache_with_version(
                 try:
                     redis_cache = get_redis_draft_cache()
                     if redis_cache:
-                        redis_cache.save_draft(cache_key, script_obj, mark_dirty=False)
+                        await redis_cache.save_draft(cache_key, script_obj, mark_dirty=False)
                 except Exception:
                     pass  # 忽略Redis写入失败
             return (script_obj, version)
@@ -315,23 +338,19 @@ async def cache_exists(key: str) -> bool:
         if REDIS_CACHE_AVAILABLE:
             try:
                 redis_cache = get_redis_draft_cache()
-                if redis_cache and redis_cache.exists(cache_key):
+                if redis_cache and await redis_cache.exists(cache_key):
                     return True
             except Exception as e:
                 logger.warning(f"Redis exists check failed for {cache_key}: {e}")
 
-            pg_storage = get_postgres_storage()
-            return await pg_storage.exists(cache_key)
-        else:
-            if cache_key in DRAFT_CACHE:
-                return True
-
-            pg_storage = get_postgres_storage()
-            return await pg_storage.exists(cache_key)
+        # 2. 检查 PostgreSQL
+        pg_storage = get_postgres_storage()
+        return await pg_storage.exists(cache_key)
 
     except Exception as e:
+        # 评估是否需要降级
         logger.error(f"Failed to check if draft {cache_key} exists: {e}")
-        return cache_key in DRAFT_CACHE
+        return False
 
 
 async def get_cache_stats() -> Dict:
@@ -347,7 +366,7 @@ async def get_cache_stats() -> Dict:
         try:
             redis_cache = get_redis_draft_cache()
             if redis_cache:
-                redis_stats = redis_cache.get_stats()
+                redis_stats = await redis_cache.get_stats()
                 stats["redis_stats"] = redis_stats
         except Exception as e:
             logger.warning(f"Failed to get Redis cache stats: {e}")
@@ -429,9 +448,22 @@ async def update_draft_with_retry(
             modifier_func(script)
 
             # Try to save with version check
-            success = await update_cache(
-                normalized_id, script, expected_version=current_version
-            )
+            # 如果 version=0，表示草稿在 PG 中不存在，使用 Write-Behind 策略（不立即同步）
+            # 这样可以减轻 PG 压力，让后台任务统一同步
+            # 只有当 version > 0 时，才使用乐观锁控制，立即同步以保证一致性
+            if current_version == 0:
+                # 新草稿，使用 Write-Behind 策略，不立即同步到 PG
+                logger.debug(
+                    f"草稿 {normalized_id} 在 PG 中不存在（version=0），使用 Write-Behind 策略，不立即同步"
+                )
+                success = await update_cache(
+                    normalized_id, script, expected_version=None
+                )
+            else:
+                # 已存在的草稿，使用乐观锁控制，立即同步以保证一致性
+                success = await update_cache(
+                    normalized_id, script, expected_version=current_version
+                )
 
             if success:
                 logger.info(
