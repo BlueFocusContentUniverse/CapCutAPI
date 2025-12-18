@@ -375,7 +375,7 @@ async def archive_callback(request: LambdaCallbackRequest):
             result["error"] = "No fields to update"
             return JSONResponse(status_code=400, content=result)
 
-        success = storage.update_archive(request.archive_id, **update_data)
+        success = await storage.update_archive(request.archive_id, **update_data)
 
         if not success:
             result["error"] = f"Failed to update archive {request.archive_id}"

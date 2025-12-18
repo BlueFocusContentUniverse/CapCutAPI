@@ -183,38 +183,6 @@ async def check_draft_exists(draft_id: str):
         )
 
 
-@router.get("/stats")
-async def get_storage_stats():
-    """Get storage statistics"""
-    try:
-        stats = await get_cache_stats()
-        return {"success": True, "stats": stats}
-    except Exception as e:
-        logger.error(f"Failed to get storage stats: {e}")
-        return JSONResponse(
-            status_code=500, content={"success": False, "error": str(e)}
-        )
-
-
-@router.post("/cleanup")
-async def cleanup_expired():
-    """Clean up expired or orphaned drafts"""
-    try:
-        pg_storage = get_postgres_storage()
-        cleanup_count = await pg_storage.cleanup_expired()
-
-        return {
-            "success": True,
-            "message": f"Cleaned up {cleanup_count} expired drafts",
-            "cleanup_count": cleanup_count,
-        }
-    except Exception as e:
-        logger.error(f"Failed to cleanup expired drafts: {e}")
-        return JSONResponse(
-            status_code=500, content={"success": False, "error": str(e)}
-        )
-
-
 @router.get("/{draft_id}/versions")
 async def list_draft_versions(draft_id: str):
     """List all versions of a draft"""

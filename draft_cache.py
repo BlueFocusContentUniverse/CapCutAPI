@@ -108,7 +108,7 @@ async def update_cache(
                 if redis_cache:
                     logger.info(f"准备调用 redis_cache.save_draft: cache_key={cache_key}, mark_dirty=True")
                     # 确保标记为脏数据，以便后台任务同步到 PostgreSQL
-                    success = redis_cache.save_draft(
+                    success = await redis_cache.save_draft(
                         cache_key, value, expected_version=expected_version, mark_dirty=True
                     )
                     logger.info(f"redis_cache.save_draft 返回: success={success}")
@@ -146,9 +146,10 @@ async def update_cache(
                     redis_cache = get_redis_draft_cache()
                     if redis_cache:
                         # 清理 Redis 缓存，避免不一致
-                        redis_cache.cache_region.delete(redis_cache._get_cache_key(cache_key))
+                        redis = await redis_cache._ensure_redis_client()
+                        cache_key_full = redis_cache._get_cache_key(cache_key)
                         dirty_key = redis_cache._get_dirty_key(cache_key)
-                        redis_cache.redis_client.delete(dirty_key.encode('utf-8') if isinstance(dirty_key, str) else dirty_key)
+                        await redis.delete(cache_key_full, dirty_key)
                         logger.info(f"已清理 Redis 缓存（PG 写失败）: {cache_key}")
                 except Exception as e:
                     logger.warning(f"清理 Redis 缓存失败: {e}")
@@ -160,7 +161,7 @@ async def update_cache(
             try:
                 redis_cache = get_redis_draft_cache()
                 if redis_cache:
-                    redis_cache.save_draft(cache_key, value, mark_dirty=False)
+                    await redis_cache.save_draft(cache_key, value, mark_dirty=False)
                     logger.debug(f"已同步到 Redis 缓存（PG 写成功）: {cache_key}")
             except Exception as e:
                 logger.warning(f"同步到 Redis 缓存失败: {e}，但不影响主流程")
@@ -197,7 +198,7 @@ async def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
         try:
             redis_cache = get_redis_draft_cache()
             if redis_cache:
-                draft_obj = redis_cache.get_draft(cache_key)
+                draft_obj = await redis_cache.get_draft(cache_key)
                 if draft_obj is not None:
                     logger.debug(f"Retrieved draft {cache_key} from Redis cache")
                     return draft_obj
@@ -216,7 +217,7 @@ async def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
                 try:
                     redis_cache = get_redis_draft_cache()
                     if redis_cache:
-                        redis_cache.save_draft(cache_key, draft_obj, mark_dirty=False)
+                        await redis_cache.save_draft(cache_key, draft_obj, mark_dirty=False)
                 except Exception:
                     pass  # 忽略Redis写入失败
             return draft_obj
@@ -248,7 +249,7 @@ async def get_from_cache_with_version(
         try:
             redis_cache = get_redis_draft_cache()
             if redis_cache:
-                result = redis_cache.get_draft_with_version(cache_key)
+                result = await redis_cache.get_draft_with_version(cache_key)
                 if result is not None:
                     script_obj, version = result
                     logger.debug(
@@ -273,7 +274,7 @@ async def get_from_cache_with_version(
                 try:
                     redis_cache = get_redis_draft_cache()
                     if redis_cache:
-                        redis_cache.save_draft(cache_key, script_obj, mark_dirty=False)
+                        await redis_cache.save_draft(cache_key, script_obj, mark_dirty=False)
                 except Exception:
                     pass  # 忽略Redis写入失败
             return (script_obj, version)
@@ -337,7 +338,7 @@ async def cache_exists(key: str) -> bool:
         if REDIS_CACHE_AVAILABLE:
             try:
                 redis_cache = get_redis_draft_cache()
-                if redis_cache and redis_cache.exists(cache_key):
+                if redis_cache and await redis_cache.exists(cache_key):
                     return True
             except Exception as e:
                 logger.warning(f"Redis exists check failed for {cache_key}: {e}")
@@ -365,7 +366,7 @@ async def get_cache_stats() -> Dict:
         try:
             redis_cache = get_redis_draft_cache()
             if redis_cache:
-                redis_stats = redis_cache.get_stats()
+                redis_stats = await redis_cache.get_stats()
                 stats["redis_stats"] = redis_stats
         except Exception as e:
             logger.warning(f"Failed to get Redis cache stats: {e}")

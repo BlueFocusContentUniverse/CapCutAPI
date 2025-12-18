@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
 
     # 初始化Redis缓存（如果可用）
     try:
-        redis_cache = init_redis_draft_cache()
+        redis_cache = await init_redis_draft_cache()
         if redis_cache:
             logger.info("Redis草稿缓存初始化成功")
         else:
@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     # 停止Redis缓存后台同步任务
     try:
-        shutdown_redis_draft_cache()
+        await shutdown_redis_draft_cache()
     except Exception as e:
         logger.error(f"关闭Redis缓存时出错: {e}")
 
