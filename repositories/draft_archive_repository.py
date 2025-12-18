@@ -372,7 +372,7 @@ class PostgresDraftArchiveStorage:
                     logger.warning(f"Archive {archive_id} not found for deletion")
                     return False
 
-                session.delete(row)
+                await session.delete(row)
                 logger.info(f"Deleted archive {archive_id}")
                 return True
         except ValueError as e:

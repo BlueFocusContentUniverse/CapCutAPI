@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -24,6 +25,23 @@ from util.helpers import is_windows_path, zip_draft
 # --- Get your Logger instance ---
 # The name here must match the logger name you configured in app.py
 logger = logging.getLogger("uvicorn")
+
+
+def _update_archive_sync(
+    loop: asyncio.AbstractEventLoop, archive_storage, **kwargs
+) -> bool:
+    """Run async archive updates from a worker thread."""
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            archive_storage.update_archive(**kwargs), loop
+        )
+        return future.result()
+    except Exception as exc:  # pragma: no cover - protective logging
+        logger.error(
+            f"Failed to update archive {kwargs.get('archive_id')}: {exc!s}",
+            exc_info=True,
+        )
+        return False
 
 
 # ========== 辅助函数：时间格式化 ==========
@@ -114,6 +132,7 @@ def save_draft_background(
     archive_id: str,
     draft_version: Optional[int] = None,
     archive_name: Optional[str] = None,
+    loop: Optional[asyncio.AbstractEventLoop] = None,
 ):
     """Background save draft to OSS
 
@@ -123,8 +142,13 @@ def save_draft_background(
         archive_id: Archive ID for tracking progress
         draft_version: Specific version to retrieve (optional). If None, uses current version.
         archive_name: Optional custom archive name (optional). If provided, will be used instead of draft_id in asset paths and folder names.
+        loop: Running asyncio loop used to execute async DB operations from this thread.
     """
     archive_storage = get_postgres_archive_storage()
+
+    if loop is None:
+        logger.error("Event loop is required to update archive records.")
+        return ""
 
     try:
         # Get draft information based on version parameter
@@ -136,8 +160,10 @@ def save_draft_background(
             script = pg_storage.get_draft_version(draft_id, draft_version)
             if script is None:
                 error_msg = f"Draft {draft_id} version {draft_version} does not exist in storage"
-                archive_storage.update_archive(
-                    archive_id,
+                _update_archive_sync(
+                    loop,
+                    archive_storage,
+                    archive_id=archive_id,
                     progress=0.0,
                     downloaded_files=0,
                     total_files=0,
@@ -153,13 +179,23 @@ def save_draft_background(
             )
         else:
             # Get current version draft information from cache (memory first, then PostgreSQL)
-            script, actual_version = get_from_cache_with_version(draft_id)
+            future = asyncio.run_coroutine_threadsafe(
+                get_from_cache_with_version(draft_id), loop
+            )
+            cache_result = future.result()
+            if cache_result is None:
+                script = None
+                actual_version = None
+            else:
+                script, actual_version = cache_result
             if script is None:
                 error_msg = (
                     f"Draft {draft_id} does not exist in cache (memory or PostgreSQL)"
                 )
-                archive_storage.update_archive(
-                    archive_id,
+                _update_archive_sync(
+                    loop,
+                    archive_storage,
+                    archive_id=archive_id,
                     progress=0.0,
                     downloaded_files=0,
                     total_files=0,
@@ -169,8 +205,10 @@ def save_draft_background(
                 logger.error(f"{error_msg}, archive {archive_id} failed.")
                 return
 
-            archive_storage.update_archive(
-                archive_id,
+            _update_archive_sync(
+                loop,
+                archive_storage,
+                archive_id=archive_id,
                 progress=0.0,
                 downloaded_files=0,
                 total_files=0,
@@ -236,7 +274,7 @@ def save_draft_background(
         draft_folder_for_duplicate.duplicate_as_template(template_dir, folder_name)
 
         # Update archive status
-        archive_storage.update_archive(archive_id, progress=5.0)
+        _update_archive_sync(loop, archive_storage, archive_id=archive_id, progress=5.0)
         logger.info(f"Archive {archive_id} progress 5%: Updating media file metadata.")
 
         # update_media_metadata(script, archive_id)
@@ -338,8 +376,12 @@ def save_draft_background(
                         }
                     )
 
-        archive_storage.update_archive(
-            archive_id, progress=10.0, total_files=len(download_tasks)
+        _update_archive_sync(
+            loop,
+            archive_storage,
+            archive_id=archive_id,
+            progress=10.0,
+            total_files=len(download_tasks),
         )
         logger.info(
             f"Archive {archive_id} progress 10%: Collected {len(download_tasks)} download tasks in total."
@@ -373,8 +415,10 @@ def save_draft_background(
                         total = len(download_tasks)
                         # Download part accounts for 60% of the total progress
                         download_progress = 10 + int((completed_files / total) * 60)
-                        archive_storage.update_archive(
-                            archive_id,
+                        _update_archive_sync(
+                            loop,
+                            archive_storage,
+                            archive_id=archive_id,
                             downloaded_files=completed_files,
                             progress=float(download_progress),
                         )
@@ -394,7 +438,9 @@ def save_draft_background(
             )
 
         # Update archive status - Start saving draft information
-        archive_storage.update_archive(archive_id, progress=70.0)
+        _update_archive_sync(
+            loop, archive_storage, archive_id=archive_id, progress=70.0
+        )
         logger.info(f"Archive {archive_id} progress 70%: Saving draft information.")
 
         script.dump(os.path.join(draft_archive_dir, f"{folder_name}/draft_info.json"))
@@ -405,7 +451,9 @@ def save_draft_background(
         draft_url = ""
 
         # Update archive status - Start compressing draft
-        archive_storage.update_archive(archive_id, progress=80.0)
+        _update_archive_sync(
+            loop, archive_storage, archive_id=archive_id, progress=80.0
+        )
         logger.info(f"Archive {archive_id} progress 80%: Compressing draft files.")
 
         # Compress the entire draft directory
@@ -416,7 +464,9 @@ def save_draft_background(
         )
 
         # Update archive status - Start uploading to OSS
-        archive_storage.update_archive(archive_id, progress=90.0)
+        _update_archive_sync(
+            loop, archive_storage, archive_id=archive_id, progress=90.0
+        )
         logger.info(f"Archive {archive_id} progress 90%: Uploading to cloud storage.")
 
         # Upload to COS and get CDN URL
@@ -458,8 +508,10 @@ def save_draft_background(
             logger.info(f"Cleaned up temporary zip file: {zip_path}")
 
         # Update archive status - Completed
-        archive_storage.update_archive(
-            archive_id,
+        _update_archive_sync(
+            loop,
+            archive_storage,
+            archive_id=archive_id,
             progress=100.0,
             download_url=draft_url,
             message="Draft creation completed successfully",
@@ -470,14 +522,16 @@ def save_draft_background(
     except Exception as e:
         # Update archive status - Failed
         error_msg = f"Failed to save draft: {e!s}"
-        archive_storage.update_archive(archive_id, message=error_msg)
+        _update_archive_sync(
+            loop, archive_storage, archive_id=archive_id, message=error_msg
+        )
         logger.error(
             f"Saving draft {draft_id} archive {archive_id} failed: {e!s}", exc_info=True
         )
         return ""
 
 
-def save_draft_impl(
+async def save_draft_impl(
     draft_id: str,
     draft_folder: Optional[str] = None,
     draft_version: Optional[int] = None,
@@ -493,7 +547,9 @@ def save_draft_impl(
         archive_storage = get_postgres_archive_storage()
 
         # Check if archive already exists for this draft_id and draft_version
-        existing_archive = archive_storage.get_archive_by_draft(draft_id, draft_version)
+        existing_archive = await archive_storage.get_archive_by_draft(
+            draft_id, draft_version
+        )
 
         if existing_archive and existing_archive.get("download_url"):
             # Archive already exists and has a download URL, return it immediately
@@ -516,7 +572,7 @@ def save_draft_impl(
             )
         else:
             # Create new archive record
-            archive_id = archive_storage.create_archive(
+            archive_id = await archive_storage.create_archive(
                 draft_id=draft_id,
                 draft_version=draft_version,
                 user_id=user_id,
@@ -530,9 +586,17 @@ def save_draft_impl(
             )
 
         # Start a background thread to execute the task
+        loop = asyncio.get_running_loop()
         thread = threading.Thread(
             target=save_draft_background,
-            args=(draft_id, draft_folder, archive_id, draft_version, archive_name),
+            args=(
+                draft_id,
+                draft_folder,
+                archive_id,
+                draft_version,
+                archive_name,
+                loop,
+            ),
             daemon=True,
         )
         thread.start()

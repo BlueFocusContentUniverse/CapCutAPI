@@ -99,7 +99,7 @@ async def save_draft(request: SaveDraftRequest):
         return result
 
     try:
-        draft_result = save_draft_impl(
+        draft_result = await save_draft_impl(
             draft_id=request.draft_id,
             draft_folder=request.draft_folder,
             draft_version=request.draft_version,
