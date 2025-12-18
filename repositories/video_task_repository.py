@@ -239,6 +239,7 @@ class VideoTaskRepository:
         page: int = 1,
         page_size: int = 50,
         draft_id: Optional[str] = None,
+        video_name: Optional[str] = None,
         render_status: Optional[VideoTaskStatus] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
@@ -263,6 +264,11 @@ class VideoTaskRepository:
                 if draft_id:
                     base_query = base_query.where(VideoTask.draft_id == draft_id)
                     count_query = count_query.where(VideoTask.draft_id == draft_id)
+
+                if video_name:
+                    pattern = f"%{video_name}%"
+                    base_query = base_query.where(VideoTask.video_name.ilike(pattern))
+                    count_query = count_query.where(VideoTask.video_name.ilike(pattern))
 
                 if render_status:
                     base_query = base_query.where(
