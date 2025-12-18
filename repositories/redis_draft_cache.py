@@ -6,17 +6,17 @@ Redis草稿缓存层（异步版本）
 - 写入策略：Write-Through + Write-Behind
 - 后台同步：使用 asyncio 任务
 """
+
 import asyncio
 import logging
-import pickle
 import os
-import sqlalchemy.exc
-from sqlalchemy import exc as sa_exc
-import pyJianYingDraft as draft
-import redis.asyncio as aioredis
-
+import pickle
 from typing import Any, Dict, Optional, Tuple
 
+import redis.asyncio as aioredis
+from sqlalchemy import exc as sa_exc
+
+import pyJianYingDraft as draft
 from repositories.draft_repository import PostgresDraftStorage, get_postgres_storage
 
 logger = logging.getLogger(__name__)
@@ -29,17 +29,28 @@ DRAFT_DIRTY_KEY_PREFIX = "draft:dirty:"  # 使用 Redis Set 记录待同步的 K
 DRAFT_DIRTY_FAIL_COUNT_PREFIX = "draft:dirty:fail:"  # 记录脏数据同步失败次数的 Key 前缀
 SYNC_LOCK_PREFIX = "lock:sync:"  # 同步锁前缀，用于防止并发同步时的版本冲突
 SYNC_LOCK_TTL = 30  # 同步锁过期时间（秒），应该足够覆盖一次同步操作的时间
-MAX_DIRTY_FAIL_COUNT = 5  # 脏数据同步失败的最大次数，超过此次数后彻底删除（防止错误循环）
+MAX_DIRTY_FAIL_COUNT = (
+    5  # 脏数据同步失败的最大次数，超过此次数后彻底删除（防止错误循环）
+)
 SYNC_INTERVAL = 60
 MAX_SYNC_BATCH_SIZE = 1000  # 单次同步的最大脏数据数量（避免单次同步时间过长）
 MAX_SYNC_WORKERS = 5  # 并发同步的协程数（默认5）
 RETRYABLE_ERR_TYPES = (
-    OSError, TimeoutError, ConnectionError,
-    sa_exc.OperationalError, sa_exc.InterfaceError, sa_exc.DisconnectionError
+    OSError,
+    TimeoutError,
+    ConnectionError,
+    sa_exc.OperationalError,
+    sa_exc.InterfaceError,
+    sa_exc.DisconnectionError,
 )
 RETRYABLE_KEYWORDS = (
-    "connection", "timeout", "network", "temporary",
-    "retry", "lock wait", "deadlock"
+    "connection",
+    "timeout",
+    "network",
+    "temporary",
+    "retry",
+    "lock wait",
+    "deadlock",
 )
 
 
@@ -61,7 +72,9 @@ class RedisDraftCache:
 
         redis_url = redis_url or os.getenv("DRAFT_CACHE_REDIS_URL")
         if not redis_url:
-            raise ValueError("Redis草稿缓存层未配置，请检查 DRAFT_CACHE_REDIS_URL 环境变量")
+            raise ValueError(
+                "Redis草稿缓存层未配置，请检查 DRAFT_CACHE_REDIS_URL 环境变量"
+            )
 
         self._redis_url = redis_url
         # 异步 Redis 客户端（延迟初始化）
@@ -136,9 +149,13 @@ class RedisDraftCache:
                     version_key = self._get_version_key(draft_id)
                     pipe = redis.pipeline(transaction=True)
                     pipe.setex(cache_key, DRAFT_CACHE_TTL, pickled_data)
-                    pipe.setex(version_key, DRAFT_CACHE_TTL, str(version).encode('utf-8'))
+                    pipe.setex(
+                        version_key, DRAFT_CACHE_TTL, str(version).encode("utf-8")
+                    )
                     await pipe.execute()
-                    logger.debug(f"从PostgreSQL加载并写入Redis缓存: {draft_id}, version={version}")
+                    logger.debug(
+                        f"从PostgreSQL加载并写入Redis缓存: {draft_id}, version={version}"
+                    )
                 except Exception as e:
                     logger.warning(f"写入Redis缓存失败: {e}")
                 return script_obj
@@ -168,7 +185,7 @@ class RedisDraftCache:
         if cached_bytes and version_bytes:
             try:
                 script_obj = pickle.loads(cached_bytes)
-                version = int(version_bytes.decode('utf-8'))
+                version = int(version_bytes.decode("utf-8"))
                 return (script_obj, version)
             except Exception as e:
                 logger.debug(f"缓存解析失败，降级到PG: {e}")
@@ -182,7 +199,7 @@ class RedisDraftCache:
         try:
             v_data = await redis.get(version_key)
             if v_data:
-                version = int(v_data.decode('utf-8'))
+                version = int(v_data.decode("utf-8"))
                 return (script_obj, version)
         except Exception as e:
             logger.warning(f"获取版本号失败: {e}")
@@ -207,7 +224,9 @@ class RedisDraftCache:
         保存草稿（Write-Through + Write-Behind策略）
         """
         try:
-            logger.info(f"save_draft 被调用: draft_id={draft_id}, mark_dirty={mark_dirty}, expected_version={expected_version}")
+            logger.info(
+                f"save_draft 被调用: draft_id={draft_id}, mark_dirty={mark_dirty}, expected_version={expected_version}"
+            )
             redis = await self._ensure_redis_client()
 
             cache_key = self._get_cache_key(draft_id)
@@ -223,13 +242,15 @@ class RedisDraftCache:
             # Redis 事务
             pipe = redis.pipeline(transaction=True)
             pipe.setex(cache_key, DRAFT_CACHE_TTL, pickled_data)
-            pipe.setex(version_key, DRAFT_CACHE_TTL, str(version).encode('utf-8'))
+            pipe.setex(version_key, DRAFT_CACHE_TTL, str(version).encode("utf-8"))
 
             if mark_dirty:
                 dirty_key = self._get_dirty_key(draft_id)
                 pipe.setex(dirty_key, DRAFT_CACHE_TTL * 2, b"1")
             else:
-                logger.warning(f"警告: 保存草稿 {draft_id} 时 mark_dirty=False，不会标记为脏数据")
+                logger.warning(
+                    f"警告: 保存草稿 {draft_id} 时 mark_dirty=False，不会标记为脏数据"
+                )
 
             results = await pipe.execute()
 
@@ -239,10 +260,14 @@ class RedisDraftCache:
 
             for i, result in enumerate(results):
                 if result is False or result is None or isinstance(result, Exception):
-                    logger.error(f"Redis 事务命令 {i} 执行失败: {draft_id}, result={result}")
+                    logger.error(
+                        f"Redis 事务命令 {i} 执行失败: {draft_id}, result={result}"
+                    )
                     return False
 
-            logger.debug(f"成功存入 Redis 缓存: {draft_id}, v={version}, dirty={mark_dirty}")
+            logger.debug(
+                f"成功存入 Redis 缓存: {draft_id}, v={version}, dirty={mark_dirty}"
+            )
             return True
 
         except Exception as e:
@@ -279,7 +304,11 @@ class RedisDraftCache:
             try:
                 # 检查脏数据标记是否仍然存在
                 if not await redis.exists(dirty_key):
-                    draft_id_str = dirty_key.decode("utf-8").replace(DRAFT_DIRTY_KEY_PREFIX, "") if draft_id is None else draft_id
+                    draft_id_str = (
+                        dirty_key.decode("utf-8").replace(DRAFT_DIRTY_KEY_PREFIX, "")
+                        if draft_id is None
+                        else draft_id
+                    )
                     logger.debug(f"跳过同步 {draft_id_str}: 脏数据标记已不存在")
                     return (draft_id_str, "skipped", "dirty_key_not_exists")
 
@@ -287,9 +316,13 @@ class RedisDraftCache:
 
                 # 获取同步锁
                 lock_key = self._get_sync_lock_key(draft_id)
-                lock_key_bytes = lock_key.encode('utf-8') if isinstance(lock_key, str) else lock_key
+                lock_key_bytes = (
+                    lock_key.encode("utf-8") if isinstance(lock_key, str) else lock_key
+                )
 
-                lock_acquired = await redis.set(lock_key_bytes, b"1", nx=True, ex=SYNC_LOCK_TTL)
+                lock_acquired = await redis.set(
+                    lock_key_bytes, b"1", nx=True, ex=SYNC_LOCK_TTL
+                )
 
                 if not lock_acquired:
                     logger.debug(f"跳过同步 {draft_id}: 同步锁已被其他协程获取")
@@ -361,11 +394,17 @@ class RedisDraftCache:
                 if is_retryable and retry_count < max_retries:
                     retry_count += 1
                     draft_id_str = draft_id or "unknown"
-                    logger.warning(f"同步重试 {retry_count}/{max_retries} {draft_id_str}: {e}")
+                    logger.warning(
+                        f"同步重试 {retry_count}/{max_retries} {draft_id_str}: {e}"
+                    )
                     await asyncio.sleep(0.5)
                 else:
                     draft_id_str = draft_id or "unknown"
-                    reason = "retry_exhausted" if retry_count >= max_retries else "permanent_error"
+                    reason = (
+                        "retry_exhausted"
+                        if retry_count >= max_retries
+                        else "permanent_error"
+                    )
                     logger.error(f"同步草稿失败 {draft_id_str}: {e}", exc_info=True)
 
                     # 处理失败计数
@@ -380,13 +419,21 @@ class RedisDraftCache:
                                 await redis.expire(fail_count_key, DRAFT_CACHE_TTL * 2)
 
                             if fail_count >= MAX_DIRTY_FAIL_COUNT:
-                                logger.error(f"脏数据同步失败次数超过阈值，彻底删除: {draft_id_str}")
-                                await redis.delete(cache_key, version_key, dirty_key, fail_count_key)
+                                logger.error(
+                                    f"脏数据同步失败次数超过阈值，彻底删除: {draft_id_str}"
+                                )
+                                await redis.delete(
+                                    cache_key, version_key, dirty_key, fail_count_key
+                                )
                             else:
                                 await redis.delete(cache_key, version_key)
-                                logger.warning(f"已回滚 Redis 缓存（失败次数: {fail_count}/{MAX_DIRTY_FAIL_COUNT}）: {draft_id_str}")
+                                logger.warning(
+                                    f"已回滚 Redis 缓存（失败次数: {fail_count}/{MAX_DIRTY_FAIL_COUNT}）: {draft_id_str}"
+                                )
                         except Exception as rollback_error:
-                            logger.error(f"回滚 Redis 缓存失败: {draft_id_str}, error={rollback_error}")
+                            logger.error(
+                                f"回滚 Redis 缓存失败: {draft_id_str}, error={rollback_error}"
+                            )
 
                     return (draft_id_str, "failed", reason)
 
@@ -394,7 +441,11 @@ class RedisDraftCache:
                 # 释放同步锁
                 if draft_id and lock_acquired and lock_key:
                     try:
-                        lock_key_bytes = lock_key.encode('utf-8') if isinstance(lock_key, str) else lock_key
+                        lock_key_bytes = (
+                            lock_key.encode("utf-8")
+                            if isinstance(lock_key, str)
+                            else lock_key
+                        )
                         await redis.delete(lock_key_bytes)
                     except Exception as e:
                         logger.warning(f"释放同步锁失败: {e}")
@@ -406,7 +457,7 @@ class RedisDraftCache:
         try:
             redis = await self._ensure_redis_client()
             pattern = f"{DRAFT_DIRTY_KEY_PREFIX}*"
-            pattern_bytes = pattern.encode('utf-8')
+            pattern_bytes = pattern.encode("utf-8")
             dirty_keys = []
             cursor = 0
             scan_count = 0
@@ -414,7 +465,9 @@ class RedisDraftCache:
 
             while scan_count < max_scan_iterations:
                 try:
-                    cursor, keys = await redis.scan(cursor, match=pattern_bytes, count=100)
+                    cursor, keys = await redis.scan(
+                        cursor, match=pattern_bytes, count=100
+                    )
                     dirty_keys.extend(keys)
                     scan_count += 1
                     if cursor == 0:
@@ -431,8 +484,10 @@ class RedisDraftCache:
 
             total_count = len(dirty_keys)
             if total_count > self.max_sync_batch_size:
-                dirty_keys = dirty_keys[:self.max_sync_batch_size]
-                logger.info(f"脏数据数量超过限制，本次只同步前 {self.max_sync_batch_size} 条")
+                dirty_keys = dirty_keys[: self.max_sync_batch_size]
+                logger.info(
+                    f"脏数据数量超过限制，本次只同步前 {self.max_sync_batch_size} 条"
+                )
 
             # 使用 asyncio 并发处理
             synced_count = 0
@@ -462,7 +517,9 @@ class RedisDraftCache:
                     else:
                         skipped_count += 1
 
-            logger.info(f"同步完成: {synced_count} 成功, {failed_count} 失败, {skipped_count} 跳过")
+            logger.info(
+                f"同步完成: {synced_count} 成功, {failed_count} 失败, {skipped_count} 跳过"
+            )
 
         except Exception as e:
             logger.error(f"后台同步任务失败: {e}", exc_info=True)
@@ -470,6 +527,10 @@ class RedisDraftCache:
     async def start_sync_task(self):
         """启动后台同步任务"""
         if not self.enable_sync:
+            return
+
+        if self._sync_task is not None and not self._sync_task.done():
+            logger.info("后台同步任务已在运行，跳过重复启动")
             return
 
         async def sync_loop():
@@ -500,6 +561,8 @@ class RedisDraftCache:
                 await self._sync_task
             except asyncio.CancelledError:
                 pass
+            finally:
+                self._sync_task = None
         logger.info("后台同步任务已停止")
 
     async def exists(self, draft_id: str) -> bool:
@@ -557,7 +620,9 @@ class RedisDraftCache:
             cache_keys = []
             cursor = 0
             while True:
-                cursor, keys = await redis.scan(cursor, match=pattern.encode(), count=100)
+                cursor, keys = await redis.scan(
+                    cursor, match=pattern.encode(), count=100
+                )
                 cache_keys.extend(keys)
                 if cursor == 0:
                     break
@@ -568,7 +633,9 @@ class RedisDraftCache:
             dirty_keys = []
             cursor = 0
             while True:
-                cursor, keys = await redis.scan(cursor, match=dirty_pattern.encode(), count=100)
+                cursor, keys = await redis.scan(
+                    cursor, match=dirty_pattern.encode(), count=100
+                )
                 dirty_keys.extend(keys)
                 if cursor == 0:
                     break
