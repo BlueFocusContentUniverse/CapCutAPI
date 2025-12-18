@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from db import get_async_session
 from models import Video, VideoTask, VideoTaskStatus
+from util.helpers import sign_cdn_type_d
 
 logger = logging.getLogger(__name__)
 
@@ -137,17 +138,23 @@ class VideoTaskRepository:
         """
         try:
             async with get_async_session() as session:
-                task = (
+                row = (
                     await session.execute(
-                        select(VideoTask).where(VideoTask.task_id == task_id)
+                        select(VideoTask, Video.oss_url.label("oss_url"))
+                        .join(Video, VideoTask.video_id == Video.video_id, isouter=True)
+                        .where(VideoTask.task_id == task_id)
                     )
-                ).scalar_one_or_none()
+                ).one_or_none()
 
-                if task is None:
+                if row is None:
                     logger.warning(f"VideoTask {task_id} not found")
                     return None
 
+                task, oss_url = row
+                signed_oss_url = sign_cdn_type_d(oss_url) if oss_url else None
+
                 return {
+                    "id": task.id,
                     "task_id": task.task_id,
                     "draft_id": task.draft_id,
                     "video_id": task.video_id,
@@ -159,6 +166,7 @@ class VideoTaskRepository:
                     "progress": task.progress,
                     "message": task.message,
                     "extra": task.extra,
+                    "oss_url": signed_oss_url,
                     "created_at": int(task.created_at.timestamp()),
                     "updated_at": int(task.updated_at.timestamp()),
                 }
@@ -303,7 +311,7 @@ class VideoTaskRepository:
                             "updatedAt": int(video_task.updated_at.timestamp())
                             if video_task.updated_at
                             else None,
-                            "ossUrl": oss_url,
+                            "ossUrl": sign_cdn_type_d(oss_url) if oss_url else None,
                         }
                     )
 

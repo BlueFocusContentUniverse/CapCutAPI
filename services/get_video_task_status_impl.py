@@ -1,37 +1,15 @@
 import logging
+from datetime import datetime
 from typing import Any, Dict
 
-from sqlalchemy import select
-
-from db import get_async_session
-from models import Video, VideoTask
+from repositories.video_task_repository import VideoTaskRepository
 
 logger = logging.getLogger(__name__)
 
 
 async def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
-    """Get the status of a video generation task.
+    """Get the status of a video generation task using the repository pattern."""
 
-    Args:
-        task_id: The unique identifier of the video task.
-
-    Returns:
-        A dict with keys:
-        - success: Whether the query was successful.
-        - data: Task information dict when successful, containing:
-            - id: Database record ID
-            - task_id: Unique task identifier
-            - draft_id: Associated draft ID
-            - video_name: Name of the video
-            - render_status: Current render status
-            - progress: Progress percentage (0-100)
-            - message: Status message or error details
-            - oss_url: URL to the draft (if available)
-            - extra: Additional metadata
-            - created_at: Task creation timestamp
-            - updated_at: Task last update timestamp
-        - error: Error message string when unsuccessful.
-    """
     result: Dict[str, Any] = {"success": False, "data": None, "error": ""}
 
     if not task_id:
@@ -42,55 +20,47 @@ async def get_video_task_status_impl(task_id: str) -> Dict[str, Any]:
         return result
 
     try:
-        async with get_async_session() as session:
-            task = (
-                await session.execute(
-                    select(VideoTask).where(VideoTask.task_id == task_id)
-                )
-            ).scalar_one_or_none()
+        repository = VideoTaskRepository()
+        task = await repository.get_task(task_id)
 
-            if not task:
-                result["error"] = f"VideoTask with task_id '{task_id}' not found."
-                logger.warning(f"VideoTask not found: {task_id}")
-                return result
-
-            # Get oss_url from Video model if video_id exists
-            oss_url = None
-            if task.video_id:
-                video = (
-                    await session.execute(
-                        select(Video).where(Video.video_id == task.video_id)
-                    )
-                ).scalar_one_or_none()
-                if video:
-                    oss_url = video.oss_url
-                    logger.info(
-                        f"Found oss_url for video_id {task.video_id}: {oss_url}"
-                    )
-
-            # Convert the SQLAlchemy object to a dictionary
-            task_data = {
-                "id": task.id,
-                "task_id": task.task_id,
-                "draft_id": task.draft_id,
-                "video_name": task.video_name,
-                "render_status": task.render_status.value
-                if task.render_status
-                else None,
-                "progress": task.progress,
-                "message": task.message,
-                "oss_url": oss_url,
-                "extra": task.extra,
-                "created_at": task.created_at.isoformat() if task.created_at else None,
-                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
-            }
-
-            result["success"] = True
-            result["data"] = task_data
-            logger.info(
-                f"Successfully retrieved status for task_id: {task_id}, status: {task_data.get('render_status')}"
-            )
+        if not task:
+            result["error"] = f"VideoTask with task_id '{task_id}' not found."
+            logger.warning(f"VideoTask not found: {task_id}")
             return result
+
+        created_at = (
+            datetime.fromtimestamp(task["created_at"]).isoformat()
+            if task.get("created_at") is not None
+            else None
+        )
+        updated_at = (
+            datetime.fromtimestamp(task["updated_at"]).isoformat()
+            if task.get("updated_at") is not None
+            else None
+        )
+
+        task_data = {
+            "id": task.get("id"),
+            "task_id": task.get("task_id"),
+            "draft_id": task.get("draft_id"),
+            "video_id": task.get("video_id"),
+            "video_name": task.get("video_name"),
+            "status": task.get("status"),
+            "render_status": task.get("render_status"),
+            "progress": task.get("progress"),
+            "message": task.get("message"),
+            "oss_url": task.get("oss_url"),
+            "extra": task.get("extra"),
+            "created_at": created_at,
+            "updated_at": updated_at,
+        }
+
+        result["success"] = True
+        result["data"] = task_data
+        logger.info(
+            f"Successfully retrieved status for task_id: {task_id}, status: {task_data.get('render_status')}"
+        )
+        return result
 
     except Exception as e:
         result["error"] = f"Error occurred while retrieving video task status: {e!s}"

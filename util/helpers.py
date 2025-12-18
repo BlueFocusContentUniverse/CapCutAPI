@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import time
+from urllib.parse import urlencode, urlparse, urlunparse
 
 from settings.local import DRAFT_DOMAIN, IS_CAPCUT_ENV, PREVIEW_ROUTER
 
@@ -109,6 +110,53 @@ def timing_decorator(func_name):
 
 def generate_draft_url(draft_id):
     return f"{DRAFT_DOMAIN}{PREVIEW_ROUTER}?draft_id={draft_id}&is_capcut={1 if IS_CAPCUT_ENV else 0}"
+
+
+def sign_cdn_type_d(oss_url: str) -> str:
+    """Append Tencent CDN Type-D signature with hex timestamp.
+
+    Format: sign=md5(pkey + uri + ts_hex) & t=ts_hex
+    ts_hex is the lowercase hex of Unix timestamp plus optional TTL offset.
+    """
+    if not oss_url:
+        return oss_url
+
+    key = os.getenv("CDN_SIGN_KEY")
+    if not key:
+        return oss_url
+
+    try:
+        ttl = int(os.getenv("CDN_SIGN_TTL", "3600"))
+    except ValueError:
+        ttl = 3600
+
+    ts = int(time.time()) + ttl
+    ts_hex = format(ts, "x")
+
+    parsed = urlparse(oss_url)
+    path = parsed.path or "/"
+
+    sign_src = f"{key}{path}{ts_hex}"
+    sign = hashlib.md5(sign_src.encode("utf-8")).hexdigest()
+
+    existing_query = parsed.query
+    new_params = {"sign": sign, "t": ts_hex}
+    if existing_query:
+        new_query = f"{existing_query}&{urlencode(new_params)}"
+    else:
+        new_query = urlencode(new_params)
+
+    signed = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment,
+        )
+    )
+    return signed
 
 
 async def get_ffprobe_info(
