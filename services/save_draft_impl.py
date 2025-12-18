@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import json
 import logging
 import os
@@ -7,26 +8,51 @@ import shutil
 import string
 import subprocess
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Literal, Optional, Tuple
+import uuid
+from typing import Dict, Literal, Optional, Tuple, Any
 
 import pyJianYingDraft as draft
+from celery import Celery
+
 from downloader import download_file
 from draft_cache import get_from_cache_with_version
 from repositories.draft_archive_repository import get_postgres_archive_storage
+from repositories.draft_repository import get_postgres_storage
 from services.get_duration_impl import get_video_duration
-
-# Import configuration
-from settings import IS_CAPCUT_ENV
 from util.cos_client import get_cos_client
 from util.helpers import is_windows_path, zip_draft
 
-# --- Get your Logger instance ---
-# The name here must match the logger name you configured in app.py
+ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL")
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_APP_NAME = "draft_archive_notice"
+CELERY_TASK_NAME = "tasks.archive_draft"
+DRAFT_ARCHIVE_QUEUE = "draft_archive"
+
 logger = logging.getLogger("uvicorn")
 
+# --- Task 类型定义 ---
+TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_found"]
 
-# ========== 辅助函数：时间格式化 ==========
+# --- Celery 单例实现 ---
+_celery_app: Optional[Celery] = None
+_celery_lock = threading.RLock()
+
+def get_celery_app():
+    """获取 draft_archive_notice 项目的 Celery 客户端（线程安全的延迟初始化）"""
+    global _celery_app
+    if _celery_app is None:
+        with _celery_lock:
+            if _celery_app is None:
+                if not CELERY_BROKER_URL:
+                    raise ValueError("CELERY_BROKER_URL environment variable is not set")
+                _celery_app = Celery(
+                    CELERY_APP_NAME,
+                    broker=CELERY_BROKER_URL
+                )
+                logger.info(f"Initialized Celery client for draft_archive_notice: {CELERY_BROKER_URL}")
+    return _celery_app
+
+# --- 辅助工具函数 ---
 def format_seconds(microseconds: int) -> str:
     """将微秒转换为格式化的秒数字符串
 
@@ -38,24 +64,16 @@ def format_seconds(microseconds: int) -> str:
     """
     return f"{microseconds / 1e6:.2f}秒"
 
-
-# Define task status enumeration type
-TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_found"]
-
-
-def _get_image_metadata(remote_url: str) -> Tuple[int, int]:
+def _get_image_metadata(remote_url: str, timeout: int = 10) -> Tuple[int, int]:
+    """获取远程媒体资源的宽高元数据"""
     try:
         command = [
-            "ffprobe",
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=width,height",
-            "-of",
-            "json",
-            remote_url,
+                "ffprobe",
+                "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=width,height",
+                "-of", "json",
+                remote_url,
         ]
         result = subprocess.check_output(command, stderr=subprocess.STDOUT)
         result_str = result.decode("utf-8")
@@ -117,14 +135,14 @@ def save_draft_background(
 ):
     """Background save draft to OSS
 
-    Args:
-        draft_id: Draft ID
-        draft_folder: Draft folder path (optional)
-        archive_id: Archive ID for tracking progress
-        draft_version: Specific version to retrieve (optional). If None, uses current version.
-        archive_name: Optional custom archive name (optional). If provided, will be used instead of draft_id in asset paths and folder names.
-    """
-    archive_storage = get_postgres_archive_storage()
+#     Args:
+#         draft_id: Draft ID
+#         draft_folder: Draft folder path (optional)
+#         archive_id: Archive ID for tracking progress
+#         draft_version: Specific version to retrieve (optional). If None, uses current version.
+#         archive_name: Optional custom archive name (optional). If provided, will be used instead of draft_id in asset paths and folder names.
+#     """
+#     archive_storage = get_postgres_archive_storage()
 
     try:
         # Get draft information based on version parameter
@@ -199,14 +217,14 @@ def save_draft_background(
             )
             shutil.rmtree(folder_name)
 
-        logger.info(f"Starting to save draft: {draft_id}")
-        # Save draft to draft_archive directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        draft_archive_dir = os.path.join(project_root, "draft_archive")
+#         logger.info(f"Starting to save draft: {draft_id}")
+#         # Save draft to draft_archive directory
+#         current_dir = os.path.dirname(os.path.abspath(__file__))
+#         project_root = os.path.dirname(current_dir)
+#         draft_archive_dir = os.path.join(project_root, "draft_archive")
 
-        # Ensure draft_archive directory exists
-        os.makedirs(draft_archive_dir, exist_ok=True)
+#         # Ensure draft_archive directory exists
+#         os.makedirs(draft_archive_dir, exist_ok=True)
 
         # Copy template directories to draft_archive if they don't exist
         # This is needed because Draft_folder expects templates in the same directory tree
@@ -230,18 +248,18 @@ def save_draft_background(
             )
             shutil.rmtree(draft_path_in_archive)
 
-        draft_folder_for_duplicate = draft.DraftFolder(draft_archive_dir)
-        # Choose different template directory based on configuration
-        template_dir = "template" if IS_CAPCUT_ENV else "template_jianying"
-        draft_folder_for_duplicate.duplicate_as_template(template_dir, folder_name)
+#         draft_folder_for_duplicate = draft.DraftFolder(draft_archive_dir)
+#         # Choose different template directory based on configuration
+#         template_dir = "template" if IS_CAPCUT_ENV else "template_jianying"
+#         draft_folder_for_duplicate.duplicate_as_template(template_dir, folder_name)
 
-        # Update archive status
-        archive_storage.update_archive(archive_id, progress=5.0)
-        logger.info(f"Archive {archive_id} progress 5%: Updating media file metadata.")
+#         # Update archive status
+#         archive_storage.update_archive(archive_id, progress=5.0)
+#         logger.info(f"Archive {archive_id} progress 5%: Updating media file metadata.")
 
-        # update_media_metadata(script, archive_id)
+#         # update_media_metadata(script, archive_id)
 
-        download_tasks = []
+#         download_tasks = []
 
         audios = script.materials.audios
         if audios:
@@ -275,12 +293,12 @@ def save_draft_background(
                     }
                 )
 
-        # Collect video and image download tasks
-        videos = script.materials.videos
-        if videos:
-            for video in videos:
-                remote_url = video.remote_url
-                material_name = video.material_name
+#         # Collect video and image download tasks
+#         videos = script.materials.videos
+#         if videos:
+#             for video in videos:
+#                 remote_url = video.remote_url
+#                 material_name = video.material_name
 
                 if video.material_type == "photo":
                     # Use helper function to build path
@@ -353,20 +371,20 @@ def save_draft_background(
                 f"Starting concurrent download of {len(download_tasks)} files..."
             )
 
-            # Use thread pool for concurrent downloads, maximum concurrency of 16
-            with ThreadPoolExecutor(max_workers=16) as executor:
-                # Submit all download tasks
-                future_to_task = {
-                    executor.submit(task["func"], *task["args"]): task
-                    for task in download_tasks
-                }
+#             # Use thread pool for concurrent downloads, maximum concurrency of 16
+#             with ThreadPoolExecutor(max_workers=16) as executor:
+#                 # Submit all download tasks
+#                 future_to_task = {
+#                     executor.submit(task["func"], *task["args"]): task
+#                     for task in download_tasks
+#                 }
 
-                # Wait for all tasks to complete
-                for future in as_completed(future_to_task):
-                    task = future_to_task[future]
-                    try:
-                        local_path = future.result()
-                        downloaded_paths.append(local_path)
+#                 # Wait for all tasks to complete
+#                 for future in as_completed(future_to_task):
+#                     task = future_to_task[future]
+#                     try:
+#                         local_path = future.result()
+#                         downloaded_paths.append(local_path)
 
                         # Update archive status - only update completed files count
                         completed_files += 1
@@ -393,20 +411,20 @@ def save_draft_background(
                 f"Archive {archive_id}: Concurrent download completed, downloaded {len(downloaded_paths)} files in total."
             )
 
-        # Update archive status - Start saving draft information
-        archive_storage.update_archive(archive_id, progress=70.0)
-        logger.info(f"Archive {archive_id} progress 70%: Saving draft information.")
+#         # Update archive status - Start saving draft information
+#         archive_storage.update_archive(archive_id, progress=70.0)
+#         logger.info(f"Archive {archive_id} progress 70%: Saving draft information.")
 
         script.dump(os.path.join(draft_archive_dir, f"{folder_name}/draft_info.json"))
         logger.info(
             f"Draft information has been saved to {os.path.join(draft_archive_dir, folder_name)}/draft_info.json."
         )
 
-        draft_url = ""
+#         draft_url = ""
 
-        # Update archive status - Start compressing draft
-        archive_storage.update_archive(archive_id, progress=80.0)
-        logger.info(f"Archive {archive_id} progress 80%: Compressing draft files.")
+#         # Update archive status - Start compressing draft
+#         archive_storage.update_archive(archive_id, progress=80.0)
+#         logger.info(f"Archive {archive_id} progress 80%: Compressing draft files.")
 
         # Compress the entire draft directory
         draft_dir_path = os.path.join(draft_archive_dir, folder_name)
@@ -415,15 +433,15 @@ def save_draft_background(
             f"Draft directory {draft_dir_path} has been compressed to {zip_path}."
         )
 
-        # Update archive status - Start uploading to OSS
-        archive_storage.update_archive(archive_id, progress=90.0)
-        logger.info(f"Archive {archive_id} progress 90%: Uploading to cloud storage.")
+#         # Update archive status - Start uploading to OSS
+#         archive_storage.update_archive(archive_id, progress=90.0)
+#         logger.info(f"Archive {archive_id} progress 90%: Uploading to cloud storage.")
 
-        # Upload to COS and get CDN URL
-        cos_client = get_cos_client()
-        if not cos_client.is_available():
-            logger.error("COS client not available, cannot upload draft")
-            raise Exception("Cloud storage service is not available")
+#         # Upload to COS and get CDN URL
+#         cos_client = get_cos_client()
+#         if not cos_client.is_available():
+#             logger.error("COS client not available, cannot upload draft")
+#             raise Exception("Cloud storage service is not available")
 
         # Generate object key with draft_id and version for better organization
         object_key = (
@@ -431,11 +449,11 @@ def save_draft_background(
         )
         draft_url = cos_client.upload_file(zip_path, object_key=object_key)
 
-        if not draft_url:
-            logger.error(f"Failed to upload draft {draft_id} to COS")
-            raise Exception("Failed to upload draft to cloud storage")
+#         if not draft_url:
+#             logger.error(f"Failed to upload draft {draft_id} to COS")
+#             raise Exception("Failed to upload draft to cloud storage")
 
-        logger.info(f"Draft archive has been uploaded to COS, CDN URL: {draft_url}")
+#         logger.info(f"Draft archive has been uploaded to COS, CDN URL: {draft_url}")
 
         # Clean up temporary files
         try:
@@ -452,10 +470,10 @@ def save_draft_background(
         except Exception as e:
             logger.error(f"Failed to remove draft folder {folder_name}: {e}")
 
-        # Clean up zip file after successful upload
-        if os.path.exists(zip_path):
-            os.remove(zip_path)
-            logger.info(f"Cleaned up temporary zip file: {zip_path}")
+#         # Clean up zip file after successful upload
+#         if os.path.exists(zip_path):
+#             os.remove(zip_path)
+#             logger.info(f"Cleaned up temporary zip file: {zip_path}")
 
         # Update archive status - Completed
         archive_storage.update_archive(
@@ -479,7 +497,7 @@ def save_draft_background(
 
 def save_draft_impl(
     draft_id: str,
-    draft_folder: Optional[str] = None,
+    draft_folder: str,  
     draft_version: Optional[int] = None,
     user_id: Optional[str] = None,
     user_name: Optional[str] = None,
@@ -490,9 +508,12 @@ def save_draft_impl(
         f"Received save draft request: draft_id={draft_id}, draft_folder={draft_folder}, draft_version={draft_version}, archive_name={archive_name}"
     )
     try:
+        if not draft_folder:
+            raise ValueError("draft_folder 是必传参数，用于设置草稿素材的 replace_path")
+        
         archive_storage = get_postgres_archive_storage()
 
-        # Check if archive already exists for this draft_id and draft_version
+        # 1. 检查归档是否已存在且已有下载地址
         existing_archive = archive_storage.get_archive_by_draft(draft_id, draft_version)
 
         if existing_archive and existing_archive.get("download_url"):
