@@ -9,14 +9,14 @@ from repositories.draft_repository import get_postgres_storage
 
 logger = logging.getLogger(__name__)
 
-# # 尝试导入Redis缓存
-# try:
-#     from repositories.redis_draft_cache import get_redis_draft_cache
+# 尝试导入Redis缓存
+try:
+    from repositories.redis_draft_cache import get_redis_draft_cache
 
-#     REDIS_CACHE_AVAILABLE = True
-# except Exception as e:
-#     REDIS_CACHE_AVAILABLE = False
-#     logger.debug(f"Redis草稿缓存层不可用: {e}")
+    REDIS_CACHE_AVAILABLE = True
+except Exception as e:
+    REDIS_CACHE_AVAILABLE = False
+    logger.debug(f"Redis草稿缓存层不可用: {e}")
 
 REDIS_CACHE_AVAILABLE = False
 logger.debug("Redis草稿缓存层不可用")
