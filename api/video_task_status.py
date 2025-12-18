@@ -26,6 +26,7 @@ async def list_tasks(
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(50, ge=1, le=500, description="Items per page"),
     draft_id: Optional[str] = Query(None, description="Filter by draft_id"),
+    video_name: Optional[str] = Query(None, description="Fuzzy match on video_name"),
     render_status: Optional[str] = Query(None, description="Filter by render_status"),
     start_date: Optional[str] = Query(
         None, description="Filter created_at >= this ISO datetime or unix seconds"
@@ -61,6 +62,7 @@ async def list_tasks(
             page=page,
             page_size=page_size,
             draft_id=draft_id,
+            video_name=video_name,
             render_status=parsed_render_status,
             start_date=parsed_start,
             end_date=parsed_end,
