@@ -18,8 +18,13 @@ except Exception as e:
     REDIS_CACHE_AVAILABLE = False
     logger.debug(f"Redis草稿缓存层不可用: {e}")
 
+<<<<<<< HEAD
 REDIS_CACHE_AVAILABLE = False
 logger.debug("Redis草稿缓存层不可用")
+=======
+# REDIS_CACHE_AVAILABLE = False
+# logger.debug("Redis草稿缓存层不可用")
+>>>>>>> 08df27e
 
 # Keep in-memory cache for active drafts (faster access)
 # Note: In-memory cache should be invalidated when using version-based locking

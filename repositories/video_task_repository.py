@@ -138,6 +138,7 @@ class VideoTaskRepository:
         """
         try:
             async with get_async_session() as session:
+<<<<<<< HEAD
                 row = (
                     await session.execute(
                         select(VideoTask, Video.oss_url.label("oss_url"))
@@ -145,6 +146,13 @@ class VideoTaskRepository:
                         .where(VideoTask.task_id == task_id)
                     )
                 ).one_or_none()
+=======
+                task = (
+                    await session.execute(
+                        select(VideoTask).where(VideoTask.task_id == task_id)
+                    )
+                ).scalar_one_or_none()
+>>>>>>> 08df27e
 
                 if row is None:
                     logger.warning(f"VideoTask {task_id} not found")
@@ -311,7 +319,11 @@ class VideoTaskRepository:
                             "updatedAt": int(video_task.updated_at.timestamp())
                             if video_task.updated_at
                             else None,
+<<<<<<< HEAD
                             "ossUrl": sign_cdn_type_d(oss_url) if oss_url else None,
+=======
+                            "ossUrl": oss_url,
+>>>>>>> 08df27e
                         }
                     )
 
