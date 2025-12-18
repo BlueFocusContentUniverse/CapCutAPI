@@ -11,7 +11,7 @@ from pyJianYingDraft.llm_export import export_track_for_llm, export_tracks_for_l
 logger = logging.getLogger(__name__)
 
 
-def get_tracks(draft_id: str) -> Dict[str, Any]:
+async def get_tracks(draft_id: str) -> Dict[str, Any]:
     """
     Get all tracks from a draft in LLM-friendly format.
 
@@ -41,7 +41,7 @@ def get_tracks(draft_id: str) -> Dict[str, Any]:
     if not draft_id:
         raise ValueError("draft_id is required")
 
-    script = get_from_cache(draft_id)
+    script = await get_from_cache(draft_id)
     if script is None:
         raise ValueError(f"Draft {draft_id} not found in cache")
 
@@ -50,7 +50,7 @@ def get_tracks(draft_id: str) -> Dict[str, Any]:
     )
 
 
-def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
+async def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     """
     Delete a track from a draft by name
 
@@ -75,7 +75,7 @@ def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     if not track_name:
         raise ValueError("track_name is required")
 
-    script = get_from_cache(draft_id)
+    script = await get_from_cache(draft_id)
     if script is None:
         raise ValueError(f"Draft {draft_id} not found in cache")
 
@@ -86,7 +86,7 @@ def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
         raise ValueError(str(e))
 
     # Update cache with modified script
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     # Calculate remaining tracks
     remaining_tracks = len(script.tracks) + len(script.imported_tracks)
@@ -102,7 +102,7 @@ def delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     return result
 
 
-def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
+async def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific track in LLM-friendly format.
 
@@ -130,7 +130,7 @@ def get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     if not track_name:
         raise ValueError("track_name is required")
 
-    script = get_from_cache(draft_id)
+    script = await get_from_cache(draft_id)
     if script is None:
         raise ValueError(f"Draft {draft_id} not found in cache")
 

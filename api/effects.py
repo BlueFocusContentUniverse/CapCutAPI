@@ -21,11 +21,11 @@ class AddEffectRequest(BaseModel):
 
 
 @router.post("/add_effect")
-def add_effect(request: AddEffectRequest, response: Response):
+async def add_effect(request: AddEffectRequest, response: Response):
     result = {"success": False, "output": "", "error": ""}
 
     try:
-        draft_result = add_effect_impl(
+        draft_result = await add_effect_impl(
             effect_type=request.effect_type,
             effect_category=request.effect_category,
             start=request.start,

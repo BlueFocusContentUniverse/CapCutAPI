@@ -27,7 +27,7 @@ async def create_draft_service(request: CreateDraftRequest):
     result = {"success": False, "output": "", "error": ""}
 
     try:
-        _script, draft_id = create_draft(
+        _script, draft_id = await create_draft(
             width=request.width,
             height=request.height,
             framerate=request.framerate,
@@ -60,7 +60,7 @@ async def query_script(request: QueryScriptRequest):
         return result
 
     try:
-        script = query_script_impl(
+        script = await query_script_impl(
             draft_id=request.draft_id, force_update=request.force_update
         )
 

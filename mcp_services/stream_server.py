@@ -16,11 +16,14 @@ from fastmcp import FastMCP
 
 # pydantic is intentionally not required here for flat handlers
 # Reuse tool schemas and executor from the existing implementation
-from mcp_services.mcp_tools import TOOLS, execute_tool
+from mcp_services.mcp_tools import TOOLS
 from services.add_audio_track import add_audio_track, batch_add_audio_track
 from services.add_effect_impl import add_effect_impl
 from services.add_image_impl import add_image_impl
+from services.add_sticker_impl import add_sticker_impl
+from services.add_subtitle_impl import add_subtitle_impl
 from services.add_text_impl import add_text_impl
+from services.add_video_keyframe_impl import add_video_keyframe_impl
 from services.add_video_track import add_video_track, batch_add_video_track
 from services.create_draft import create_draft
 from services.generate_video_impl import generate_video_impl
@@ -39,14 +42,14 @@ if not logging.getLogger().hasHandlers():
 
 
 # Manual tool handlers with flattened parameters (required first)
-def tool_create_draft(
+async def tool_create_draft(
     width: int = 1080,
     height: int = 1920,
     framerate: float = 30.0,
     name: str = "mcp_draft",
     resource: str = "mcp",
 ) -> Dict[str, Any]:
-    _, draft_id = create_draft(
+    _, draft_id = await create_draft(
         width=width, height=height, framerate=framerate, name=name, resource=resource
     )
     return {
@@ -322,10 +325,25 @@ async def tool_add_image(
     scale_x: float = 1,
     scale_y: float = 1,
     track_name: str = "main",
+    relative_index: int = 0,
     intro_animation: Optional[str] = None,
+    intro_animation_duration: float = 0.5,
     outro_animation: Optional[str] = None,
+    outro_animation_duration: float = 0.5,
+    combo_animation: Optional[str] = None,
+    combo_animation_duration: float = 0.5,
     transition: Optional[str] = None,
+    transition_duration: float = 0.5,
     mask_type: Optional[str] = None,
+    mask_center_x: float = 0.0,
+    mask_center_y: float = 0.0,
+    mask_size: float = 0.5,
+    mask_rotation: float = 0.0,
+    mask_feather: float = 0.0,
+    mask_invert: bool = False,
+    mask_rect_width: Optional[float] = None,
+    mask_round_corner: Optional[float] = None,
+    background_blur: Optional[int] = None,
 ) -> Dict[str, Any]:
     return await add_image_impl(
         image_url=image_url,
@@ -340,12 +358,27 @@ async def tool_add_image(
         track_name=track_name,
         intro_animation=intro_animation,
         outro_animation=outro_animation,
+        relative_index=relative_index,
+        intro_animation_duration=intro_animation_duration,
+        outro_animation_duration=outro_animation_duration,
+        combo_animation=combo_animation,
+        combo_animation_duration=combo_animation_duration,
         transition=transition,
+        transition_duration=transition_duration,
         mask_type=mask_type,
+        mask_center_x=mask_center_x,
+        mask_center_y=mask_center_y,
+        mask_size=mask_size,
+        mask_rotation=mask_rotation,
+        mask_feather=mask_feather,
+        mask_invert=mask_invert,
+        mask_rect_width=mask_rect_width,
+        mask_round_corner=mask_round_corner,
+        background_blur=background_blur,
     )
 
 
-def tool_add_text(
+async def tool_add_text(
     text: str,
     start: float,
     end: float,
@@ -387,7 +420,7 @@ def tool_add_text(
     underline: bool = False,
     text_styles: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    return add_text_impl(
+    return await add_text_impl(
         text=text,
         start=start,
         end=end,
@@ -431,7 +464,7 @@ def tool_add_text(
     )
 
 
-def tool_add_subtitle(
+async def tool_add_subtitle(
     srt_path: str,
     draft_id: str,
     track_name: str = "subtitle",
@@ -468,10 +501,10 @@ def tool_add_subtitle(
         "transform_y": transform_y,
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    return execute_tool("add_subtitle", arguments)
+    return await add_subtitle_impl(**arguments)
 
 
-def tool_add_effect(
+async def tool_add_effect(
     effect_type: str,
     draft_id: str,
     effect_category: str = "scene",
@@ -480,7 +513,7 @@ def tool_add_effect(
     track_name: str = "effect_01",
     params: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
-    return add_effect_impl(
+    return await add_effect_impl(
         effect_type=effect_type,
         effect_category=effect_category,
         draft_id=draft_id,
@@ -491,7 +524,7 @@ def tool_add_effect(
     )
 
 
-def tool_add_sticker(
+async def tool_add_sticker(
     resource_id: str,
     start: float,
     end: float,
@@ -518,10 +551,10 @@ def tool_add_sticker(
         "track_name": track_name,
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    return execute_tool("add_sticker", arguments)
+    return await add_sticker_impl(**arguments)
 
 
-def tool_add_video_keyframe(
+async def tool_add_video_keyframe(
     draft_id: str,
     track_name: str = "main",
     property_type: Optional[str] = None,
@@ -542,7 +575,7 @@ def tool_add_video_keyframe(
         "values": values,
     }
     arguments = {k: v for k, v in arguments.items() if v is not None}
-    return execute_tool("add_video_keyframe", arguments)
+    return await add_video_keyframe_impl(**arguments)
 
 
 async def tool_generate_video(
@@ -578,38 +611,38 @@ def tool_get_audio_effect_types() -> Dict[str, Any]:
     return get_audio_effect_types_impl()
 
 
-def tool_get_tracks(draft_id: str) -> Dict[str, Any]:
+async def tool_get_tracks(draft_id: str) -> Dict[str, Any]:
     """Get all tracks from a draft."""
-    return get_tracks(draft_id=draft_id)
+    return await get_tracks(draft_id=draft_id)
 
 
-def tool_delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
+async def tool_delete_track(draft_id: str, track_name: str) -> Dict[str, Any]:
     """Delete a track from a draft."""
-    return delete_track(draft_id=draft_id, track_name=track_name)
+    return await delete_track(draft_id=draft_id, track_name=track_name)
 
 
-def tool_get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
+async def tool_get_track_details(draft_id: str, track_name: str) -> Dict[str, Any]:
     """Get detailed information about a specific track."""
-    return get_track_details(draft_id=draft_id, track_name=track_name)
+    return await get_track_details(draft_id=draft_id, track_name=track_name)
 
 
-def tool_get_segment_details(
+async def tool_get_segment_details(
     draft_id: str, track_name: str, segment_id: str
 ) -> Dict[str, Any]:
     """Get detailed information about a specific segment."""
-    return get_segment_details(
+    return await get_segment_details(
         draft_id=draft_id, track_name=track_name, segment_id=segment_id
     )
 
 
-def tool_delete_segment(
+async def tool_delete_segment(
     draft_id: str,
     track_name: str,
     segment_index: Optional[int] = None,
     segment_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Delete a segment from a track by index or ID."""
-    return delete_segment(
+    return await delete_segment(
         draft_id=draft_id,
         track_name=track_name,
         segment_index=segment_index,
@@ -617,7 +650,7 @@ def tool_delete_segment(
     )
 
 
-def tool_modify_segment(
+async def tool_modify_segment(
     draft_id: str,
     track_name: str,
     segment_id: str,
@@ -675,7 +708,7 @@ def tool_modify_segment(
             "At least one of clip_settings parameters, volume, or speed must be provided"
         )
 
-    return modify_segment(
+    return await modify_segment(
         draft_id=draft_id,
         track_name=track_name,
         segment_id=segment_id,
@@ -833,7 +866,7 @@ def _register_resources(app: FastMCP) -> None:
 
 def create_fastmcp_app() -> FastMCP:
     """Factory to create a FastMCP app with tools registered and list_tools overridden."""
-    app = FastMCP("capcut-api", version="1.6.1", stateless_http=True)
+    app = FastMCP("capcut-api", version="1.8.0", stateless_http=True)
     _register_tools(app)
     _override_list_tools(app)
     _register_prompts(app)

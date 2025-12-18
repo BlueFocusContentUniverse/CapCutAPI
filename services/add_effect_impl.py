@@ -15,7 +15,7 @@ from settings import IS_CAPCUT_ENV
 from .create_draft import get_draft
 
 
-def add_effect_impl(
+async def add_effect_impl(
     effect_type: str,  # Changed to string type
     effect_category: Literal["scene", "character"] = "scene",
     start: float = 0,
@@ -36,7 +36,7 @@ def add_effect_impl(
     :return: Updated draft information
     """
     # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
+    draft_id, script = await get_draft(draft_id=draft_id)
 
     # Calculate time range
     duration = end - start
@@ -87,7 +87,7 @@ def add_effect_impl(
     script.add_effect(effect_enum, t_range, params=params, track_name=track_name)
 
     # Persist updated script
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     return {
         "draft_id": draft_id,

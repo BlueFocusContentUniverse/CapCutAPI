@@ -9,8 +9,6 @@ import contextlib
 import io
 import os
 import sys
-import traceback
-from typing import Any, Dict
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1405,41 +1403,3 @@ def convert_text_styles(text_styles_data):
     except Exception as e:
         print(f"[ERROR] Error converting text_styles: {e}", file=sys.stderr)
         return None
-
-
-def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-    """执行具体的工具"""
-    try:
-        print(
-            f"[DEBUG] Executing tool: {tool_name} with args: {arguments}",
-            file=sys.stderr,
-        )
-
-        # ========== 检查CapCut模块可用性 ==========
-        if not CAPCUT_AVAILABLE:
-            return {"success": False, "error": "CapCut modules not available"}
-
-        # ========== 原有的工具执行逻辑 ==========
-        # 捕获标准输出，防止调试信息干扰
-        with capture_stdout():
-            if tool_name == "add_subtitle":
-                # 兼容字段：将 srt 映射为实现参数 srt_path
-                if "srt" in arguments and "srt_path" not in arguments:
-                    arguments["srt_path"] = arguments.pop("srt")
-                result = add_subtitle_impl(**arguments)
-
-            elif tool_name == "add_sticker":
-                result = add_sticker_impl(**arguments)
-
-            elif tool_name == "add_video_keyframe":
-                result = add_video_keyframe_impl(**arguments)
-
-            else:
-                return {"success": False, "error": f"Unknown tool: {tool_name}"}
-
-        return {"success": True, "result": result}
-
-    except Exception as e:
-        print(f"[ERROR] Tool execution error: {e}", file=sys.stderr)
-        print(f"[ERROR] Traceback: {traceback.format_exc()}", file=sys.stderr)
-        return {"success": False, "error": str(e)}

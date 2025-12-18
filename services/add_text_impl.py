@@ -10,7 +10,7 @@ from util.helpers import hex_to_rgb
 from .create_draft import get_draft
 
 
-def add_text_impl(
+async def add_text_impl(
     text: str,
     start: float,
     end: float,
@@ -131,7 +131,7 @@ def add_text_impl(
         raise ValueError("background_alpha value must be between 0.0 and 1.0")
 
     # Get or create draft
-    draft_id, script = get_draft(draft_id=draft_id)
+    draft_id, script = await get_draft(draft_id=draft_id)
 
     # Add text track
     if track_name is not None:
@@ -288,7 +288,7 @@ def add_text_impl(
     script.add_segment(text_segment, track_name=track_name)
 
     # Persist updated script
-    update_cache(draft_id, script)
+    await update_cache(draft_id, script)
 
     return {
         "draft_id": draft_id,

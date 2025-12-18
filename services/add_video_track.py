@@ -471,7 +471,7 @@ async def add_video_track(
     """
     Add video track to specified draft.
     """
-    draft_id, _ = get_draft(draft_id=draft_id)
+    draft_id, _ = await get_draft(draft_id=draft_id)
     logger.info(f"Starting video track addition to draft {draft_id}")
 
     width = 0
@@ -539,7 +539,7 @@ async def add_video_track(
     def modify_draft(script):
         _apply_video_segment_to_script(script, payload, draft_id)
 
-    success, last_error = update_draft_with_retry(
+    success, last_error = await update_draft_with_retry(
         draft_id, modify_draft, return_error=True
     )
 
@@ -598,7 +598,7 @@ async def batch_add_video_track(
     if not videos:
         raise ValueError("videos parameter must contain at least one video entry")
 
-    draft_id, _ = get_draft(draft_id=draft_id)
+    draft_id, _ = await get_draft(draft_id=draft_id)
     logger.info(
         f"Starting batch video track addition to draft {draft_id} (count={len(videos)})"
     )
@@ -729,7 +729,7 @@ async def batch_add_video_track(
                     f"for URL {payload.video_url}: {exc}"
                 ) from exc
 
-    success, last_error = update_draft_with_retry(
+    success, last_error = await update_draft_with_retry(
         draft_id, modify_draft, return_error=True
     )
     if not success:

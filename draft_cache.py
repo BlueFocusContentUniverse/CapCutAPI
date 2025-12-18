@@ -1,5 +1,5 @@
+import asyncio
 import logging
-import time
 from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Any, Dict, Optional, Tuple, Union
@@ -9,17 +9,17 @@ from repositories.draft_repository import get_postgres_storage
 
 logger = logging.getLogger(__name__)
 
-# # 尝试导入Redis缓存
-# try:
-#     from repositories.redis_draft_cache import get_redis_draft_cache
+# 尝试导入Redis缓存
+try:
+    from repositories.redis_draft_cache import get_redis_draft_cache
 
-#     REDIS_CACHE_AVAILABLE = True
-# except Exception as e:
-#     REDIS_CACHE_AVAILABLE = False
-#     logger.debug(f"Redis草稿缓存层不可用: {e}")
+    REDIS_CACHE_AVAILABLE = True
+except Exception as e:
+    REDIS_CACHE_AVAILABLE = False
+    logger.debug(f"Redis草稿缓存层不可用: {e}")
 
-REDIS_CACHE_AVAILABLE = False
-logger.debug("Redis草稿缓存层不可用")
+# REDIS_CACHE_AVAILABLE = False
+# logger.debug("Redis草稿缓存层不可用")
 
 # Keep in-memory cache for active drafts (faster access)
 # Note: In-memory cache should be invalidated when using version-based locking
@@ -81,7 +81,7 @@ def normalize_draft_id(raw_key: Any) -> Optional[str]:
     return _normalize_cache_key(raw_key)
 
 
-def update_cache(
+async def update_cache(
     key: str, value: draft.ScriptFile, expected_version: Optional[int] = None
 ) -> bool:
     """
@@ -133,7 +133,7 @@ def update_cache(
         # 降级到PostgreSQL
         # 漏洞 1 修复：确保 PG 写成功后，如果 Redis 可用，也写入 Redis（保证一致性）
         pg_storage = get_postgres_storage()
-        success = pg_storage.save_draft(
+        success = await pg_storage.save_draft(
             cache_key, value, expected_version=expected_version
         )
 
@@ -182,7 +182,7 @@ def update_cache(
         return False
 
 
-def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
+async def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
     """
     Get draft from cache (Redis -> PostgreSQL).
 
@@ -208,7 +208,7 @@ def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
     # 降级到PostgreSQL
     try:
         pg_storage = get_postgres_storage()
-        draft_obj = pg_storage.get_draft(cache_key)
+        draft_obj = await pg_storage.get_draft(cache_key)
 
         if draft_obj is not None:
             logger.debug(f"Retrieved draft {cache_key} from PostgreSQL")
@@ -230,7 +230,9 @@ def get_from_cache(key: str) -> Optional[draft.ScriptFile]:
         return None
 
 
-def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, int]]:
+async def get_from_cache_with_version(
+    key: str,
+) -> Optional[Tuple[draft.ScriptFile, int]]:
     """
     Get draft from cache along with its version number.
 
@@ -260,7 +262,7 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
     # 降级到PostgreSQL
     try:
         pg_storage = get_postgres_storage()
-        result = pg_storage.get_draft_with_version(cache_key)
+        result = await pg_storage.get_draft_with_version(cache_key)
 
         if result is not None:
             script_obj, version = result
@@ -296,7 +298,7 @@ def get_from_cache_with_version(key: str) -> Optional[Tuple[draft.ScriptFile, in
         return None
 
 
-def remove_from_cache(key: str) -> bool:
+async def remove_from_cache(key: str) -> bool:
     """Remove draft from both memory and PostgreSQL cache"""
     cache_key = _normalize_cache_key(key)
     if not cache_key:
@@ -305,7 +307,7 @@ def remove_from_cache(key: str) -> bool:
 
     try:
         pg_storage = get_postgres_storage()
-        pg_removed = pg_storage.delete_draft(cache_key)
+        pg_removed = await pg_storage.delete_draft(cache_key)
 
         memory_removed = cache_key in DRAFT_CACHE
         if memory_removed:
@@ -325,7 +327,7 @@ def remove_from_cache(key: str) -> bool:
         return False
 
 
-def cache_exists(key: str) -> bool:
+async def cache_exists(key: str) -> bool:
     """Check if draft exists in cache"""
     cache_key = _normalize_cache_key(key)
     if not cache_key:
@@ -341,9 +343,9 @@ def cache_exists(key: str) -> bool:
             except Exception as e:
                 logger.warning(f"Redis exists check failed for {cache_key}: {e}")
 
-        # 2. 检查 PostgreSQL（最权威）
+        # 2. 检查 PostgreSQL
         pg_storage = get_postgres_storage()
-        return pg_storage.exists(cache_key)
+        return await pg_storage.exists(cache_key)
 
     except Exception as e:
         # 评估是否需要降级
@@ -351,7 +353,7 @@ def cache_exists(key: str) -> bool:
         return False
 
 
-def get_cache_stats() -> Dict:
+async def get_cache_stats() -> Dict:
     """Get cache statistics"""
     stats = {
         "memory_cache_size": len(DRAFT_CACHE),
@@ -373,7 +375,7 @@ def get_cache_stats() -> Dict:
     # PostgreSQL统计
     try:
         pg_storage = get_postgres_storage()
-        pg_stats = pg_storage.get_stats()
+        pg_stats = await pg_storage.get_stats()
         stats["postgres_stats"] = pg_stats
     except Exception as e:
         logger.error(f"Failed to get cache stats: {e}")
@@ -382,7 +384,7 @@ def get_cache_stats() -> Dict:
     return stats
 
 
-def update_draft_with_retry(
+async def update_draft_with_retry(
     draft_id: str,
     modifier_func,
     max_retries: int = MAX_RETRIES,
@@ -426,7 +428,7 @@ def update_draft_with_retry(
     for attempt in range(max_retries):
         try:
             # Get latest version from database
-            result = get_from_cache_with_version(normalized_id)
+            result = await get_from_cache_with_version(normalized_id)
             if result is None:
                 err = RuntimeError(
                     f"Draft {normalized_id} not found in cache or storage"
@@ -454,12 +456,12 @@ def update_draft_with_retry(
                 logger.debug(
                     f"草稿 {normalized_id} 在 PG 中不存在（version=0），使用 Write-Behind 策略，不立即同步"
                 )
-                success = update_cache(
+                success = await update_cache(
                     normalized_id, script, expected_version=None
                 )
             else:
                 # 已存在的草稿，使用乐观锁控制，立即同步以保证一致性
-                success = update_cache(
+                success = await update_cache(
                     normalized_id, script, expected_version=current_version
                 )
 
@@ -479,7 +481,7 @@ def update_draft_with_retry(
                     logger.warning(
                         f"{last_exception}. Retrying in {retry_delay * 1000:.0f}ms..."
                     )
-                    time.sleep(retry_delay)
+                    await asyncio.sleep(retry_delay)
                     # Exponential backoff
                     retry_delay *= 2
                 else:

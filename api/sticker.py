@@ -33,11 +33,11 @@ class SearchStickerRequest(BaseModel):
 
 
 @router.post("/add_sticker")
-def add_sticker(request: AddStickerRequest, response: Response):
+async def add_sticker(request: AddStickerRequest, response: Response):
     result = {"success": False, "output": "", "error": ""}
 
     try:
-        draft_result = add_sticker_impl(
+        draft_result = await add_sticker_impl(
             resource_id=request.sticker_id,
             start=request.start,
             end=request.end,
