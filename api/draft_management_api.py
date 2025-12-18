@@ -183,8 +183,6 @@ async def check_draft_exists(draft_id: str):
         )
 
 
-<<<<<<< HEAD
-=======
 @router.get("/stats")
 async def get_storage_stats():
     """Get storage statistics"""
@@ -217,7 +215,6 @@ async def cleanup_expired():
         )
 
 
->>>>>>> 08df27e
 @router.get("/{draft_id}/versions")
 async def list_draft_versions(draft_id: str):
     """List all versions of a draft"""
