@@ -15,6 +15,7 @@ from repositories.redis_draft_cache import (
     init_redis_draft_cache,
     shutdown_redis_draft_cache,
 )
+from util.memory_debug import start_memory_debug_task
 from util.rate_limit import get_rate_limiter
 
 # Load environment variables
@@ -24,8 +25,7 @@ if env_file.exists():
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -37,12 +37,19 @@ mcp_app = mcp_server.http_app(path="/mcp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    memory_task = None
     # Startup
     try:
         await init_db_async()
         logger.info("Database initialization successful")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
+
+    # Optional: memory growth diagnostics
+    try:
+        memory_task = start_memory_debug_task(logger)
+    except Exception as e:
+        logger.warning(f"Failed to start MEMORY_DEBUG task: {e}")
 
     # 初始化Redis缓存（如果可用）
     try:
@@ -64,6 +71,13 @@ async def lifespan(app: FastAPI):
         await shutdown_redis_draft_cache()
     except Exception as e:
         logger.error(f"关闭Redis缓存时出错: {e}")
+
+    if memory_task is not None:
+        memory_task.cancel()
+        try:
+            await memory_task
+        except Exception:
+            pass
 
 
 # 根据环境变量决定是否关闭 API 文档
@@ -118,4 +132,4 @@ if __name__ == "__main__":
     from settings.local import PORT
 
     # 配置 uvicorn 日志级别
-    uvicorn.run(app, host="0.0.0.0", port=PORT,log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="info")

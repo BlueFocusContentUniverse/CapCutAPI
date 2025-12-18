@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from functools import lru_cache
 from typing import Any, Dict, Literal, Optional
 
 from sqlalchemy import select
@@ -13,6 +14,17 @@ logger = logging.getLogger(__name__)
 
 ResolutionType = Literal["720P", "1080P", "2K", "4K"]
 FramerateType = Literal["30fps", "50fps", "60fps"]
+
+
+@lru_cache(maxsize=1)
+def _get_celery_client():
+    """Create and cache a Celery client per process."""
+    from celery import Celery
+
+    broker_url = os.getenv("CELERY_BROKER_URL")
+    if not broker_url:
+        raise RuntimeError("CELERY_BROKER_URL environment variable is required")
+    return Celery(broker=broker_url)
 
 
 async def generate_video_impl(
@@ -62,8 +74,6 @@ async def generate_video_impl(
     try:
         import json
 
-        from celery import Celery
-
         script = await query_script_impl(draft_id, force_update=False)
         if script is None:
             result["error"] = (
@@ -99,13 +109,11 @@ async def generate_video_impl(
         if name:
             draft_content["name"] = name
 
-        broker_url = os.getenv("CELERY_BROKER_URL")
-
-        if not broker_url:
-            result["error"] = "CELERY_BROKER_URL environment variable is required"
+        try:
+            celery_client = _get_celery_client()
+        except Exception as exc:
+            result["error"] = str(exc)
             return result
-
-        celery_client = Celery(broker=broker_url)
 
         # Pre-generate task id so we can create a DB record before task starts
         final_task_id = uuid.uuid4().hex
