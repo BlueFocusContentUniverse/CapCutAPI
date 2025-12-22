@@ -143,7 +143,6 @@ async def init_db_async(engine: AsyncEngine | None = None) -> None:
 
     eng = engine or get_async_engine()
     logger.info(f"Initializing database (async) with engine: {eng}")
-    from models import Draft, DraftVersion, Video, VideoTask  # noqa: F401
 
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

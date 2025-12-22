@@ -11,7 +11,8 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     unprotected_router = APIRouter()
 
     from .audio import router as audio_router
-    from .draft_archives import router as draft_archives_router, callback_router as draft_archives_callback_router
+    from .draft_archives import callback_router as draft_archives_callback_router
+    from .draft_archives import router as draft_archives_router
     from .draft_management_api import router as draft_management_router
     from .drafts import router as drafts_router
     from .effects import router as effects_router
@@ -28,6 +29,7 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     from .video import router as video_router
     from .video_task_status import router as video_task_status_router
     from .videos import router as videos_router
+    from .worker_status import router as worker_status_router
 
     # No prefix to preserve existing routes
     router.include_router(video_router)
@@ -48,6 +50,7 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     router.include_router(segments_router)
     router.include_router(videos_router)
     router.include_router(video_task_status_router)
+    router.include_router(worker_status_router)
 
     unprotected_router.include_router(health_router)
     unprotected_router.include_router(generate_router)
