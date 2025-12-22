@@ -866,7 +866,7 @@ def _register_resources(app: FastMCP) -> None:
 
 def create_fastmcp_app() -> FastMCP:
     """Factory to create a FastMCP app with tools registered and list_tools overridden."""
-    app = FastMCP("capcut-api", version="1.8.0", stateless_http=True)
+    app = FastMCP("capcut-api", version="1.9.0", stateless_http=True)
     _register_tools(app)
     _override_list_tools(app)
     _register_prompts(app)

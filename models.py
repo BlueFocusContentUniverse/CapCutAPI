@@ -211,3 +211,45 @@ class DraftArchive(Base):
             "draft_id", "draft_version", name="uq_draft_archives_draft_id_version"
         ),
     )
+
+
+class WorkerStatus(Base):
+    __tablename__ = "worker_statuses"
+
+    worker_name = Column(String(255), primary_key=True)
+    hostname = Column(String(255), nullable=True)
+    is_available = Column(Boolean, nullable=False, default=True, index=True)
+    last_heartbeat = Column(DateTime(timezone=True), nullable=True)
+    last_failure_at = Column(DateTime(timezone=True), nullable=True)
+    last_failure_reason = Column(Text, nullable=True)
+    last_failure_task_id = Column(String(255), nullable=True)
+    failure_count = Column(Integer, nullable=False, default=0)
+    extra = Column(JSONB, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class WorkerFailureLog(Base):
+    __tablename__ = "worker_failure_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    worker_name = Column(String(255), nullable=False, index=True)
+    task_id = Column(String(255), nullable=True, index=True)
+    error_message = Column(Text, nullable=True)
+    traceback = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
