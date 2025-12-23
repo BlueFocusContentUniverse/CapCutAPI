@@ -1150,13 +1150,13 @@ TOOLS = [
     },
     {
         "name": "regenerate_video",
-        "description": "重新生成视频，使用现有的task_id。会使用数据库中保存的framerate和resolution参数，使用相同的task_id重新提交Celery任务。",
+        "description": "重新生成视频，使用现有的task_id",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "要重新生成的任务ID（video_tasks表的task_id）。必须是已存在的任务，且render_status != COMPLETED",
+                    "description": "视频task_id",
                 }
             },
             "required": ["task_id"],
