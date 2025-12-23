@@ -594,6 +594,13 @@ async def tool_generate_video(
     return await generate_video_impl(**arguments)
 
 
+async def tool_regenerate_video(task_id: str) -> Dict[str, Any]:
+    """重新生成视频，使用现有的task_id."""
+    from services.regenerate_video_impl import regenerate_video_impl
+
+    return await regenerate_video_impl(task_id=task_id)
+
+
 async def tool_get_video_task_status(task_id: str) -> Dict[str, Any]:
     """Get the status of a video generation task."""
     from services.get_video_task_status_impl import get_video_task_status_impl
@@ -762,6 +769,11 @@ def _register_tools(app: FastMCP) -> None:
         description="添加视频关键帧，支持属性动画",
     )
     app.tool(tool_generate_video, name="generate_video", description="生成渲染视频")
+    app.tool(
+        tool_regenerate_video,
+        name="regenerate_video",
+        description="重新生成视频，使用现有的task_id",
+    )
     app.tool(
         tool_get_video_task_status,
         name="get_video_task_status",

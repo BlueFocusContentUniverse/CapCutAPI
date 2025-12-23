@@ -1149,6 +1149,20 @@ TOOLS = [
         },
     },
     {
+        "name": "regenerate_video",
+        "description": "重新生成视频，使用现有的task_id",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "视频task_id",
+                }
+            },
+            "required": ["task_id"],
+        },
+    },
+    {
         "name": "get_video_task_status",
         "description": "查询视频渲染任务的状态。返回任务的详细信息，包括渲染状态、进度、错误信息等。用于跟踪generate_video生成的任务进度。",
         "inputSchema": {

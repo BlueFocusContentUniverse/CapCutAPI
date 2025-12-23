@@ -147,6 +147,10 @@ class VideoTask(Base):
 
     # Name of the video/draft at the time of task creation
     video_name = Column(String(255), nullable=True)
+    
+    # Video rendering parameters
+    framerate = Column(String(32), nullable=True)  # e.g., "30fps", "50fps", "60fps"
+    resolution = Column(String(64), nullable=True)  # e.g., "720P", "1080P", "2K", "4K"
 
     # status: initialized, pending, processing, completed, failed
     status = Column(String(64), index=True, nullable=False, default="initialized")

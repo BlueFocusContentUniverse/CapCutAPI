@@ -1,7 +1,6 @@
 import logging
 import os
 import uuid
-from functools import lru_cache
 from typing import Any, Dict, Literal, Optional
 
 from sqlalchemy import select
@@ -9,22 +8,12 @@ from sqlalchemy import select
 from db import get_async_session
 from models import VideoTask, VideoTaskStatus
 from services.save_draft_impl import query_script_impl
+from util.celery_client import get_celery_client
 
 logger = logging.getLogger(__name__)
 
 ResolutionType = Literal["720P", "1080P", "2K", "4K"]
 FramerateType = Literal["30fps", "50fps", "60fps"]
-
-
-@lru_cache(maxsize=1)
-def _get_celery_client():
-    """Create and cache a Celery client per process."""
-    from celery import Celery
-
-    broker_url = os.getenv("CELERY_BROKER_URL")
-    if not broker_url:
-        raise RuntimeError("CELERY_BROKER_URL environment variable is required")
-    return Celery(broker=broker_url)
 
 
 async def generate_video_impl(
@@ -110,7 +99,9 @@ async def generate_video_impl(
             draft_content["name"] = name
 
         try:
-            celery_client = _get_celery_client()
+            from util.celery_client import CELERY_APP_NAME_GENERATE
+
+            celery_client = get_celery_client(app_name=CELERY_APP_NAME_GENERATE)
         except Exception as exc:
             result["error"] = str(exc)
             return result
@@ -139,11 +130,17 @@ async def generate_video_impl(
                             status="initialized",
                             render_status=VideoTaskStatus.INITIALIZED,
                             video_name=video_name,
+                            framerate=framerate,
+                            resolution=resolution,
                         )
                     )
                 else:
                     if video_name:
                         existing.video_name = video_name
+                    if framerate:
+                        existing.framerate = framerate
+                    if resolution:
+                        existing.resolution = resolution
                 logger.info(f"Created VideoTask {final_task_id} for draft {draft_id}")
         except Exception as e:
             # swallow key errors or other issues caused by draft_content structure
