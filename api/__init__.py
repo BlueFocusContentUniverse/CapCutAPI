@@ -52,10 +52,10 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     router.include_router(videos_router)
     router.include_router(video_task_status_router)
     router.include_router(worker_status_router)
+    router.include_router(regenerate_router)
 
     unprotected_router.include_router(health_router)
     unprotected_router.include_router(generate_router)
-    unprotected_router.include_router(regenerate_router)
     unprotected_router.include_router(draft_archives_router, prefix="/unprotected")
     unprotected_router.include_router(drafts_router, prefix="/unprotected")
     unprotected_router.include_router(draft_management_router, prefix="/unprotected")

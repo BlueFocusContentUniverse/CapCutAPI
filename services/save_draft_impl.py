@@ -13,7 +13,6 @@ import uuid
 from typing import Dict, Literal, Optional, Tuple, Any
 
 import pyJianYingDraft as draft
-from celery import Celery
 
 from downloader import download_file
 from draft_cache import get_from_cache_with_version
@@ -21,12 +20,12 @@ from repositories.draft_archive_repository import get_postgres_archive_storage
 from repositories.draft_repository import get_postgres_storage
 from services.get_duration_impl import get_video_duration
 from settings import IS_CAPCUT_ENV
+from util.celery_client import get_celery_client
 from util.cos_client import get_cos_client
 from util.helpers import is_windows_path, zip_draft
 
 ARCHIVE_CALLBACK_URL = os.getenv("ARCHIVE_CALLBACK_URL")
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
-CELERY_APP_NAME = "draft_archive_notice"
 CELERY_TASK_NAME = "tasks.archive_draft"
 DRAFT_ARCHIVE_QUEUE = "draft_archive"
 
@@ -36,23 +35,11 @@ logger = logging.getLogger("uvicorn")
 TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_found"]
 
 # --- Celery 单例实现 ---
-_celery_app: Optional[Celery] = None
-_celery_lock = threading.RLock()
-
 def get_celery_app():
     """获取 draft_archive_notice 项目的 Celery 客户端（线程安全的延迟初始化）"""
-    global _celery_app
-    if _celery_app is None:
-        with _celery_lock:
-            if _celery_app is None:
-                if not CELERY_BROKER_URL:
-                    raise ValueError("CELERY_BROKER_URL environment variable is not set")
-                _celery_app = Celery(
-                    CELERY_APP_NAME,
-                    broker=CELERY_BROKER_URL
-                )
-                logger.info(f"Initialized Celery client for draft_archive_notice: {CELERY_BROKER_URL}")
-    return _celery_app
+    from util.celery_client import CELERY_APP_NAME_DRAFT_ARCHIVE
+
+    return get_celery_client(app_name=CELERY_APP_NAME_DRAFT_ARCHIVE)
 
 # --- 辅助工具函数 ---
 def format_seconds(microseconds: int) -> str:

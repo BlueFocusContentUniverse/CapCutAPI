@@ -4,8 +4,8 @@ from typing import Any, Dict
 
 from models import VideoTaskStatus
 from repositories.video_task_repository import VideoTaskRepository
-from services.generate_video_impl import _get_celery_client
 from services.save_draft_impl import query_script_impl
+from util.celery_client import get_celery_client
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,9 @@ async def regenerate_video_impl(task_id: str) -> Dict[str, Any]:
 
         # 5. 获取Celery客户端
         try:
-            celery_client = _get_celery_client()
+            from util.celery_client import CELERY_APP_NAME_REGENERATE
+
+            celery_client = get_celery_client(app_name=CELERY_APP_NAME_REGENERATE)
         except Exception as exc:
             result["error"] = f"Failed to get Celery client: {exc!s}"
             logger.error(f"Failed to get Celery client: {exc}")

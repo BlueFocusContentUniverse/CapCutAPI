@@ -1149,6 +1149,20 @@ TOOLS = [
         },
     },
     {
+        "name": "regenerate_video",
+        "description": "重新生成视频，使用现有的task_id。会使用数据库中保存的framerate和resolution参数，使用相同的task_id重新提交Celery任务。",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "要重新生成的任务ID（video_tasks表的task_id）。必须是已存在的任务，且render_status != COMPLETED",
+                }
+            },
+            "required": ["task_id"],
+        },
+    },
+    {
         "name": "get_video_task_status",
         "description": "查询视频渲染任务的状态。返回任务的详细信息，包括渲染状态、进度、错误信息等。用于跟踪generate_video生成的任务进度。",
         "inputSchema": {
