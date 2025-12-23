@@ -20,6 +20,7 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
     from .health import router as health_router
     from .image import router as image_router
     from .metadata import router as metadata_router
+    from .regenerate import router as regenerate_router
     from .segments import router as segments_router
     from .sticker import router as sticker_router
     from .subtitle import router as subtitle_router
@@ -54,6 +55,7 @@ def get_api_router() -> tuple[APIRouter, APIRouter]:
 
     unprotected_router.include_router(health_router)
     unprotected_router.include_router(generate_router)
+    unprotected_router.include_router(regenerate_router)
     unprotected_router.include_router(draft_archives_router, prefix="/unprotected")
     unprotected_router.include_router(drafts_router, prefix="/unprotected")
     unprotected_router.include_router(draft_management_router, prefix="/unprotected")

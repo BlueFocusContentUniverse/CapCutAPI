@@ -139,11 +139,17 @@ async def generate_video_impl(
                             status="initialized",
                             render_status=VideoTaskStatus.INITIALIZED,
                             video_name=video_name,
+                            framerate=framerate,
+                            resolution=resolution,
                         )
                     )
                 else:
                     if video_name:
                         existing.video_name = video_name
+                    if framerate:
+                        existing.framerate = framerate
+                    if resolution:
+                        existing.resolution = resolution
                 logger.info(f"Created VideoTask {final_task_id} for draft {draft_id}")
         except Exception as e:
             # swallow key errors or other issues caused by draft_content structure
