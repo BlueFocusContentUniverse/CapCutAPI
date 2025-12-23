@@ -170,6 +170,46 @@ class WorkerStatusRepository:
             logger.error("Failed to count available workers: %s", exc)
         return 0
 
+    async def list_failure_logs(
+        self, worker_name: Optional[str] = None, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Return worker failure logs, optionally filtered by worker_name."""
+        try:
+            async with get_async_session() as session:
+                query = select(WorkerFailureLog)
+                if worker_name:
+                    query = query.where(WorkerFailureLog.worker_name == worker_name)
+                query = query.order_by(WorkerFailureLog.created_at.desc())
+                if limit:
+                    query = query.limit(limit)
+                rows = (await session.execute(query)).scalars().all()
+                return [self._serialize_failure_log(row) for row in rows]
+        except SQLAlchemyError as exc:
+            logger.error("Database error listing failure logs: %s", exc)
+        except Exception as exc:
+            logger.error("Failed to list failure logs: %s", exc)
+        return []
+
+    async def delete_worker(self, worker_name: str) -> bool:
+        """Remove a worker from the WorkerStatus table."""
+        try:
+            async with get_async_session() as session:
+                result = await session.execute(
+                    select(WorkerStatus).where(WorkerStatus.worker_name == worker_name)
+                )
+                record = result.scalar_one_or_none()
+                if record:
+                    await session.delete(record)
+                    logger.info("Deleted worker status for %s", worker_name)
+                    return True
+                logger.warning("Worker %s not found for deletion", worker_name)
+                return False
+        except SQLAlchemyError as exc:
+            logger.error("Database error deleting worker %s: %s", worker_name, exc)
+        except Exception as exc:
+            logger.error("Failed to delete worker %s: %s", worker_name, exc)
+        return False
+
     @staticmethod
     def _serialize_worker(record: WorkerStatus) -> Dict[str, Any]:
         return {
@@ -188,6 +228,19 @@ class WorkerStatusRepository:
             "extra": record.extra,
             "updated_at": int(record.updated_at.timestamp())
             if record.updated_at
+            else None,
+        }
+
+    @staticmethod
+    def _serialize_failure_log(record: WorkerFailureLog) -> Dict[str, Any]:
+        return {
+            "id": record.id,
+            "worker_name": record.worker_name,
+            "task_id": record.task_id,
+            "error_message": record.error_message,
+            "traceback": record.traceback,
+            "created_at": int(record.created_at.timestamp())
+            if record.created_at
             else None,
         }
 

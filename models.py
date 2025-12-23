@@ -100,6 +100,7 @@ class VideoTaskStatus(Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    RETRY = "retry"
 
 
 class Video(Base):
