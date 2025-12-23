@@ -66,3 +66,29 @@ async def update_worker_status(request: WorkerStatusUpdateRequest):
             traceback_text=request.traceback,
         )
     return {"success": True}
+
+
+@router.get("/failure-logs", summary="List worker failure logs")
+async def list_failure_logs(
+    worker_name: Optional[str] = None, limit: Optional[int] = None
+):
+    """Return worker failure logs, optionally filtered by worker_name."""
+    repo = get_worker_status_repository()
+    logs = await repo.list_failure_logs(worker_name=worker_name, limit=limit)
+    return {
+        "total_logs": len(logs),
+        "logs": logs,
+    }
+
+
+@router.delete("/{worker_name}", summary="Delete a worker")
+async def delete_worker(worker_name: str):
+    """Remove a worker from the WorkerStatus table."""
+    repo = get_worker_status_repository()
+    success = await repo.delete_worker(worker_name)
+    if success:
+        return {
+            "success": True,
+            "message": f"Worker {worker_name} deleted successfully",
+        }
+    return {"success": False, "message": f"Worker {worker_name} not found"}
