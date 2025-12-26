@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONIOENCODING=UTF-8 \
-    UVICORN_WORKERS=2
+    UVICORN_WORKERS=1
 
 WORKDIR /app
 
@@ -37,5 +37,6 @@ USER appuser
 # 默认端口
 EXPOSE 9000
 
-# 启动前运行数据库迁移，然后启动服务（默认单核配置2个worker，可通过UVICORN_WORKERS覆盖）
-CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-9000} --workers ${UVICORN_WORKERS:-2}"]
+# 启动前运行数据库迁移，然后启动服务（默认1个worker以支持协程队列，可通过UVICORN_WORKERS覆盖）
+# 注意：多worker环境下协程队列无法工作，如需多worker请使用分布式锁方案
+CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-9000} --workers ${UVICORN_WORKERS:-1}"]

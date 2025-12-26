@@ -15,6 +15,7 @@ from repositories.redis_draft_cache import (
     init_redis_draft_cache,
     shutdown_redis_draft_cache,
 )
+from services.draft_queue_manager import get_queue_manager
 from util.memory_debug import start_memory_debug_task
 from util.rate_limit import get_rate_limiter
 
@@ -61,11 +62,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Redis草稿缓存初始化失败: {e}，将降级到PostgreSQL")
 
+    # 启动草稿队列管理器（用于解决并发竞态问题）
+    try:
+        queue_manager = get_queue_manager()
+        await queue_manager.start()
+        logger.info("草稿队列管理器启动成功")
+    except Exception as e:
+        logger.warning(f"草稿队列管理器启动失败: {e}")
+
     # Run MCP lifespan within the main app lifespan
     async with mcp_app.lifespan(app):
         yield
 
     # Shutdown
+    # 关闭草稿队列管理器
+    try:
+        queue_manager = get_queue_manager()
+        await queue_manager.shutdown()
+        logger.info("草稿队列管理器已关闭")
+    except Exception as e:
+        logger.error(f"关闭草稿队列管理器时出错: {e}")
+
     # 停止Redis缓存后台同步任务
     try:
         await shutdown_redis_draft_cache()
