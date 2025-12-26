@@ -37,8 +37,6 @@ from services.segment_management import (
 from services.track_management import delete_track, get_track_details, get_tracks
 
 logger = logging.getLogger(__name__)
-if not logging.getLogger().hasHandlers():
-    logging.basicConfig(level=logging.INFO)
 
 
 # Manual tool handlers with flattened parameters (required first)

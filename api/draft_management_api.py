@@ -10,8 +10,9 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
-from draft_cache import get_cache_stats, remove_from_cache
+from draft_cache import get_cache_stats, remove_from_cache, REDIS_CACHE_AVAILABLE, get_from_cache
 from repositories.draft_repository import get_postgres_storage
+from repositories.redis_draft_cache import get_redis_draft_cache
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,18 @@ router = APIRouter(
     prefix="/api/drafts",
     tags=["draft_management"],
 )
+
+
+def _format_draft_content(script_obj) -> dict:
+    """将 ScriptFile 对象格式化为 JSON 字典"""
+    if script_obj is None:
+        return {}
+    try:
+        draft_content = json.loads(script_obj.dumps())
+    except Exception as decode_err:
+        logger.warning(f"Failed to decode draft to JSON object: {decode_err}")
+        draft_content = script_obj.dumps()
+    return draft_content
 
 
 @router.get("/list")
@@ -71,25 +84,6 @@ async def get_storage_stats():
         )
 
 
-@router.post("/cleanup")
-async def cleanup_expired():
-    """Clean up expired or orphaned drafts"""
-    try:
-        pg_storage = get_postgres_storage()
-        cleanup_count = await pg_storage.cleanup_expired()
-
-        return {
-            "success": True,
-            "message": f"Cleaned up {cleanup_count} expired drafts",
-            "cleanup_count": cleanup_count,
-        }
-    except Exception as e:
-        logger.error(f"Failed to cleanup expired drafts: {e}")
-        return JSONResponse(
-            status_code=500, content={"success": False, "error": str(e)}
-        )
-
-
 @router.get("/{draft_id}")
 async def get_draft_info(draft_id: str):
     """Get draft metadata without loading the full object"""
@@ -112,24 +106,50 @@ async def get_draft_info(draft_id: str):
 
 @router.get("/{draft_id}/content")
 async def get_draft_content(draft_id: str):
-    """Fetch full draft content JSON stored in Postgres."""
+    """
+    Fetch full draft content JSON.
+    """
     try:
+        # 1. 优先从 Redis 读
+        logger.debug(f"get_draft_content: 尝试从草稿缓存中读取草稿 {draft_id}")
+        script_obj = await get_from_cache(draft_id)
+        if script_obj is not None:
+            logger.info(f"get_draft_content: 从缓存成功读取草稿 {draft_id}")
+            draft_content = _format_draft_content(script_obj)
+            return {"success": True, "draft_id": draft_id, "content": draft_content}
+        
+        # 2. Redis 未命中，处理脏数据/同步逻辑
+        logger.debug(f"get_draft_content: 缓存未命中，检查脏数据标记 {draft_id}")
+        # 2. Redis 未命中，处理脏数据/同步逻辑
+        if REDIS_CACHE_AVAILABLE:
+            try:
+                redis_cache = get_redis_draft_cache()
+                if redis_cache:
+                    # sync_if_dirty 内部实现：检查 dirty -> 竞争锁 -> 同步 -> 写入 Redis
+                    synced = await redis_cache.sync_if_dirty(draft_id)
+                    
+                    if synced:
+                        # 同步成功或正在同步中，尝试再次从缓存读
+                        script_obj = await get_from_cache(draft_id)
+                        if script_obj is not None:
+                            logger.info(f"get_draft_content: 同步后从缓存成功读取草稿 {draft_id}")
+                            draft_content = _format_draft_content(script_obj)
+                            return {"success": True, "draft_id": draft_id, "content": draft_content}
+            except Exception as e:
+                logger.warning(f"检查脏数据标记或同步失败: {e}，降级到 PostgreSQL")
+        
+        # 3. 从 PostgreSQL 读（没有脏数据或同步失败）
+        logger.info(f"get_draft_content: 从 PostgreSQL 读取草稿 {draft_id}")
         pg_storage = get_postgres_storage()
         script_obj = await pg_storage.get_draft(draft_id)
-
+        
         if script_obj is None:
+            logger.warning(f"get_draft_content: 草稿 {draft_id} 在 PostgreSQL 中不存在")
             return JSONResponse(
                 status_code=404, content={"success": False, "error": "Draft not found"}
             )
 
-        try:
-            draft_content = json.loads(script_obj.dumps())
-        except Exception as decode_err:
-            logger.warning(
-                f"Failed to decode draft {draft_id} to JSON object: {decode_err}"
-            )
-            draft_content = script_obj.dumps()
-
+        draft_content = _format_draft_content(script_obj)
         return {"success": True, "draft_id": draft_id, "content": draft_content}
     except Exception as e:
         logger.error(f"Failed to get draft content for {draft_id}: {e}")
@@ -219,14 +239,7 @@ async def get_draft_version_content(draft_id: str, version: int):
                 },
             )
 
-        try:
-            draft_content = json.loads(script_obj.dumps())
-        except Exception as decode_err:
-            logger.warning(
-                f"Failed to decode draft {draft_id} version {version} to JSON object: {decode_err}"
-            )
-            draft_content = script_obj.dumps()
-
+        draft_content = _format_draft_content(script_obj)
         return {
             "success": True,
             "draft_id": draft_id,

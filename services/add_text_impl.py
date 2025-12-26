@@ -1,16 +1,18 @@
 from typing import List, Optional  # add List type hint
 
+import logging
 import pyJianYingDraft as draft
-from draft_cache import update_cache
+from draft_cache import update_cache, update_draft_with_retry
 from pyJianYingDraft import FontType, exceptions, trange
 from pyJianYingDraft.text_segment import TextBubble, TextEffect, TextStyleRange
 from settings.local import IS_CAPCUT_ENV
 from util.helpers import hex_to_rgb
 
 from .create_draft import get_draft
+from .draft_queue_manager import get_queue_manager
 
 
-async def add_text_impl(
+async def _add_text_impl_core(
     text: str,
     start: float,
     end: float,
@@ -293,3 +295,225 @@ async def add_text_impl(
     return {
         "draft_id": draft_id,
     }
+
+
+async def add_text_impl(
+    text: str,
+    start: float,
+    end: float,
+    draft_id: str | None = None,
+    transform_y: float = -0.8,
+    transform_x: float = 0,
+    font: Optional[str] = None,
+    font_color: str = "#ffffff",
+    font_size: float = 8.0,
+    track_name: str = "text_main",
+    align: int = 1,
+    vertical: bool = False,
+    font_alpha: float = 1.0,
+    # Border parameters
+    border_alpha: float = 1.0,
+    border_color: str = "#000000",
+    border_width: float = 0.0,
+    # Background parameters
+    background_color: str = "#000000",
+    background_style: int = 1,
+    background_alpha: float = 0.0,
+    background_round_radius: float = 0.0,
+    background_height: float = 0.14,
+    background_width: float = 0.14,
+    background_horizontal_offset: float = 0.5,
+    background_vertical_offset: float = 0.5,
+    # Shadow parameters
+    shadow_enabled: bool = False,
+    shadow_alpha: float = 0.76,
+    shadow_angle: float = -54.0,
+    shadow_color: str = "#000000",
+    shadow_distance: float = 5.0,
+    shadow_smoothing: float = 0.22,
+    # Bubble effect
+    bubble_effect_id: str | None = None,
+    bubble_resource_id: str | None = None,
+    # Text effect
+    effect_effect_id: str | None = None,
+    intro_animation: str | None = None,
+    intro_duration: float = 0.5,
+    outro_animation: str | None = None,
+    outro_duration: float = 0.5,
+    fixed_width: float = 0.9,  # Text fixed width ratio, default 0.9 means 90% of video width
+    fixed_height: float = -1,  # Text fixed height ratio, default -1 means not fixed
+    # 多样式文本参数
+    text_styles: Optional[List[TextStyleRange]] = None,  # 文本的不同部分的样式列表
+    # 默认全局样式
+    bold: bool | None = None,
+    italic: bool | None = None,
+    underline: bool | None = None,
+):
+    """
+    Add text subtitle to the specified draft (configurable parameter version)
+    
+    此函数使用协程队列确保同一 draft_id 的请求串行处理，避免竞态条件。
+    不同 draft_id 的请求可以并行处理。
+    
+    :param text: Text content
+    :param start: Start time (seconds)
+    :param end: End time (seconds)
+    :param draft_id: Draft ID (optional, default None creates a new draft)
+    :param transform_y: Y-axis position (default -0.8, bottom of screen)
+    :param transform_x: X-axis position (default 0, center of screen)
+    :param font: Font name (supports all fonts in Font_type)
+    :param font_color: Font color #FFF0FF
+    :param font_size: Font size (float value, default 8.0)
+    :param track_name: Track name
+    :param align: Text alignment (default 1, center, 0 left, 2 right)
+    :param vertical: Whether to display vertically (default False)
+    :param font_alpha: Text transparency, range 0.0-1.0 (default 1.0, completely opaque)
+    :param border_alpha: Border transparency, range 0.0-1.0 (default 1.0)
+    :param border_color: Border color (default black)
+    :param border_width: Border width (default 0.0, no border display)
+    :param background_color: Background color (default black)
+    :param background_style: Background style (default 1)
+    :param background_alpha: Background transparency (default 0.0, no background display)
+    :param background_round_radius: 背景圆角半径，范围0.0-1.0（默认0.0）
+    :param background_height: 背景高度，范围0.0-1.0（默认0.14）
+    :param background_width: 背景宽度，范围0.0-1.0（默认0.14）
+    :param background_horizontal_offset: 背景水平偏移，范围0.0-1.0（默认0.5）
+    :param background_vertical_offset: 背景垂直偏移，范围0.0-1.0（默认0.5）
+    :param shadow_enabled: 是否启用阴影（默认False）
+    :param shadow_alpha: 阴影透明度，范围0.0-1.0（默认0.76）
+    :param shadow_angle: 阴影角度，范围-180.0-180.0（默认-54.0）
+    :param shadow_color: 阴影颜色（默认黑色）
+    :param shadow_distance: 阴影距离（默认5.0）
+    :param shadow_smoothing: 阴影平滑度（模糊度），范围0.0-1.0（默认0.22）
+    :param bubble_effect_id: Bubble effect ID
+    :param bubble_resource_id: Bubble resource ID
+    :param effect_effect_id: Text effect ID
+    :param intro_animation: Intro animation type
+    :param intro_duration: Intro animation duration (seconds), default 0.5 seconds
+    :param outro_animation: Outro animation type
+    :param outro_duration: Outro animation duration (seconds), default 0.5 seconds
+    :param width: Video width (pixels)
+    :param height: Video height (pixels)
+    :param bold: Whether to use bold font
+    :param italic: Whether to use italic font
+    :param underline: Whether to use underline font
+    :param fixed_width: Text fixed width ratio, range 0.0-1.0, default -1 means not fixed
+    :param fixed_height: Text fixed height ratio, range 0.0-1.0, default -1 means not fixed
+    :param text_styles: 文本的不同部分的样式列表，每个元素是一个TextStyleRange
+    :return: Updated draft information
+    """
+    # 使用队列管理器确保同一 draft_id 的请求串行处理
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[add_text_impl] 收到请求: draft_id={draft_id}, text={text[:20] if text else None}...")
+    queue_manager = get_queue_manager()
+    logger.info(f"[add_text_impl] 获取队列管理器: {queue_manager}")
+    
+    # 注意：这里需要先获取 draft_id（如果是 None，会创建新的）
+    # 但为了队列管理，我们需要一个临时的 draft_id
+    # 如果 draft_id 为 None，先创建草稿获取 ID，然后再排队
+    if draft_id is None:
+        logger.info(f"[add_text_impl] draft_id 为 None，直接执行（不排队）")
+        # 对于新草稿，直接执行（不排队），因为还没有 draft_id
+        return await _add_text_impl_core(
+            text=text,
+            start=start,
+            end=end,
+            draft_id=draft_id,
+            transform_y=transform_y,
+            transform_x=transform_x,
+            font=font,
+            font_color=font_color,
+            font_size=font_size,
+            track_name=track_name,
+            align=align,
+            vertical=vertical,
+            font_alpha=font_alpha,
+            border_alpha=border_alpha,
+            border_color=border_color,
+            border_width=border_width,
+            background_color=background_color,
+            background_style=background_style,
+            background_alpha=background_alpha,
+            background_round_radius=background_round_radius,
+            background_height=background_height,
+            background_width=background_width,
+            background_horizontal_offset=background_horizontal_offset,
+            background_vertical_offset=background_vertical_offset,
+            shadow_enabled=shadow_enabled,
+            shadow_alpha=shadow_alpha,
+            shadow_angle=shadow_angle,
+            shadow_color=shadow_color,
+            shadow_distance=shadow_distance,
+            shadow_smoothing=shadow_smoothing,
+            bubble_effect_id=bubble_effect_id,
+            bubble_resource_id=bubble_resource_id,
+            effect_effect_id=effect_effect_id,
+            intro_animation=intro_animation,
+            intro_duration=intro_duration,
+            outro_animation=outro_animation,
+            outro_duration=outro_duration,
+            fixed_width=fixed_width,
+            fixed_height=fixed_height,
+            text_styles=text_styles,
+            bold=bold,
+            italic=italic,
+            underline=underline,
+        )
+    
+    # 对于已存在的 draft_id，使用队列串行处理
+    logger.info(f"[add_text_impl] draft_id={draft_id} 存在，使用队列串行处理")
+    try:
+        result = await queue_manager.enqueue(
+            draft_id,
+            _add_text_impl_core,
+            # 注意：所有参数都作为关键字参数传递给 _add_text_impl_core
+            # draft_id 不需要在这里传递，enqueue 会自动添加
+            text=text,
+            start=start,
+            end=end,
+            transform_y=transform_y,
+        transform_x=transform_x,
+        font=font,
+        font_color=font_color,
+        font_size=font_size,
+        track_name=track_name,
+        align=align,
+        vertical=vertical,
+        font_alpha=font_alpha,
+        border_alpha=border_alpha,
+        border_color=border_color,
+        border_width=border_width,
+        background_color=background_color,
+        background_style=background_style,
+        background_alpha=background_alpha,
+        background_round_radius=background_round_radius,
+        background_height=background_height,
+        background_width=background_width,
+        background_horizontal_offset=background_horizontal_offset,
+        background_vertical_offset=background_vertical_offset,
+        shadow_enabled=shadow_enabled,
+        shadow_alpha=shadow_alpha,
+        shadow_angle=shadow_angle,
+        shadow_color=shadow_color,
+        shadow_distance=shadow_distance,
+        shadow_smoothing=shadow_smoothing,
+        bubble_effect_id=bubble_effect_id,
+        bubble_resource_id=bubble_resource_id,
+        effect_effect_id=effect_effect_id,
+        intro_animation=intro_animation,
+        intro_duration=intro_duration,
+        outro_animation=outro_animation,
+        outro_duration=outro_duration,
+        fixed_width=fixed_width,
+        fixed_height=fixed_height,
+        text_styles=text_styles,
+        bold=bold,
+        italic=italic,
+        underline=underline,
+        )
+        logger.info(f"[add_text_impl] 队列处理完成: draft_id={draft_id}")
+        return result
+    except Exception as e:
+        logger.error(f"[add_text_impl] 队列处理异常: draft_id={draft_id}, error={e}", exc_info=True)
+        raise

@@ -20,7 +20,6 @@ import pyJianYingDraft as draft
 from repositories.draft_repository import PostgresDraftStorage, get_postgres_storage
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # 配置常量
 DRAFT_CACHE_TTL = 600  # 10分钟
@@ -288,6 +287,52 @@ class RedisDraftCache:
             return True
 
         return False
+
+    async def sync_if_dirty(self, draft_id: str) -> bool:
+        """
+            检查并同步脏数据。
+            
+            逻辑路径：
+            1. 检查 Redis 脏数据标记是否存在。
+            2. 若存在且未在同步中：触发带锁同步，成功后数据回填 Redis。
+            3. 若正在同步中：避让等待，期望同步协程写回缓存。
+            4. 异常或无脏数据：告知调用方 fallback 至持久层。
+            Returns:
+                bool: True 表示最新数据应已存在于 Redis；False 表示应直接读取 PostgreSQL。
+            """
+        try:
+            redis = await self._ensure_redis_client()
+            dirty_key_str = self._get_dirty_key(draft_id)
+            dirty_key_bytes = dirty_key_str.encode("utf-8")
+            
+            # 检查是否有脏数据标记
+            if not await redis.exists(dirty_key_bytes):
+                logger.debug(f"sync_if_dirty: {draft_id} 无脏数据标记，无需同步")
+                return False  # 无脏数据，数据不在Redis中，建议直接读PG
+            
+            logger.info(f"sync_if_dirty: 检测到脏数据标记，触发同步: {draft_id}")
+            # 触发同步（带锁，避免重复）
+            result = await self._sync_single_draft(dirty_key_bytes)
+            draft_id_synced, status, reason = result
+            logger.info(f"sync_if_dirty: 同步结果 {draft_id_synced}, status={status}, reason={reason}")
+            
+            # 如果同步成功，数据应该在Redis中
+            if status == "synced":
+                return True
+            
+            # 如果正在同步（其他协程），等待一小段时间后再返回True，避免立即读取时数据还没准备好
+            if status == "skipped" and reason == "already_syncing":
+                logger.debug(f"sync_if_dirty: {draft_id} 正在被其他协程同步，等待一小段时间")
+                await asyncio.sleep(0.1)
+                return True
+            
+            # 其他情况（跳过、失败等），返回False，建议直接读PG
+            logger.debug(f"sync_if_dirty: {draft_id} 同步状态={status}, 建议直接读PostgreSQL")
+            return False
+            
+        except Exception as e:
+            logger.warning(f"sync_if_dirty: 检查脏数据标记或同步失败 {draft_id}: {e}")
+            return False  # 异常情况，建议直接读PG
 
     async def _sync_single_draft(self, dirty_key: bytes) -> Tuple[str, str, str]:
         """
