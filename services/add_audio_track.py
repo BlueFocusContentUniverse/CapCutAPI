@@ -66,7 +66,7 @@ def _prepare_audio_segment_payload(
     :param end: End time (seconds), default None (use total audio duration)
     :param target_start: Target track insertion position (seconds), default 0
     :param draft_id: Draft ID, if None or corresponding zip file not found, a new draft will be created
-    :param volume: Volume level, range 0.0-1.0, default 1.0
+    :param volume: Volume level, range 0.0-2.0, default 1.0
     :param track_name: Track name, default "audio_main"
     :param speed: Playback speed, default 1.0
     :param sound_effects: Scene sound effect list, each element is a tuple containing effect type name and parameter list, default None

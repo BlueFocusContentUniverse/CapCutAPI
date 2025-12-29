@@ -403,76 +403,16 @@ async def add_text_impl(
     :return: Updated draft information
     """
     # 使用队列管理器确保同一 draft_id 的请求串行处理
-    logger = logging.getLogger(__name__)
-    
-    logger.info(f"[add_text_impl] 收到请求: draft_id={draft_id}, text={text[:20] if text else None}...")
     queue_manager = get_queue_manager()
-    logger.info(f"[add_text_impl] 获取队列管理器: {queue_manager}")
     
-    # 注意：这里需要先获取 draft_id（如果是 None，会创建新的）
-    # 但为了队列管理，我们需要一个临时的 draft_id
-    # 如果 draft_id 为 None，先创建草稿获取 ID，然后再排队
+    # 如果 draft_id 为 None，直接执行（新草稿，不排队）
     if draft_id is None:
-        logger.info(f"[add_text_impl] draft_id 为 None，直接执行（不排队）")
-        # 对于新草稿，直接执行（不排队），因为还没有 draft_id
         return await _add_text_impl_core(
             text=text,
-            start=start,
-            end=end,
-            draft_id=draft_id,
-            transform_y=transform_y,
-            transform_x=transform_x,
-            font=font,
-            font_color=font_color,
-            font_size=font_size,
-            track_name=track_name,
-            align=align,
-            vertical=vertical,
-            font_alpha=font_alpha,
-            border_alpha=border_alpha,
-            border_color=border_color,
-            border_width=border_width,
-            background_color=background_color,
-            background_style=background_style,
-            background_alpha=background_alpha,
-            background_round_radius=background_round_radius,
-            background_height=background_height,
-            background_width=background_width,
-            background_horizontal_offset=background_horizontal_offset,
-            background_vertical_offset=background_vertical_offset,
-            shadow_enabled=shadow_enabled,
-            shadow_alpha=shadow_alpha,
-            shadow_angle=shadow_angle,
-            shadow_color=shadow_color,
-            shadow_distance=shadow_distance,
-            shadow_smoothing=shadow_smoothing,
-            bubble_effect_id=bubble_effect_id,
-            bubble_resource_id=bubble_resource_id,
-            effect_effect_id=effect_effect_id,
-            intro_animation=intro_animation,
-            intro_duration=intro_duration,
-            outro_animation=outro_animation,
-            outro_duration=outro_duration,
-            fixed_width=fixed_width,
-            fixed_height=fixed_height,
-            text_styles=text_styles,
-            bold=bold,
-            italic=italic,
-            underline=underline,
-        )
-    
-    # 对于已存在的 draft_id，使用队列串行处理
-    logger.info(f"[add_text_impl] draft_id={draft_id} 存在，使用队列串行处理")
-    try:
-        result = await queue_manager.enqueue(
-            draft_id,
-            _add_text_impl_core,
-            # 注意：所有参数都作为关键字参数传递给 _add_text_impl_core
-            # draft_id 不需要在这里传递，enqueue 会自动添加
-            text=text,
-            start=start,
-            end=end,
-            transform_y=transform_y,
+        start=start,
+        end=end,
+        draft_id=draft_id,
+        transform_y=transform_y,
         transform_x=transform_x,
         font=font,
         font_color=font_color,
@@ -512,8 +452,52 @@ async def add_text_impl(
         italic=italic,
         underline=underline,
         )
-        logger.info(f"[add_text_impl] 队列处理完成: draft_id={draft_id}")
-        return result
-    except Exception as e:
-        logger.error(f"[add_text_impl] 队列处理异常: draft_id={draft_id}, error={e}", exc_info=True)
-        raise
+    
+    # 如果 draft_id 不为 None，使用队列串行处理
+    return await queue_manager.enqueue(
+        draft_id,
+        _add_text_impl_core,
+        text=text,
+        start=start,
+        end=end,
+        # 注意：draft_id 不需要在这里传递，enqueue 会自动添加
+        transform_y=transform_y,
+        transform_x=transform_x,
+        font=font,
+        font_color=font_color,
+        font_size=font_size,
+        track_name=track_name,
+        align=align,
+        vertical=vertical,
+        font_alpha=font_alpha,
+        border_alpha=border_alpha,
+        border_color=border_color,
+        border_width=border_width,
+        background_color=background_color,
+        background_style=background_style,
+        background_alpha=background_alpha,
+        background_round_radius=background_round_radius,
+        background_height=background_height,
+        background_width=background_width,
+        background_horizontal_offset=background_horizontal_offset,
+        background_vertical_offset=background_vertical_offset,
+        shadow_enabled=shadow_enabled,
+        shadow_alpha=shadow_alpha,
+        shadow_angle=shadow_angle,
+        shadow_color=shadow_color,
+        shadow_distance=shadow_distance,
+        shadow_smoothing=shadow_smoothing,
+        bubble_effect_id=bubble_effect_id,
+        bubble_resource_id=bubble_resource_id,
+        effect_effect_id=effect_effect_id,
+        intro_animation=intro_animation,
+        intro_duration=intro_duration,
+        outro_animation=outro_animation,
+        outro_duration=outro_duration,
+        fixed_width=fixed_width,
+        fixed_height=fixed_height,
+        text_styles=text_styles,
+        bold=bold,
+        italic=italic,
+        underline=underline,
+    )

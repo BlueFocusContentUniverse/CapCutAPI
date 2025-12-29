@@ -40,6 +40,8 @@ async def add_effect(request: AddEffectRequest, response: Response):
         return result
 
     except Exception as e:
-        result["error"] = f"Error occurred while adding effect: {e!s}. "
+        error_msg = f"Error occurred while adding effect: {e!s}. "
+        logger.error(f"添加特效失败: {error_msg}", exc_info=True)
+        result["error"] = error_msg
         response.status_code = 400
         return result

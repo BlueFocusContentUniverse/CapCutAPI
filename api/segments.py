@@ -144,7 +144,7 @@ class ModifySegmentRequest(BaseModel):
     track_name: str
     segment_id: str
     clip_settings: Optional[ClipSettingsRequest] = None
-    volume: Optional[float] = None  # Volume 0-1
+    volume: Optional[float] = None  # Volume 0-2
     speed: Optional[float] = None  # Playback speed
 
 
@@ -154,7 +154,7 @@ async def modify_segment_api(request: ModifySegmentRequest):
     Modify a segment's properties (clip settings, volume, speed)
 
     - **clip_settings**: Visual adjustments like alpha, rotation, scale, transform, flip
-    - **volume**: Audio volume level (0-1)
+    - **volume**: Audio volume level (0-2)
     - **speed**: Playback speed multiplier
     """
     result = {"success": False, "output": "", "error": ""}

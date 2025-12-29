@@ -176,7 +176,7 @@ TOOLS = [
                     "default": 0.5,
                     "description": "转场时长（秒）",
                 },
-                "volume": {"type": "number", "default": 1.0, "description": "音量增益"},
+                "volume": {"type": "number", "default": 1.0, "description": "音量增益，范围：0.0-2.0"},
                 "intro_animation": {"type": "string", "description": "入场动画效果"},
                 "intro_animation_duration": {
                     "type": "number",
@@ -1314,7 +1314,7 @@ TOOLS = [
                 "volume": {
                     "type": ["number", "null"],
                     "default": None,
-                    "description": "音量，范围0-1",
+                    "description": "音量，范围0-2",
                 },
                 "speed": {
                     "type": ["number", "null"],

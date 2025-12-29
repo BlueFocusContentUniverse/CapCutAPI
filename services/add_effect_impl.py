@@ -13,8 +13,10 @@ from pyJianYingDraft import (
 from settings import IS_CAPCUT_ENV
 
 from .create_draft import get_draft
+from .draft_queue_manager import queue_for_draft
 
 
+@queue_for_draft
 async def add_effect_impl(
     effect_type: str,  # Changed to string type
     effect_category: Literal["scene", "character"] = "scene",

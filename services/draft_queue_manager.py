@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import functools
 import logging
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -283,4 +284,58 @@ def get_queue_manager() -> DraftQueueManager:
     if _queue_manager is None:
         _queue_manager = DraftQueueManager()
     return _queue_manager
+
+
+# ============================================================================
+# 装饰器：为修改 draft 的函数添加队列支持
+# ============================================================================
+
+
+def queue_for_draft(func: Callable) -> Callable:
+    """
+    装饰器：为修改 draft 的函数添加队列支持
+    
+    自动识别 draft_id 参数，如果 draft_id 不为 None，则加入队列串行处理
+    如果 draft_id 为 None，则直接执行（新草稿，不排队）
+    
+    使用示例:
+        @queue_for_draft
+        async def add_effect_impl(
+            effect_type: str,
+            draft_id: Optional[str] = None,
+            ...
+        ):
+            ...
+    
+    注意：
+        - 函数必须有一个名为 draft_id 的参数
+        - draft_id 为 None 时，直接执行（新草稿，不排队）
+        - draft_id 不为 None 时，加入队列串行处理
+    """
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        # 从 kwargs 中获取 draft_id（因为通常都是关键字参数）
+        draft_id = kwargs.get('draft_id')
+        
+        # 如果 draft_id 为 None，直接执行（新草稿，不排队）
+        if draft_id is None:
+            logger.debug(f"[队列装饰器] {func.__name__}: draft_id=None，直接执行（不排队）")
+            return await func(*args, **kwargs)
+        
+        # 如果 draft_id 不为 None，加入队列串行处理
+        logger.info(f"[队列装饰器] {func.__name__}: draft_id={draft_id}，加入队列")
+        queue_manager = get_queue_manager()
+        
+        # 从 kwargs 中移除 draft_id，因为 enqueue 的第一个参数就是 draft_id
+        # 避免 "got multiple values for argument 'draft_id'" 错误
+        kwargs_without_draft_id = {k: v for k, v in kwargs.items() if k != 'draft_id'}
+        
+        return await queue_manager.enqueue(
+            draft_id,
+            func,
+            *args,
+            **kwargs_without_draft_id
+        )
+    
+    return wrapper
 

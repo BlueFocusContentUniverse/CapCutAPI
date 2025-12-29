@@ -684,7 +684,7 @@ async def tool_modify_segment(
         scale_y: Vertical scale
         transform_x: Horizontal position
         transform_y: Vertical position
-        volume: Audio volume level (0-1)
+        volume: Audio volume level (0-2)
         speed: Playback speed multiplier
 
     Returns:

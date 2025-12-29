@@ -5,8 +5,10 @@ from draft_cache import update_cache
 from pyJianYingDraft import exceptions, trange
 
 from .create_draft import get_draft
+from .draft_queue_manager import queue_for_draft
 
 
+@queue_for_draft
 async def add_sticker_impl(
     resource_id: str,
     start: float,
