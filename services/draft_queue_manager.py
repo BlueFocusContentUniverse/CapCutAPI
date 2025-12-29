@@ -23,9 +23,7 @@ REQUEST_TIMEOUT = 30  # 单个请求超时时间（秒）
 
 class DraftQueueManager:
     """
-    按 draft_id 分组的协程队列管理器
-    
-    每个 draft_id 有独立的队列和处理协程，确保同一 draft_id 的请求串行处理
+    按 draft_id 分组的协程队列管理器，确保同一 draft_id 的请求串行处理
     """
     
     def __init__(self):

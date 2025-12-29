@@ -37,6 +37,7 @@ class AudioItem(BaseModel):
     audio_name: Optional[str] = None
     fade_in_duration: float = 0.0
     fade_out_duration: float = 0.0
+    volume: Optional[float] = None
 
 
 class BatchAddAudiosRequest(BaseModel):

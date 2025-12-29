@@ -57,12 +57,15 @@ TOOLS = [
     },
     {
         "name": "batch_add_videos",
-        "description": """批量添加多个视频素材到track。适用于需要连续添加多个视频的场景。每个视频可以独立设置video_url、start、end、target_start、speed参数，其他参数（如转场、蒙版、缩放等）在所有视频间共享。
+        "description": """批量添加多个视频素材到track。适用于需要连续添加多个视频的场景。每个视频可以独立设置video_url、start、end、target_start、speed、volume参数，其他参数（如转场、蒙版、缩放等）在所有视频间共享。
         【使用场景】
         • 批量导入：一次性导入多个视频素材
 
+        【独立参数】
+        每个视频对象可以独立设置：video_url、start、end、target_start、speed、mode、target_duration、duration、video_name、fade_in_duration、fade_out_duration、volume
+
         【共享参数】
-        除videos之外其他参数（transform_x/y、scale_x/y、transition、mask_type等），将应用于videos内所有视频
+        除videos之外其他参数（transform_x/y、scale_x/y、transition、mask_type等），将应用于videos内所有视频。volume参数优先级：如果视频对象中设置了volume，优先使用该值；否则使用根级别的volume参数
         """,
         "inputSchema": {
             "type": "object",
@@ -127,6 +130,11 @@ TOOLS = [
                                 "default": 0.0,
                                 "description": "音频淡出时长（秒）",
                             },
+                            "volume": {
+                                "type": "number",
+                                "default": None,
+                                "description": "该视频的音量增益。范围：0.0-2.0",
+                            },
                         },
                         "required": [
                             "video_url",
@@ -176,7 +184,11 @@ TOOLS = [
                     "default": 0.5,
                     "description": "转场时长（秒）",
                 },
-                "volume": {"type": "number", "default": 1.0, "description": "音量增益，范围：0.0-2.0"},
+                "volume": {
+                    "type": "number",
+                    "default": 1.0,
+                    "description": "【共享】音量增益",
+                },
                 "intro_animation": {"type": "string", "description": "入场动画效果"},
                 "intro_animation_duration": {
                     "type": "number",
@@ -510,7 +522,7 @@ TOOLS = [
                 "volume": {
                     "type": "number",
                     "default": 1.0,
-                    "description": "音量增益倍数。范围：0.0-2.0（实现中为0.0-1.0，但支持>1.0）。0.0为静音，1.0为原始音量，>1.0为放大",
+                    "description": "音量增益倍数。范围：0.0-2.0。0.0为静音，1.0为原始音量，>1.0为放大",
                 },
                 "speed": {
                     "type": "number",
@@ -546,23 +558,17 @@ TOOLS = [
     },
     {
         "name": "batch_add_audios",
-        "description": """批量添加多个音频素材到track。适用于需要连续添加多个音频的场景。每个音频可以独立设置audio_url、start、end、target_start、speed、duration参数，其他参数（如音量、音效等）在所有音频间共享。
+        "description": """批量添加多个音频素材到track。适用于需要连续添加多个音频的场景。每个音频可以独立设置audio_url、start、end、target_start、speed、duration、volume参数，其他参数（如音效等）在所有音频间共享。
 
         【使用场景】
         • 音频拼接：将多个音频片段按顺序拼接成完整音轨
         • 批量导入：一次性导入多个音频素材
 
-        【audios数组说明】
-        每个音频对象包含：
-        • audio_url（必需）：音频素材URL或本地路径
-        • start（可选，默认0）：从音频第几秒开始截取
-        • end（可选，默认None）：到音频第几秒结束截取（0表示到末尾）
-        • target_start（可选，默认0）：该片段在时间线上的起始位置
-        • speed（可选，默认1.0）：播放速度
-        • duration（可选，默认None）：音频素材总时长
+        【独立参数】
+        每个音频对象可以独立设置：audio_url、start、end、target_start、speed、duration、audio_name、fade_in_duration、fade_out_duration、volume
 
         【共享参数】
-        其他参数（volume、track_name、effect_type、effect_params等）在根级别设置，应用于所有音频
+        其他参数（track_name、effect_type、effect_params等）在根级别设置，应用于所有音频。volume参数优先级：如果音频对象中设置了volume，优先使用该值；否则使用根级别的volume参数
         """,
         "inputSchema": {
             "type": "object",
@@ -615,6 +621,11 @@ TOOLS = [
                                 "type": "number",
                                 "default": 0.0,
                                 "description": "音频淡出时长（秒）",
+                            },
+                            "volume": {
+                                "type": "number",
+                                "default": None,
+                                "description": "该音频的音量增益。范围：0.0-2.0",
                             },
                         },
                         "required": [
