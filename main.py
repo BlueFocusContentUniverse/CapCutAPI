@@ -17,6 +17,7 @@ from repositories.redis_draft_cache import (
 )
 from services.draft_queue_manager import get_queue_manager
 from util.memory_debug import start_memory_debug_task
+from util.otel_setup import setup_opentelemetry, shutdown_opentelemetry
 from util.rate_limit import get_rate_limiter
 
 # Load environment variables
@@ -34,6 +35,17 @@ logger = logging.getLogger(__name__)
 mcp_server = create_fastmcp_app()
 
 mcp_app = mcp_server.http_app(path="/mcp")
+
+# 初始化 OpenTelemetry SDK（在应用创建之前）
+fastapi_instrumentor = None
+try:
+    fastapi_instrumentor = setup_opentelemetry()
+    if fastapi_instrumentor:
+        logger.info("OpenTelemetry SDK 初始化成功")
+    else:
+        logger.info("OpenTelemetry 未启用或初始化失败")
+except Exception as e:
+    logger.error(f"OpenTelemetry 初始化失败: {e}", exc_info=True)
 
 
 @asynccontextmanager
@@ -95,6 +107,12 @@ async def lifespan(app: FastAPI):
             await memory_task
         except Exception:
             pass
+    
+    # 关闭 OpenTelemetry
+    try:
+        shutdown_opentelemetry()
+    except Exception as e:
+        logger.error(f"关闭 OpenTelemetry 时出错: {e}")
 
 
 # 根据环境变量决定是否关闭 API 文档
@@ -111,6 +129,14 @@ app = FastAPI(
     if is_production
     else "/openapi.json",  # 生产环境关闭 OpenAPI 规范文档
 )
+
+# 在应用创建后立即进行 FastAPI 插桩（必须在中间件添加之前）
+if fastapi_instrumentor:
+    try:
+        fastapi_instrumentor.instrument_app(app)
+        logger.info("OpenTelemetry FastAPI 插桩已启用")
+    except Exception as e:
+        logger.error(f"FastAPI 插桩失败: {e}", exc_info=True)
 
 # Configure CORS
 app.add_middleware(

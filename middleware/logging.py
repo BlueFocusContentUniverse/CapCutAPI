@@ -8,12 +8,23 @@ logs all incoming requests and outgoing responses.
 import logging
 import time
 import uuid
+from typing import List, Optional
 
 from fastapi import Request, Response
+from opentelemetry import trace
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 logger = logging.getLogger(__name__)
 
+def _get_trace_id() -> str:
+    """获取当前 OpenTelemetry Trace ID"""
+    try:
+        span = trace.get_current_span()
+        if span and span.get_span_context().is_valid:
+            return format(span.get_span_context().trace_id, "032x")
+    except Exception:
+        pass
+    return ""
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """
@@ -25,21 +36,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     - Adds request ID for tracing
     - Configurable excluded paths (e.g., health checks)
     """
-
     def __init__(
         self,
         app,
         exclude_paths: list[str] | None = None,
         log_level: int = logging.INFO,
     ):
-        """
-        Initialize the logging middleware.
-
-        Args:
-            app: FastAPI application instance
-            exclude_paths: List of path prefixes to exclude from logging
-            log_level: Logging level (default: INFO)
-        """
         super().__init__(app)
         self.exclude_paths = exclude_paths or [
             "/health",
@@ -56,64 +58,57 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        """
-        Process the request and log details.
-
-        Args:
-            request: Incoming request
-            call_next: Next middleware/endpoint handler
-
-        Returns:
-            Response from the endpoint
-        """
-        # Generate request ID for tracing
-        request_id = str(uuid.uuid4())[:8]
-
-        # Get request details
-        method = request.method
         path = request.url.path
-        query = str(request.url.query) if request.url.query else ""
+        if not self._should_log(path):
+            return await call_next(request)
+
+        # 1. 准备请求元数据
+        request_id = str(uuid.uuid4())[:8]
+        method = request.method
         client_host = request.client.host if request.client else "unknown"
+        start_time = time.perf_counter() # 使用更精确的性能计数器
 
-        # Check if we should log this request
-        should_log = self._should_log(path)
+        # 2. 获取 Trace ID
+        trace_id = _get_trace_id()
+        trace_tag = f"[trace:{trace_id}] " if trace_id else ""
 
-        if should_log:
-            # Log request start
-            query_str = f"?{query}" if query else ""
-            logger.log(
-                self.log_level,
-                f"[{request_id}] --> {method} {path}{query_str} | Client: {client_host}",
-            )
+        # 3. 记录请求进入
+        query_str = f"?{request.url.query}" if request.url.query else ""
+        logger.log(
+            self.log_level,
+            f"{trace_tag}[{request_id}] --> {method} {path}{query_str} | Client: {client_host}"
+        )
 
-        # Record start time
-        start_time = time.time()
-
-        # Process request
         try:
             response = await call_next(request)
-            duration = time.time() - start_time
+            
+            # 4. 计算耗时与日志级别
+            duration = time.perf_counter() - start_time
+            status_code = response.status_code
+            
+            # 自动根据状态码调整日志级别
+            current_level = self.log_level
+            if status_code >= 500:
+                current_level = logging.ERROR
+            elif status_code >= 400:
+                current_level = logging.WARNING
 
-            if should_log:
-                # Log response
-                status_code = response.status_code
-                log_level = self.log_level if status_code < 400 else logging.WARNING
-                if status_code >= 500:
-                    log_level = logging.ERROR
+            # 5. 记录响应返回
+            logger.log(
+                current_level,
+                f"{trace_tag}[{request_id}] <-- {method} {path} | Status: {status_code} | Time: {duration:.3f}s"
+            )
 
-                logger.log(
-                    log_level,
-                    f"[{request_id}] <-- {method} {path} | Status: {status_code} | Duration: {duration:.3f}s",
-                )
-
-            # Add request ID to response headers for tracing
+            # 6. 响应头注入
             response.headers["X-Request-ID"] = request_id
+            if trace_id:
+                response.headers["X-Trace-ID"] = trace_id
 
             return response
 
         except Exception as e:
-            duration = time.time() - start_time
-            logger.error(
-                f"[{request_id}] <-- {method} {path} | Error: {e!s} | Duration: {duration:.3f}s"
+            duration = time.perf_counter() - start_time
+            logger.exception(
+                f"{trace_tag}[{request_id}] <-- {method} {path} | ERROR: {str(e)} | Time: {duration:.3f}s"
             )
             raise
