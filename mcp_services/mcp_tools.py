@@ -65,7 +65,7 @@ TOOLS = [
         每个视频对象可以独立设置：video_url、start、end、target_start、speed、mode、target_duration、duration、video_name、fade_in_duration、fade_out_duration、volume
 
         【共享参数】
-        除videos之外其他参数（transform_x/y、scale_x/y、transition、mask_type等），将应用于videos内所有视频。volume参数优先级：如果视频对象中设置了volume，优先使用该值；否则使用根级别的volume参数
+        除videos之外其他参数（transform_x/y、scale_x/y、transition、mask_type等），将应用于videos内所有视频。
         """,
         "inputSchema": {
             "type": "object",
@@ -568,7 +568,7 @@ TOOLS = [
         每个音频对象可以独立设置：audio_url、start、end、target_start、speed、duration、audio_name、fade_in_duration、fade_out_duration、volume
 
         【共享参数】
-        其他参数（track_name、effect_type、effect_params等）在根级别设置，应用于所有音频。volume参数优先级：如果音频对象中设置了volume，优先使用该值；否则使用根级别的volume参数
+        其他参数（track_name、effect_type、effect_params等）在根级别设置，应用于所有音频。
         """,
         "inputSchema": {
             "type": "object",

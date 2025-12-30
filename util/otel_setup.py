@@ -1,24 +1,6 @@
 """
 OpenTelemetry 初始化工具模块
 """
-
-# import logging
-# import random
-# from typing import Optional
-
-# from opentelemetry import metrics, trace
-# from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-# from opentelemetry.instrumentation.logging import LoggingInstrumentor
-# from opentelemetry.sdk.resources import Resource
-# from opentelemetry.sdk.trace import TracerProvider
-# from opentelemetry.sdk.trace.export import BatchSpanProcessor
-# from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, TraceIdRatioBased
-# from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-
-# from settings.observability import get_otel_config, is_otel_enabled
-
-
 import logging
 import random
 from typing import Optional
