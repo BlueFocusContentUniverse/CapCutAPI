@@ -9,8 +9,10 @@ from pyJianYingDraft.text_segment import TextBubble, TextEffect
 from util.helpers import hex_to_rgb
 
 from .create_draft import get_draft
+from .draft_queue_manager import queue_for_draft
 
 
+@queue_for_draft
 async def add_subtitle_impl(
     srt_path: str,
     draft_id: str = None,

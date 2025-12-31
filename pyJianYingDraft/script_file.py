@@ -682,7 +682,7 @@ class ScriptFile:
                 - scale_y (`float`): 垂直缩放比例
                 - transform_x (`float`): 水平位移
                 - transform_y (`float`): 垂直位移
-            volume (`float`, optional): 音量, 0-1
+            volume (`float`, optional): 音量, 范围0-2
             speed (`float`, optional): 播放速度
 
         Returns:

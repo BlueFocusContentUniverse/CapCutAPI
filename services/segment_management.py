@@ -242,7 +242,7 @@ async def modify_segment(
             - scale_y (float): Vertical scale
             - transform_x (float): Horizontal position
             - transform_y (float): Vertical position
-        volume: Optional volume level (0-1)
+        volume: Optional volume level (0-2)
         speed: Optional playback speed
 
     Returns:

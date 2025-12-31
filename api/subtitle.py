@@ -46,7 +46,7 @@ async def add_subtitle(request: AddSubtitleRequest):
         return result
 
     try:
-        draft_result = add_subtitle_impl(
+        draft_result = await add_subtitle_impl(
             srt_path=request.srt,
             draft_id=request.draft_id,
             track_name=request.track_name,
@@ -71,8 +71,6 @@ async def add_subtitle(request: AddSubtitleRequest):
             scale_x=request.scale_x,
             scale_y=request.scale_y,
             rotation=request.rotation,
-            width=request.width,
-            height=request.height,
         )
 
         result["success"] = True
